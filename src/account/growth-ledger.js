@@ -42,7 +42,8 @@ export function localGrowth(doc, name, a, save, owns) {
       r = { ok: true, xp: run.xp };
     }
   } else if (name === 'dungeon') {
-    const amount = H.dungeonXP(a.floors, a.win), previous = d.modes[a.token] || 0;
+    const maxFloors = a.maxFloors === 10 || (save.guestDungeon?.token === a.token && save.guestDungeon.maxFloors === 10) ? 10 : 5;
+    const amount = H.dungeonXP(a.floors, a.win, maxFloors), previous = d.modes[a.token] || 0;
     H.credit(w, Math.max(0, amount - previous)); d.modes[a.token] = Math.max(previous, amount); r = { ok: true, xp: d.modes[a.token] };
   } else r = { ok: false, reason: 'invalid' };
   return { doc: d, result: { ...r, growth: H.cleanGrowth(w) } };

@@ -26,7 +26,7 @@ export function campaignXP(stage, completed, win = false, first = false) {
   const base = n * wave + (clear ? Math.floor(s.waves * wave / 3) : 0);
   return base + (clear && first ? Math.floor(base / 2) : 0);
 }
-export const dungeonXP = (floors, win) => whole(floors, 5) * 40 + (floors === 5 && win === true ? 100 : 0);
+export const dungeonXP = (floors, win, maxFloors = 10) => { const cap = maxFloors === 5 ? 5 : 10; return whole(floors, cap) * 40 + (floors === cap && win === true ? 100 : 0); };
 export const spireXP = (from, top) => Math.max(0, Math.min(30, whole(top, 100000) - whole(from, 100000) + 1)) * 8;
 export function initialGrowth(save = {}) {
   const first = Object.keys(STAGES).filter(k => STAGES[k].ch <= 8 && Number(save.st?.[k]) >= 1);

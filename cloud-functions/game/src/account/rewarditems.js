@@ -14,7 +14,7 @@ export function validItem(x) {
   if (x.k !== 'gear') return false;
   if (!Object.keys(x).every(k => ['k', 's', 'h', 'g', 'c', 'set'].includes(k)) || !SLOT_KEYS.includes(x.s) || !isInt(x.g, 0, 4)) return false;
   if (x.s === 'weapon' ? !ITEM_HEROES.includes(x.h) : 'h' in x) return false;
-  if ('set' in x) return x.set === MORVIA.key && x.g === MORVIA.grade && !('c' in x) && (x.s !== 'weapon' || MORVIA_HEROES.includes(x.h));
+  if ('set' in x) return !!BOSS_SETS[x.set] && x.g === BOSS_SETS[x.set].grade && !('c' in x) && (x.s !== 'weapon' || MORVIA_HEROES.includes(x.h));
   return !('c' in x) || Number.isInteger(x.c) && CH_KEYS.includes(x.c);
 }
 export const validItems = v => v === undefined || (Array.isArray(v) && v.length >= 1 && v.length <= MAX_ITEMS && v.every(validItem));

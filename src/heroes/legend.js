@@ -1,3 +1,5 @@
+import { abyssalStrike } from '../data/abyssal-set.js';
+import { ABYSSAL_PROC } from '../data/boss-sets.js';
 import {legendFeedback} from '../render/legend-feedback.js';
 import { skillAllowed } from '../data/hard-party.js';
 import { castAdvanceE } from './advance-e.js';
@@ -55,6 +57,16 @@ function aim(maxD, at) {
 // ---------- proc (기본 공격 직후 호출) ----------
 export function legendProc(t, attack) { return asSkill(() => legendProc0(t, attack)); } // 피해 미터: 전설 효과 = 스킬 피해
 function legendProc0(t, attack) {
+  if(hero?.equippedSets?.some(s=>s.key==='abyssal') && !(hero.cls==='fighter'&&!pawCanProc(t,attack))) {
+    const stars=abyssalStrike(hero,t,G.enemies,G.t,attack);
+    if(stars.length){
+      const damage=stat.dmg()*ABYSSAL_PROC.mul;
+      count('abyssalResonance');
+      for(const e of stars){hurt(e,damage,'#79dbff',false,{x:hero.g.position.x,z:hero.g.position.z,kind:'ranged'});emit(P,e.g.position.x,e.g.position.y+1.3,e.g.position.z,18,0x79dbff,5,.45);}
+      ringFx(t.g.position,ABYSSAL_PROC.radius,0x79dbff,.45);ringFx(t.g.position,1.2,0xffffff,.3);
+      Snd.play('magic',{pos:t.g.position,vol:.4,rate:1.3});Snd.play('glass',{pos:t.g.position,vol:.3,rate:1.5});
+    }
+  }
   const s = legendSkill(); if (!s || s.type !== 'proc' || hero.licd > 0 || !t || t.dead) return;
   if (hero.cls === 'fighter' && !pawCanProc(t, attack)) return; // 빗나감·사거리 이탈은 확률/쿨다운을 소비하지 않음
   if (s.max && !procTargets(s, t, G.enemies, G.t, attack).length) return;

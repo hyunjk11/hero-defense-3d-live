@@ -19,7 +19,7 @@ test('level thresholds and focus are bounded; purchases never heal or reset time
 test('completed segments, rounding, migration and ordinary save fields',()=>{
   assert.equal(H.campaignXP('5-1',13,true,false),312);assert.equal(H.campaignXP('5-1',13,true,true),468);
   assert.equal(H.campaignXP('5-1',2,false,true),36);assert.equal(H.campaignXP(null,5),60);
-  assert.equal(H.dungeonXP(5,true),300);assert.equal(H.dungeonXP(3,false),120);assert.equal(H.spireXP(6,10),40);
+  assert.equal(H.dungeonXP(5,true,5),300);assert.equal(H.dungeonXP(3,false),120);assert.equal(H.spireXP(6,10),40);
   const old={...P.empty(),v:3,st:stages,souls:987,heroLv:{mage:{hp:8,atk:8}},adv:{mage:{b:'flame',n:1}},stor:[]};
   const g=H.initialGrowth(old);assert.equal(g.balance,8528);assert.deepEqual(g.legacyAdv,['mage']);
   const s=P.clean(old);assert.equal(s.v,4);assert.equal(s.souls,987);assert.equal(s.heroLv.mage.atk,8);assert.deepEqual(P.clean(s),s);

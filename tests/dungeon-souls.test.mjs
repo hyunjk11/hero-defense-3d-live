@@ -14,7 +14,7 @@ const partial=finishGuestDungeon(save,token,3,false); assert.equal(partial.souls
 const retry=finishGuestDungeon(clean(partial.save),token,5,true); assert.equal(retry.souls,700); assert.equal(retry.save.souls,755); assert.equal(retry.already,true);
 save=clean(startGuestDungeon(retry.save,next,after).save);
 assert.equal(finishGuestDungeon(save,token,5,true).ok,false);
-const full=finishGuestDungeon(save,next,5,true); assert.equal(full.souls,2000); assert.equal(full.save.souls,2755);
+const full=finishGuestDungeon(save,next,10,true); assert.equal(full.souls,6600); assert.equal(full.save.souls,7355);
 assert.equal(guestDungeonLeft(clean(full.save),after),0);
 assert.equal(finishGuestDungeon(entry.save,token,0,false).souls,0);
 assert.equal(finishGuestDungeon(entry.save,token,5,false).souls,1700);
@@ -29,5 +29,5 @@ const pending=await settleDungeon({mode:'ranked',token},5,true,{...api,claim:asy
 assert.equal(pending.mail,101);assert.equal(pending.claimed,false); assert.equal(local.souls,700);
 const rejected=await settleDungeon({mode:'ranked',token},5,true,{...api,finish:async()=>({ok:false,msg:'offline'})});assert.equal(rejected.ok,false);assert.equal(claims,2);
 const practice=await settleDungeon({mode:'practice'},5,true,{});assert.equal(practice.souls,0);
-const guest=await settleDungeon({mode:'local',token},5,true,{finishLocal:(t,f,w)=>finishGuestDungeon(entry.save,t,f,w)});assert.equal(guest.souls,2000);
+const guest=await settleDungeon({mode:'local',token},10,true,{finishLocal:(t,f,w)=>finishGuestDungeon(entry.save,t,f,w)});assert.equal(guest.souls,6600);
 console.log('PASS daily KST boundaries, guest save roundtrip, partial/clear, duplicate settlement, authoritative amount and mail recovery');

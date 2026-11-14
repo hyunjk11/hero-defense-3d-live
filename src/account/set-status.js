@@ -12,7 +12,7 @@ export function setStatuses(save, hero) {
     const C = setDefinition(key), worn = items.filter(it => itemSetKey(it) === String(key));
     return { key, name: C.n, badge: C.badge, color: C.color, count: worn.length,
       slots: SLOT_KEYS.map(slot => ({ slot, item: worn.find(it => it.s === slot)?.n || null })),
-      tiers: (C.bonuses || []).map(b => ({ pieces: b.pieces, stats: { ...b.stats },
+      tiers: (C.bonuses || []).map(b => ({ pieces: b.pieces, stats: { ...b.stats }, ...(b.desc ? {desc:b.desc} : {}), ...(b.effect ? {effect:b.effect} : {}),
         active: applied.some(a => String(a.set || a.ch) === String(key) && a.pieces === b.pieces) })) };
   });
 }

@@ -59,12 +59,17 @@ export const FLOORS = [
     waves: [[['golem', 2], ['grunt', 8], ['goblin', 6]], [['golem', 3], ['mushroom', 2], ['imp', 8]], [['golem', 3], ['grunt', 8], ['goblin', 6]]] },
   { n: '5층 · 망령 여왕의 방', hpMul: 1.4, dmgMul: 1.2, gap: 3, every: .7, boss: true,
     waves: [[['grunt', 6], ['imp', 6]], [[DG_BOSS_TYPE, 1], ['grunt', 2]]] },
+  {"n":"6층 · 잿빛 회랑","hpMul":3,"dmgMul":1.6,"gap":2.5,"every":0.55,"waves":[[["grunt",10],["goblin",8]],[["golem",4],["mushroom",3]],[["golem",4],["grunt",10],["goblin",6]]]},
+  {"n":"7층 · 망각의 정원","hpMul":3.3,"dmgMul":1.7,"gap":2.5,"every":0.55,"waves":[[["mushroom",4],["grunt",10]],[["goblin",10],["golem",4]],[["mushroom",4],["golem",5],["grunt",8]]]},
+  {"n":"8층 · 공명의 감옥","hpMul":3.6,"dmgMul":1.8,"gap":2.5,"every":0.55,"waves":[[["golem",5],["goblin",8]],[["grunt",12],["mushroom",4]],[["golem",6],["goblin",10],["imp",8]]]},
+  {"n":"9층 · 심연의 문","hpMul":4,"dmgMul":1.9,"gap":2.5,"every":0.55,"waves":[[["golem",6],["grunt",12]],[["mushroom",5],["goblin",12]],[["golem",6],["mushroom",4],["grunt",12]]]},
+  {"n":"10층 · 심연의 왕좌","hpMul":2.8,"dmgMul":1.7,"gap":3,"every":0.7,"boss":true,"waves":[[["golem",4],["grunt",10]],[["dg_lich",1],["golem",3],["mushroom",2]]]},
 ];
 // T-1 (무한의 탑 준비): floor = 층 번호(FLOORS 기준, 기존 호출) 또는 층 객체 {waves} (판 진행은 G.dg.floors 의 층 객체를 넘김)
 export function waveList(floor, w) { const F = typeof floor === 'number' ? FLOORS[floor] : floor, W = F && F.waves && F.waves[w]; if (!W) return []; const out = []; let left = W.map(([t, n]) => [t, n]);
   while (left.some(x => x[1] > 0)) for (const x of left) if (x[1] > 0) { out.push(x[0]); x[1]--; } return out; } // 종류를 섞어서 (같은 종류만 몰려 나오지 않게)
 // Cleared floors bank souls; the boss clear adds a separate completion bonus.
-export const DG_REWARD = { floors: [150, 250, 300, 400, 600], clearBonus: 300 };
+export const DG_REWARD = { floors: [150, 250, 300, 400, 600, 700, 800, 900, 1000, 1200], clearBonus: 300 };
 export function dungeonReward(cleared, win = Number(cleared) >= FLOORS.length) {
   const f = Math.max(0, Math.min(FLOORS.length, Math.floor(+cleared || 0)));
   return DG_REWARD.floors.slice(0, f).reduce((sum, n) => sum + n, 0) + (win && f === FLOORS.length ? DG_REWARD.clearBonus : 0);

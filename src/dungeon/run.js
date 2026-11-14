@@ -94,7 +94,7 @@ export async function startDungeonRun() { setDmgCap(30); // U-11: 던전 피해 
   $('loadTxt').textContent = '파티 확인 중…'; $('loading').classList.remove('hidden');
   D.floors = FLOORS; // T-1: 이번 판의 층 목록 (원정 = FLOORS, 무한의 탑은 층 목록을 바꿔 끼움)
   const spFrom = SPR.spireFrom(), SPI = spFrom ? SPR.spireInit(spFrom) : null; if (SPI) D.floors = SPI.floors; // 🗼 T-4 연습 탑: ?sptest=1&spire=N
-  D.entry = SPI ? SS.takeEntry(spFrom) : DS.takeEntry(); G.dgEntryMode = D.entry.mode; // 🗼 T-7: 탑 = 출발 때 서버가 준 token (없으면 연습 탑)
+  D.entry = SPI ? SS.takeEntry(spFrom) : DS.takeEntry(); G.dgEntryMode = D.entry.mode; if (!SPI && D.entry.mode !== 'practice') D.floors = FLOORS.slice(0, D.entry.maxFloors === 10 ? 10 : 5); // 🗼 T-7: 탑 = 출발 때 서버가 준 token (없으면 연습 탑)
   if(D.entry.blocked){$('loading').classList.add('hidden');go({town:1});return;}
   if (SPI) { const S = G.spire; Object.assign(S, { practice: D.entry.mode !== 'ranked', why: D.entry.why || null, token: D.entry.token || null, prevBest: D.entry.best || 0, pings: [], ft: [], chain: Promise.resolve() }); D.ft0 = 0; if (!S.practice) SS.spStatus().catch(() => {}); } // 5단계: 출발 때 서버가 준 1회용 입장 token (없으면 연습 원정 — 메달 없음)
   await Sh.verifyOwned(); // 로즈: 서버 소유 기록(hd3d_owned)만 믿음 — 저장 데이터의 영웅 값은 쓰지 않음

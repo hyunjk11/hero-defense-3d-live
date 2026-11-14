@@ -1,3 +1,5 @@
+import {abyssalStrike} from '../../src/data/abyssal-set.js';
+import {ABYSSAL_PROC} from '../../src/data/boss-sets.js';
 import { skillAllowed } from '../../src/data/hard-party.js';
 import {treeESkill,treeCooldown,treeSkillUsed} from '../../src/data/skill-tree.js';
 import fs from 'node:fs';
@@ -15,7 +17,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
   const no=()=>{},G={t:0,phase:'wave',enemies:[],fxs:[],legendForce:true},scene=new THREE.Scene(),hits=[],casts=[],timers=[];
   const hero={cls,C:{level},eq:{},lsk:null,adv:{k:branch},max:1000,hp:600,atkT:0,licd:0,lcd:0,dead:0,face:0,g:new THREE.Group(),ch:{acts:{}},path:[]};
   scene.add(hero.g);G.hero=hero;G.heroes=[hero];G.tiles=[];G.screen='game';const FX=[];
-  const env=vm.createContext({skillAllowed,THREE,G,hero,scene,LSK,eSkillFor,eKeyFor,procTargets,treeESkill,treeCooldown,treeSkillUsed,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
+  const env=vm.createContext({abyssalStrike,ABYSSAL_PROC,skillAllowed,THREE,G,hero,scene,LSK,eSkillFor,eKeyFor,procTargets,treeESkill,treeCooldown,treeSkillUsed,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
     heroFx:()=>FX,asSkill:(f,...args)=>f(...args),later:(time,f)=>timers.push({time,f}),
     stat:{dmg:()=>100,skillMul:()=>1,range:()=>10},heroTip:()=>hero.g.position.clone(),mouseGround:new THREE.Vector3(),passAt:()=>true,groundY:()=>0,
     hurt0:(e,d)=>{if(e.dead)return;const loss=Math.min(e.hp,d*(1-(e.E.armor||0)));e.hp-=loss;hits.push({target:e.id,loss});if(e.hp<=0)e.dead=true;},

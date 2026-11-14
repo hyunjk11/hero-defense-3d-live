@@ -66,7 +66,7 @@ async function buy(id) { const it = DG_SHOP_BY[id]; if (!it || buying) return; i
   if (r.ok && r.mail) Sh.refresh().catch(() => {}); if (!r.ok && DS.DGS.st === 'ok') refreshDay(); if (open && view === 'shop') renderShop(); }
 function render() { if (view === 'shop') return renderShop(); const p = $('dgPanel'); if (!p) return; if (view === 'spire') return SU.renderSpire(p, SPH); const s = Acc.load(), cands = dungeonParty(c => Sh.heroOwned(c)), party = pickParty(cands, loadPick()), F = FLOORS[0];
   const paidNote = DG_PAID.filter(c => !cands.includes(c) && CLASSES[c] && !CLASSES[c].hidden).map(c => `<div class="dgCard lock"><div class="dgCH"><span class="dgIc">${CLASSES[c].icon}</span><b>${esc(CLASSES[c].nm)}</b> <small>· ${esc(CLASSES[c].n)}</small></div><div class="dgRole">${checking ? '소유 확인 중…' : '🔒 상점에서 영입하면<br>함께 출전해요'}</div></div>`).join('');
-  p.innerHTML = `<button id="dgClose" class="gbtn sm xbtn ui-x">✕</button><div class="gtitle">🔮 영혼석 던전</div>${tabs('party')}<div class="labSub dgSoulPrize">완주 <b>🔮 2,000</b> · 하루 1회 · 5층</div>
+  p.innerHTML = `<button id="dgClose" class="gbtn sm xbtn ui-x">✕</button><div class="gtitle">🔮 영혼석 던전</div>${tabs('party')}<div class="labSub dgSoulPrize">완주 <b>🔮 ${(DG_REWARD.floors.reduce((a,b)=>a+b,0)+DG_REWARD.clearBonus).toLocaleString()}</b> · 하루 1회 · ${FLOORS.length}층</div>
     <div class="dgPickN" id="dgPickN">출전 <b>${party.length}</b> / ${DG_MAX}명</div>
     <div class="dgParty">${cands.map(c => card(s, c, party.includes(c))).join('')}${paidNote}</div>
     <div class="dgInfo dgSoulSteps">${DG_REWARD.floors.map((n,i) => `<span>${i+1}층 <b>+${n}</b></span>`).join('')}<span>완주 <b>+${DG_REWARD.clearBonus}</b></span></div>

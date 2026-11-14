@@ -16,7 +16,7 @@ t('맵: 테두리 벽 + 입구 4곳 + 모든 바닥 연결', () => { const g = d
   const pass = (c, r) => g[c][r] !== 'W' && g[c][r] !== 'P', F = bfsField(DG_GW, DG_GH, pass, [[12, 8]]);
   for (let c = 0; c < DG_GW; c++) for (let r = 0; r < DG_GH; r++) if (pass(c, r)) assert.ok(F[c * DG_GH + r] < 65535, `칸 ${c},${r} 닿지 않음`);
   for (const [c, r] of ENTRANCES) assert.ok(F[c * DG_GH + r] < 40); });
-t('웨이브: 수·섞임', () => { const L = waveList(0, 0); assert.equal(L.length, 10); assert.deepEqual(L.slice(0, 4), ['imp', 'grunt', 'imp', 'grunt']); assert.equal(waveList(0, 9).length, 0); assert.equal(waveList(5, 0).length, 0);
+t('웨이브: 수·섞임', () => { const L = waveList(0, 0); assert.equal(L.length, 10); assert.deepEqual(L.slice(0, 4), ['imp', 'grunt', 'imp', 'grunt']); assert.equal(waveList(0, 9).length, 0); assert.equal(waveList(10, 0).length, 0);
   assert.ok(FLOORS[0].waves.flat().every(([k]) => ['imp', 'grunt', 'golem'].includes(k))); });
 t('흐름장: 벽 돌아가기 + 내리막', () => { const GW = 5, GH = 3, wall = new Set(['2,0', '2,1']), pass = (c, r) => !wall.has(c + ',' + r), F = bfsField(GW, GH, pass, [[4, 0]]);
   assert.equal(F[0 * GH + 0], 8); assert.equal(F[2 * GH + 0], 65535); let p = [0, 0], n = 0; while (F[p[0] * GH + p[1]] > 0 && n < 20) { p = downhill(F, GW, GH, p[0], p[1]); n++; } assert.deepEqual(p, [4, 0]); assert.equal(n, 8); assert.equal(downhill(F, GW, GH, 4, 0), null); });
@@ -35,15 +35,15 @@ t('역할 AI: 원거리는 사거리 밖이면 다가감 (사거리 75% 지점)'
 t('역할 AI: 원거리 사거리 안이면 제자리', () => assert.equal(rolePlan('ranged', { x: 0, z: 0, range: 10, skillReady: false }, { enemies: [{ x: 7, z: 0 }] }).move, null));
 t('역할 AI: 마법사는 밀집 지점을 노리고 3명 이상이면 스킬', () => { const E = [{ x: 7, z: 0 }, { x: 0, z: 8 }, { x: .5, z: 8.5 }, { x: -.5, z: 8 }]; const p = rolePlan('caster', { x: 0, z: 0, range: 9, skillReady: true }, { enemies: E }); assert.ok(p.focus >= 1); assert.ok(p.skill && p.skill.z > 7); });
 t('역할 AI: 적 없으면 조작 영웅 따라감', () => { const p = rolePlan('ranged', { x: 0, z: 0, range: 10 }, { lead: { x: 10, z: 0 } }); assert.ok(p.move.x > 6); assert.equal(rolePlan('ranged', { x: 0, z: 0, range: 10 }, { lead: { x: 2, z: 0 } }).move, null); });
-t('5개 층 · 5층 보스 방 · 몬스터 종류 존재 · 층마다 더 강해짐', () => { assert.equal(FLOORS.length, 5); assert.ok(FLOORS[4].boss && FLOORS[4].waves.flat().some(([k]) => k === DG_BOSS_TYPE));
+t('10개 층 · 5층 중간 보스 · 몬스터 종류 존재 · 층마다 더 강해짐', () => { assert.equal(FLOORS.length, 10); assert.ok(FLOORS[4].boss && FLOORS[4].waves.flat().some(([k]) => k === DG_BOSS_TYPE));
   for (const F of FLOORS) for (const [k] of F.waves.flat()) assert.ok(ETYPES[k], k); for (let i = 1; i < 4; i++) assert.ok(FLOORS[i].hpMul >= FLOORS[i - 1].hpMul && FLOORS[i].dmgMul >= FLOORS[i - 1].dmgMul);
-  for (let f = 0; f < 5; f++) assert.ok(waveList(f, 0).length > 0); });
+  for (let f = 0; f < 10; f++) assert.ok(waveList(f, 0).length > 0); });
 t('쓰러진 영웅: 다음 층 체력 30% · 생존 영웅 +15% (최대 초과 없음)', () => { assert.equal(REVIVE_HP, .3); assert.equal(nextFloorHp(0, 1000, true), 300); assert.equal(nextFloorHp(500, 1000, false), 650); assert.equal(nextFloorHp(990, 1000, false), 1000); });
 t('영혼석: 층별 누적 + 완주 보너스, 범위 제한', () => {
-  assert.deepEqual([0,1,2,3,4,5].map(f => dungeonReward(f)), [0,150,400,700,1100,2000]);
+  assert.deepEqual([0,1,2,3,4,5].map(f => dungeonReward(f)), [0,150,400,700,1100,1700]);
   assert.equal(dungeonReward(5,false),1700); assert.equal(dungeonReward(3,true),700);
   assert.equal(dungeonReward(-1),0); assert.equal(dungeonReward('bad'),0);
-  assert.equal(dungeonReward(999,true),2000); assert.equal(dungeonReward(2.8,false),400);
+  assert.equal(dungeonReward(999,true),6600); assert.equal(dungeonReward(2.8,false),400);
 });
 t('축복 후보: 3개 · 중복 없음 · 없는 역할 제외 · 최대 횟수 제외', () => { let q = 7; const r = () => (q = (q * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 50; i++) { const c = blessChoices({}, ['tank', 'caster'], r); assert.equal(c.length, 3); assert.equal(new Set(c).size, 3); assert.ok(!c.includes('ranged')); c.forEach(id => assert.ok(BLESS_BY[id])); }
@@ -79,7 +79,7 @@ t('역할 AI: 격투가 Q — 지상 적 3명 이상 모인 곳(9 이내)', () =
 const Hp = (x, z, role, alive = true) => ({ x, z, role, alive });
 t('보스: 5층 마지막 웨이브에 dg_lich 1마리 · 몬스터 정의(던전 전용, 대체 모델 해골 마법사)', () => { const F = FLOORS[FLOORS.length - 1]; assert.ok(F.boss); assert.deepEqual(F.waves.at(-1)[0], [DG_BOSS_TYPE, 1]);
   const E = ETYPES[DG_BOSS_TYPE]; assert.ok(E && E.boss && E.dgBoss && E.mesh === 'lich_meshy' && E.model === 'sk_mage' && E.hp > 0 && E.icon);
-  assert.ok(!FLOORS.slice(0, -1).some(f => f.waves.flat().some(([k]) => k === DG_BOSS_TYPE))); });
+  assert.ok(!FLOORS.filter((f,i)=>i!==4&&i!==9).some(f => f.waves.flat().some(([k]) => k === DG_BOSS_TYPE))); });
 t('보스 창: 후방(원거리·광역) 중 가장 먼 영웅', () => { const L = [Hp(2, 0, 'tank'), Hp(8, 0, 'ranged'), Hp(0, 6, 'caster'), Hp(20, 0, 'bruiser')]; assert.equal(lanceTarget({ x: 0, z: 0 }, L), 1);
   assert.equal(lanceTarget({ x: 0, z: 0 }, L, 1), 2, '2연속 창은 다른 대상'); L[1].alive = false; L[2].alive = false; assert.equal(lanceTarget({ x: 0, z: 0 }, L), 3, '후방 없으면 가장 먼 영웅'); assert.equal(lanceTarget({ x: 0, z: 0 }, []), -1); });
 t('보스 창: 선분 거리 · 뒤쪽은 안 맞음', () => { const a = { x: 0, z: 0 }, b = { x: 10, z: 0 }; assert.equal(segDist(a, b, { x: 5, z: .5 }).d, .5); assert.equal(segDist(a, b, { x: -1, z: 0 }).d, Infinity); assert.equal(segDist(a, b, { x: 15, z: 0 }, 20).d, 0); });
@@ -97,10 +97,10 @@ t('보스 원: 영웅 발밑 먼저 · 남는 수는 주변 · 방 안', () => {
 t('보스 소환: 75%·40% 한 번씩', () => { assert.deepEqual(summonDue(.9), []); assert.deepEqual(summonDue(.7), [0]); assert.deepEqual(summonDue(.7, [0]), []); assert.deepEqual(summonDue(.3, [0]), [1]); assert.deepEqual(summonDue(.3), [0, 1]); });
 // ---------- 5단계: 던전 메달 · 상점 (표시용 값이 서버 schema.sql 상수와 같은지) ----------
 const SQL = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
-t('메달: 층당 2 + 완주 5, 범위 밖 값은 자름', () => { assert.equal(dungeonMedals(0, false), 0); assert.equal(dungeonMedals(3, false), 6); assert.equal(dungeonMedals(5, true), 15); assert.equal(dungeonMedals(5, false), 10);
-  assert.equal(dungeonMedals(4, true), 8); assert.equal(dungeonMedals(99, true), 15); assert.equal(dungeonMedals(-2, true), 0); assert.equal(dungeonMedals('x', false), 0); });
+t('메달: 층당 2 + 완주 5, 범위 밖 값은 자름', () => { assert.equal(dungeonMedals(0, false), 0); assert.equal(dungeonMedals(3, false), 6); assert.equal(dungeonMedals(5, true), 10); assert.equal(dungeonMedals(5, false), 10);
+  assert.equal(dungeonMedals(4, true), 8); assert.equal(dungeonMedals(99, true), 25); assert.equal(dungeonMedals(-2, true), 0); assert.equal(dungeonMedals('x', false), 0); });
 t('메달 상수 = schema.sql', () => { assert.ok(SQL.includes(`v_m := v_fl * ${DG_MEDAL.perFloor} + case when v_win then ${DG_MEDAL.clearBonus} else 0 end`)); assert.ok(SQL.includes(`floor(v_sec / ${DG_MEDAL.minSecPerFloor})`));
-  assert.ok(SQL.includes(`if v_used >= ${DG_MEDAL.daily} then`)); assert.ok(SQL.includes(`least(greatest(coalesce(p_floors, 0), 0), ${FLOORS.length})`)); assert.ok(SQL.includes("at time zone 'Asia/Seoul'")); });
+  assert.ok(SQL.includes(`if v_used >= ${DG_MEDAL.daily} then`)); assert.ok(SQL.includes(`least(greatest(coalesce(p_floors, 0), 0), ${5})`)); assert.ok(SQL.includes("at time zone 'Asia/Seoul'")); });
 t('상점 가격표 = schema.sql hd3d_dungeon_item', () => { const fn = SQL.slice(SQL.indexOf('function public.hd3d_dungeon_item'), SQL.indexOf('function public.hd3d_kst_day'));
   const rows = [...fn.matchAll(/when '(\w+)'\s+then '(\{.*?\})'::jsonb/g)].map(m => [m[1], JSON.parse(m[2])]); assert.equal(rows.length, DG_SHOP.length);
   for (const [id, j] of rows) { const it = DG_SHOP_BY[id]; assert.ok(it, id); assert.equal(it.price, j.price, id); assert.equal(it.n, j.name, id); assert.deepEqual(it.reward || null, j.reward || null, id); assert.equal(it.title || null, j.title || null, id); if (it.title) assert.ok(DG_TITLES[it.title]); }
@@ -110,3 +110,5 @@ t('고유 상점 제거', () => assert.ok(DG_SHOP.every(x => !x.uq)));
 t('상점 버튼 상태', () => { const T = DG_SHOP_BY.dg_title, S = DG_SHOP_BY.dg_steel; assert.equal(shopState(S, 5), 'ok'); assert.equal(shopState(S, 4), 'lack'); assert.equal(shopState(T, 999, ['lich_hunter']), 'own'); assert.equal(shopState(T, 59, []), 'lack'); assert.equal(shopState(S, undefined), 'lack'); });
 t('서버 사유 문구', () => { for (const r of ['daily_limit', 'not_enough', 'already', 'bad_item', 'bad_token', 'used', 'expired']) assert.ok(DG_REASON[r] && /[가-힣]/.test(DG_REASON[r]), r); });
 console.log(`dungeon: ${ok} ok`);
+
+assert.equal(FLOORS[9].boss,true); assert.equal(dungeonReward(10,true),6600); assert.equal(dungeonReward(10,false),6300);

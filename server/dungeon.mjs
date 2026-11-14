@@ -1,3 +1,4 @@
+import { abyssalRoll } from '../src/data/boss-sets.js';
 import { growthWallet, creditMode } from './growth.mjs';
 import { dungeonXP } from '../src/data/hero-growth.js';
 import { failure, integer } from './common.mjs';
@@ -14,7 +15,7 @@ export async function dungeon(c, name, a) {
   const runs = () => c.list('dungeon_runs', { user_id: c.uid });
   if (name === 'status') {
     const [r, w] = await Promise.all([runs(), c.wallet()]); const used = r.filter(x => x.day === c.day).length;
-    return { ok: true, day: c.day, limit: 1, used, left: Math.max(0, 1 - used), medals: w.medals, titles: w.titles, banned: !!c.ban };
+    return { ok: true, day: c.day, maxFloors: 10, floors_limit: 10, limit: 1, used, left: Math.max(0, 1 - used), medals: w.medals, titles: w.titles, banned: !!c.ban };
   }
   c.requirePlayer();
   if (name === 'start') {
@@ -22,9 +23,9 @@ export async function dungeon(c, name, a) {
     if (used >= 1) return failure('daily_limit', { limit: 1, used, left: 0 });
     for (const old of r.filter(x => x.status === 'active')) await c.put('dungeon_runs', { ...old, status: 'abandoned', finished_at: c.iso, floors: 0, win: false });
     if(a.p_growth===1)await growthWallet(c);
-    const token = c.uuid();
-    await c.insert('dungeon_runs', { user_id: c.uid, day: c.day, token, growth: a.p_growth===1, status: 'active', started_at: c.iso, finished_at: null, floors: null, win: null, medals: 0, uq: null, boss_reward: null, soul_reward: null });
-    return { ok: true, token, limit: 1, used: used + 1, left: 0 };
+    const token = c.uuid(), maxFloors = a.p_max_floors === 10 ? 10 : 5;
+    await c.insert('dungeon_runs', { user_id: c.uid, day: c.day, token, floors_limit: maxFloors, growth: a.p_growth===1, status: 'active', started_at: c.iso, finished_at: null, floors: null, win: null, medals: 0, uq: null, boss_reward: null, soul_reward: null });
+    return { ok: true, token, maxFloors, floors_limit: maxFloors, limit: 1, used: used + 1, left: 0 };
   }
   if (name === 'buy') {
     const it = Object.hasOwn(dungeonItems, a.p_item) ? dungeonItems[a.p_item] : null; if (!it) return failure('bad_item'); const w = await c.wallet();
@@ -37,16 +38,16 @@ export async function dungeon(c, name, a) {
   }
   if (!['finish','boss_drop','ping'].includes(name)) return null;
   const r = (await c.list('dungeon_runs', { user_id: c.uid, token: a.p_token }))[0];
-  if (!r) return failure('bad_token'); const seconds = Math.max(0, (c.now - Date.parse(r.started_at)) / 1000);
+  if (!r) return failure('bad_token'); const maxFloors = r.floors_limit === 10 ? 10 : 5; const seconds = Math.max(0, (c.now - Date.parse(r.started_at)) / 1000);
   if (name === 'ping') {
     if (!r.growth) return failure('unsupported');
-    const want = integer(a.p_floors, 0, 5);
-    if (r.status === 'done') return { ok: true, already: true, ...await creditMode(c,'dungeon',r.token,dungeonXP(r.floors, r.win)) };
+    const want = integer(a.p_floors, 0, maxFloors);
+    if (r.status === 'done') return { ok: true, already: true, ...await creditMode(c,'dungeon',r.token,dungeonXP(r.floors, r.win, maxFloors)) };
     if (r.status !== 'active') return failure('used');
     if (seconds > 10800) return failure('expired');
     if (seconds < want * 20) return failure('too_fast');
     r.xp_floors = Math.max(r.xp_floors || 0, want); await c.put('dungeon_runs', r);
-    return { ok: true, floors: r.xp_floors, ...await creditMode(c,'dungeon',r.token,dungeonXP(r.xp_floors, false)) };
+    return { ok: true, floors: r.xp_floors, ...await creditMode(c,'dungeon',r.token,dungeonXP(r.xp_floors, false, maxFloors)) };
   }
   if (name === 'boss_drop') {
     if (!['warrior','archer','mage','gunner','fighter'].includes(a.p_hero)) return failure('bad_item');
@@ -61,11 +62,12 @@ export async function dungeon(c, name, a) {
   if (r.status === 'done' && r.soul_reward) return { ...r.soul_reward, total: w.medals };
   if (r.status !== 'active') return failure('used');
   if (seconds > 10800) { await c.put('dungeon_runs', { ...r, status: 'abandoned', finished_at: c.iso, floors: 0, win: false }); return failure('expired'); }
-  const want = integer(a.p_floors, 0, 5), floors = Math.min(want, Math.floor(seconds / 20)), win = a.p_win === true && floors === 5;
-  const medals = floors * 2 + (win ? 5 : 0), souls = [0,150,400,700,1100,1700][floors] + (win ? 300 : 0);
+  const want = integer(a.p_floors, 0, maxFloors), floors = Math.min(want, Math.floor(seconds / 20)), win = a.p_win === true && floors === maxFloors;
+  const medals = floors * 2 + (win ? 5 : 0), souls = [0,150,400,700,1100,1700,2400,3200,4100,5100,6300][floors] + (win ? 300 : 0);
   w.medals = Math.min(1000000, w.medals + medals); w.earned += medals; w.updated_at = c.iso; await c.put('dungeon_wallet', w);
-  const mail = souls ? await c.mail(c.uid, '영혼석 던전', floors + '층 돌파', { souls }) : null;
-  const xp = r.growth ? await creditMode(c,'dungeon',r.token,dungeonXP(floors,win)) : {};
-  const receipt = { ...xp, ok: true, souls, mail: mail?.id || null, medals, total: w.medals, floors, win, capped: floors < want };
+  const item = win && maxFloors === 10 ? { k: 'gear', ...abyssalRoll(['warrior','archer','mage','gunner','fighter'].includes(a.p_hero) ? a.p_hero : ['warrior','archer','mage','gunner','fighter'][Math.min(4,Math.floor(c.random()*5))], c.random) } : null;
+  const mail = souls ? await c.mail(c.uid, '영혼석 던전', floors + '층 돌파', { souls, ...(item ? { items: [item] } : {}) }) : null;
+  const xp = r.growth ? await creditMode(c,'dungeon',r.token,dungeonXP(floors,win,maxFloors)) : {};
+  const receipt = { ...xp, ok: true, souls, ...(item ? { item } : {}), mail: mail?.id || null, medals, total: w.medals, floors, win, capped: floors < want };
   await c.put('dungeon_runs', { ...r, status: 'done', finished_at: c.iso, floors, win, medals, soul_reward: receipt }); return receipt;
 }
