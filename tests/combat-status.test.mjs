@@ -1,3 +1,4 @@
+import {StatusNode as Node} from './support/status-dom.mjs';
 import assert from 'node:assert/strict';
 import {bossBuffs,renderBossDebuffs} from '../src/ui/boss-debuffs.js';
 import {heroEffects,renderHeroEffects} from '../src/ui/hero-effects.js';
@@ -45,15 +46,8 @@ const ctx={now:1,growthEnabled:true,focus:5,dungeon:true,dungeonDamage:1,dungeon
 assert.equal(heroEffects(hero,ctx).length,10);assert.equal(heroEffects(hero,ctx).find(x=>x.id==='bless-regen').detail,'0.5%/초');
 const raw=JSON.stringify({hero,ctx,e}), originalRandom=Math.random;Math.random=()=>{throw Error('HUD RNG');};for(let i=0;i<50;i++){heroEffects(hero,ctx);bossBuffs(e,10);}Math.random=originalRandom;assert.equal(JSON.stringify({hero,ctx,e}),raw);
 
-class Node {
- constructor(){this.children=[];this.dataset={};this._text='';this.writes=0;this.hidden=false;this.ownerDocument={createElement:()=>new Node()};}
- set textContent(v){this._text=v;this.writes++;}get textContent(){return this._text;}
- replaceChildren(){this.children.forEach(x=>x.parent=null);this.children=[];}
- insertBefore(n,next){n.remove();this.children.splice(next?this.children.indexOf(next):this.children.length,0,n);n.parent=this;}
- remove(){if(this.parent){this.parent.children.splice(this.parent.children.indexOf(this),1);this.parent=null;}}
-}
-const el=new Node();hero=h();hero.hardSlowUntil=12;renderHeroEffects(el,hero,{now:10});assert.equal(el.children[0].textContent,'↓ 빙판 둔화 이속 −20% 2.0초');
-const old=el.children[0];renderHeroEffects(el,hero,{now:10});assert.equal(old.writes,1);hero.hardSlowUntil=15;renderHeroEffects(el,hero,{now:10});assert.equal(el.children[0],old);assert.equal(old.writes,2);
+const el=new Node();hero=h();hero.hardSlowUntil=12;renderHeroEffects(el,hero,{now:10});assert.equal(el.children[0].getAttribute('aria-label'),'디버프 · 빙판 둔화 · 이속 −20% · 2.0초');
+const old=el.children[0];renderHeroEffects(el,hero,{now:10});assert.equal(old.labelWrites,1);hero.hardSlowUntil=15;renderHeroEffects(el,hero,{now:10});assert.equal(el.children[0],old);assert.equal(old.labelWrites,2);
 renderHeroEffects(el,h(),{now:10});assert(el.hidden);renderHeroEffects(el,hero,{now:10});assert.notEqual(el.children[0],old);renderHeroEffects(el,hero,{now:15});assert(el.hidden);
 renderHeroEffects(null,hero);renderHeroEffects(el,null);assert(el.hidden);
 const bossEl=new Node();e=b({shield:20,shieldT:2,slowT:1,slowAmt:.3});renderBossDebuffs(bossEl,e,10);assert.deepEqual(bossEl.children.map(x=>x.textContent),['↑ 보호막 20 2.0초','둔화 30% 1.0초']);

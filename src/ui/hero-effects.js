@@ -50,23 +50,65 @@ export function heroEffects(h, context = {}) {
   return out;
 }
 
+
 const views = new WeakMap();
 const duration = t => Number.isFinite(t) && t > 0 ? `${(Math.max(1,Math.ceil(t*10-1e-8))/10).toFixed(1)}초` : '';
+const EFFECT_ICONS = {
+ shield:'🛡',sanctuary:'✚','tiger-guard':'🐯','ice-slow':'❄',weave:'✦',pursuit:'➤','pursuit-ranged':'↗',flow:'☯',
+ fury:'🔥','lastguard':'⬟',mobile:'➶',stack:'▥',sustain:'⤳',focus:'◎',
+ 'bless-dmg':'⚔','bless-rate':'⚡','bless-range':'🏹','bless-guard':'🛡','bless-cd':'⏱','bless-crit':'🎯','bless-regen':'🌿',
+ resisted:'⛨',curse:'☠',invulnerable:'◇','mech-shield':'▣',robot:'🤖'
+};
+const effectLabel = e => [e.kind==='buff'?'버프':'디버프',e.name,e.detail,duration(e.time),e.note].filter(Boolean).join(' · ');
+function closeEffectTip(view) {
+  if(view.open)view.nodes.get(view.open)?.removeAttribute('aria-describedby');
+  view.open=null;view.pinned=false;view.tip.hidden=true;
+}
+function positionEffectTip(view) {
+  const n=view.nodes.get(view.open);if(!n)return;
+  const r=n.getBoundingClientRect(),t=view.tip.getBoundingClientRect(),win=n.ownerDocument.defaultView;
+  const width=win?.innerWidth||n.ownerDocument.documentElement.clientWidth;
+  view.tip.style.left=Math.max(8,Math.min(r.left+r.width/2-t.width/2,width-t.width-8))+'px';
+  view.tip.style.top=Math.max(8,r.top-t.height-8)+'px';
+}
+function openEffectTip(view,id) {
+  const n=view.nodes.get(id);if(!n)return;
+  if(view.open!==id){closeEffectTip(view);view.open=id;}
+  view.tip.textContent=n.getAttribute('aria-label');view.tip.hidden=false;
+  n.setAttribute('aria-describedby',view.tip.id);positionEffectTip(view);
+}
 export function renderHeroEffects(container,h,context={}) {
-  if (!container) return;
+  if(!container)return;
   let view=views.get(container);
-  if (!view) { view={hero:null,nodes:new Map()}; views.set(container,view); }
-  if (view.hero!==h) { container.replaceChildren(); view.nodes.clear(); view.hero=h; }
+  if(!view){
+    const doc=container.ownerDocument,tip=doc.createElement('div');
+    tip.id=(container.id||'heroEffects')+'Detail';tip.className='heroEffectTooltip';tip.setAttribute('role','tooltip');tip.hidden=true;doc.body.appendChild(tip);
+    view={hero:null,nodes:new Map(),tip,open:null,pinned:false};views.set(container,view);
+    doc.addEventListener('pointerdown',e=>{if(view.open&&!container.contains(e.target))closeEffectTip(view);},true);
+    doc.addEventListener('keydown',e=>{if(e.key==='Escape'&&view.open){closeEffectTip(view);e.stopPropagation();}},true);
+    container.addEventListener('scroll',()=>{if(view.open)closeEffectTip(view);},{passive:true});
+    doc.defaultView?.addEventListener('resize',()=>closeEffectTip(view),{passive:true});
+  }
+  if(view.hero!==h){closeEffectTip(view);container.replaceChildren();view.nodes.clear();view.hero=h;container.scrollTop=0;container.scrollLeft=0;}
   const effects=heroEffects(h,context),active=new Set(effects.map(x=>x.id));
-  for(const [id,n] of view.nodes)if(!active.has(id)){n.remove();view.nodes.delete(id);}
+  for(const [id,n] of view.nodes)if(!active.has(id)){if(view.open===id)closeEffectTip(view);n.remove();view.nodes.delete(id);}
   effects.forEach((e,i)=>{
     let n=view.nodes.get(e.id);
-    if(!n){n=container.ownerDocument.createElement('span');n.dataset.effect=e.id;view.nodes.set(e.id,n);}
+    if(!n){
+      n=container.ownerDocument.createElement('button');n.type='button';n.dataset.effect=e.id;view.nodes.set(e.id,n);
+      n.addEventListener('pointerenter',event=>{if(event.pointerType!=='touch')openEffectTip(view,e.id);});
+      n.addEventListener('pointerleave',()=>{if(!view.pinned&&n.ownerDocument.activeElement!==n)closeEffectTip(view);});
+      n.addEventListener('focus',()=>openEffectTip(view,e.id));
+      n.addEventListener('blur',()=>closeEffectTip(view));
+      n.addEventListener('click',event=>{event.stopPropagation();if(view.open===e.id&&view.pinned)closeEffectTip(view);else{openEffectTip(view,e.id);view.pinned=true;}});
+      n.addEventListener('pointerdown',event=>event.stopPropagation());
+    }
     n.className=`heroEffect ${e.kind}`;
-    const label=[e.kind==='buff'?'↑':'↓',e.name,e.detail,duration(e.time)].filter(Boolean).join(' ');
-    if(n.textContent!==label)n.textContent=label;
-    if(n.title!==(e.note||label))n.title=e.note||label;
+    const icon=EFFECT_ICONS[e.id]||(e.kind==='buff'?'↑':'↓'),label=effectLabel(e);
+    if(n.textContent!==icon)n.textContent=icon;
+    if(n.getAttribute('aria-label')!==label)n.setAttribute('aria-label',label);
     if(container.children[i]!==n)container.insertBefore(n,container.children[i]||null);
+    if(view.open===e.id){if(view.tip.textContent!==label)view.tip.textContent=label;positionEffectTip(view);}
   });
   container.hidden=!effects.length;
 }

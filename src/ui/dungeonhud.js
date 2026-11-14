@@ -13,6 +13,7 @@ export function refreshAuto() {
   for (const id of ['dgAuto', 'dgBlessAuto']) { const b = $(id); if (!b) continue; b.textContent = `자동 진행 ${D.auto ? 'ON' : 'OFF'}`; b.classList.toggle('on', D.auto); b.setAttribute('aria-pressed', String(D.auto)); b.disabled = D.over; }
 }
 export function buildHud({ pick, joint, toggleAuto, giveUp }) { const D = G.dg;
+  const effects = $('heroEffects'); if (effects && effects.parentNode !== $('hud')) $('hud').appendChild(effects);
   let top = $('dgTop'); if (!top) { top = document.createElement('div'); top.id = 'dgTop'; $('top').appendChild(top); }
   top.className = 'pill dgTop'; top.innerHTML = `<span class="lbl">${G.spire ? '⚔ 던전' : '🔮 영혼석 던전'}${D.entry && D.entry.mode === 'practice' ? ' <i class="dgPrTag">연습</i>' : ''}</span><b id="dgFloor"></b>${G.spire ? '' : '<b id="dgSoulBank" class="dgSoulBank">🔮 0</b>'}<span id="dgBl" class="dgBl"></span><button id="dgGiveUp" class="dgGiveUp" title="귀환">🏳 귀환</button>`;
   $('dgGiveUp').onclick = e => { e.stopPropagation(); if (D.over) return; askConfirm({ title: '귀환', icon: '🏳', body: G.spire ? G.spire.practice ? '연습을 마치고 귀환할까요? (기록·보상 없음)' : '완료한 층 기록과 보상을 정산하고 귀환할까요?' : '돌파한 층 보상을 받고 귀환할까요?', ok: '귀환', tone: 'danger' }).then(y => { if (!y || D.over) return; giveUp(); }); };
