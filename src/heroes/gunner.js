@@ -21,14 +21,14 @@ G.gunN = { shots: 0, skill: 0, spray: 0, ricochet: 0, barrage: 0 }; // 테스트
 G.legendDmgGun = 0;
 
 // 총구 월드 위치 (k = 0 왼손, 1 오른손)
-export function muzzle(k) { const ch = hero.ch; if (!ch.muz || !ch.muz[k]) return hero.g.position.clone().setY(1.5); hero.g.updateMatrixWorld(true); return ch.muz[k].getWorldPosition(new THREE.Vector3()); }
+export function muzzle(k) { const ch = hero.ch; ch.aimWeapons?.(hero.face); if (!ch.muz || !ch.muz[k]) return hero.g.position.clone().setY(1.5); hero.g.updateMatrixWorld(true); return ch.muz[k].getWorldPosition(new THREE.Vector3()); }
 export { petals, tracer }; // 전직 장미 저격수(advfx.js)도 사용
 export function flash(k, big = 1) { const f = hero.ch.flashes && hero.ch.flashes[k]; if (!f) return; f.t = .07 * big; f.big = big; f.g.visible = true; f.g.rotation.y = Math.random() * 6.28; }
 function shell(p) { emit(P, p.x, p.y, p.z, 3, 0xffd27a, 2.6, .22, -10, .15); emit(P, p.x, p.y - .1, p.z, 1, 0xffb040, 1.6, .5, -14, .1); }
 // 기본 공격: 번갈아 사격
 export function gunAttack(t) {
   if (hero.adv && hero.adv.atk.pierce) return rifleShot(t); // 전직 장미 저격수: 소총 관통탄 (advfx.js)
-  const k = side = side ^ 1, from = muzzle(k); flash(k); shell(from); G.gunN.shots++;
+  const k = side = side ^ 1, from = muzzle(k); hero.ch.gunKick?.(k); flash(k); shell(from); G.gunN.shots++;
   Snd.gun(from, { rate: k ? 1.04 : .97 }); shoot('bullet', from, t, stat.basicDmg(t), hero.adv ? advBullet(t) : { color: 0xffc8e0 }); // 전직: 탄 색 · 도탄/소폭발 (advfx.js)
 }
 // 직선 탄환 (스킬/전설): 첫 적 또는 관통 횟수만큼 맞히고 사라짐

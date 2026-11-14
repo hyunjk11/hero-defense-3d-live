@@ -181,6 +181,7 @@ function updHero(dt) {
   else { let d = h.face - h.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); h.g.rotation.y += d * Math.min(1, dt * 14); }
   if (h.roseT > 0) { /* ShootCharged 재생 중 */ } else if (h.gunT > 0) play(h.ch, moving ? 'ShootWalk' : 'ShootStand', { speed: moving ? 1.3 : 1, fade: .12 });
   else if (h.spinT <= 0) { if (moving) play(h.ch, 'Running_A', { speed: h.ch.runSpd || 1.1 }); else if (h.atkT <= 0) play(h.ch, 'Idle', { fade: .25 }); }
+  if(h.cls==='gunner')h.ch.aimWeapons?.(h.face); // visual pose only, after movement/rotation
   h.ch.ring.material.opacity = .5 + Math.sin(G.t * 4) * .2;
   if (h.flash > 0) { h.flash -= dt; flashMats(h.ch.mats, true, 0xff3030); } else flashMats(h.ch.mats, false);
   if (!G.enemies.some(e => !e.dead && e.g.position.distanceTo(h.g.position) < 4)) h.hp = Math.min(h.max, h.hp + h.max * .03 * dt);
