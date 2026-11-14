@@ -943,3 +943,27 @@ body:not(.dungeonRun) #dgAuto,body.dungeonRun.dgAllAuto #autoSkillBtn{display:no
 @media(max-width:600px){.stoOrder{margin-left:0;width:100%;justify-content:flex-end}.stoOrder .stoSort{min-height:40px}.stoFilt{gap:8px}}
 
 @media(max-width:800px){.stoCols{grid-template-columns:minmax(0,1fr)}.stoGrid{min-height:90px;max-height:240px}.stoH{flex-wrap:wrap}.stoSide{min-width:0}.stoBar{width:min(180px,48vw)}}
+
+/* Boss effects use the enemy's own timers. Reserve room above narrow-screen controls. */
+#bossHud{width:min(420px,calc(100vw - 420px));max-width:calc(100vw - 16px)}
+#bossHud .bar.boss{width:100%;box-sizing:border-box}
+#bossName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#bossDebuffs{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:5px}
+#bossDebuffs[hidden]{display:none}
+.bossDebuff{display:inline-flex;align-items:center;white-space:nowrap;line-height:1.4;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:#e7efff;background:#191725ed;border:1px solid #746a91;border-radius:6px;padding:2px 6px;box-sizing:border-box;text-shadow:0 1px 2px #000}
+.bossDebuff.slow{color:#b8d6ff;border-color:#6c90be}.bossDebuff.freeze{color:#c1f5ff;border-color:#74c9df}
+.bossDebuff.stun,.bossDebuff.airborne{color:#ffe6aa;border-color:#cda769}.bossDebuff.crack,.bossDebuff.exposed,.bossDebuff.vulnerable,.bossDebuff.rupture{color:#ffd1b5;border-color:#bf8b76}
+@media(max-width:600px){
+ body{--boss-space:0px}
+ body:has(#bossHud:not(.hidden)){--boss-space:88px}
+ body:has(#bossHud:not(.hidden) .bossDebuff:nth-child(5)){--boss-space:112px}
+ #bossHud{top:calc(80px + env(safe-area-inset-top));width:calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right))}
+ #bossName{font-size:12px;line-height:18px;letter-spacing:.4px;margin-bottom:3px}
+ #bossHud .bar.boss{height:14px}
+ #bossDebuffs{gap:3px;margin-top:4px}.bossDebuff{font-size:11px;padding:1px 5px}
+ #hud{--battle-top:calc(132px + var(--boss-space));--right-start:calc(80px + var(--boss-space))}
+ #hud:has(#hardPartyBar:not([hidden])){--right-start:calc(196px + var(--boss-space))}
+ #camTop,#hardPartyBar{top:calc(80px + var(--boss-space) + env(safe-area-inset-top))}
+ #hud #build{max-height:calc(100dvh - 306px - var(--boss-space))}
+ #statOv{top:calc(80px + var(--boss-space));max-height:calc(100dvh - 254px - var(--boss-space))}
+}
