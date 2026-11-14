@@ -26,6 +26,9 @@ function updBossBar() { let b = null; for (const e of G.enemies) if (e.E.boss &&
     attackScale:b&&G.spire&&G.dungeon&&G.spireAtkK?G.spireAtkK(b):1
   }); if (!b) return; setBar('bossFill', 'bossTr', b.hp / b.max); const nm = $('bossName'); if (nm.textContent !== b.E.n) nm.textContent = b.E.n; }
 function refreshHud() {
+  // Dungeon HUD temporarily owns this strip; restore it above normal HP on return.
+  const effects=$('heroEffects'),heroBox=$('heroBox');
+  if (!G.dungeon && effects && heroBox && effects.parentNode!==heroBox) heroBox.insertBefore(effects,heroBox.querySelector('.bar.hp'));
   const controlled=G.hero; // withHero temporarily changes the module binding during party simulation.
   renderHeroEffects($('heroEffects'), ['build','wave'].includes(G.phase)?controlled:null, {
     now:G.t, focus:G.focus, growthEnabled:G.growthEnabled, dungeon:G.dungeon, dungeonDamage:G.dgDmg,

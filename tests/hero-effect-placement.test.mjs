@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {StatusNode} from './support/status-dom.mjs';
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+assert.match(html, /id="heroBox"><div id="heroName"><\/div><div id="heroEffects"[^>]*><\/div><div class="bar hp">/);
+const hud=fs.readFileSync(new URL('../src/ui/hud.js',import.meta.url),'utf8');
+const mount=hud.slice(hud.indexOf("  const effects=$('heroEffects')"),hud.indexOf('  const controlled=G.hero;'));
+const box=new StatusNode(),effects=new StatusNode(box.ownerDocument),hp=new StatusNode(box.ownerDocument),dungeon=new StatusNode(box.ownerDocument);box.appendChild(hp);box.querySelector=()=>hp;dungeon.appendChild(effects);
+const G={dungeon:true},context={G,$:id=>id==='heroEffects'?effects:box};
+vm.runInNewContext("{"+mount+"}",context);assert.equal(effects.parentNode,dungeon);
+G.dungeon=false;vm.runInNewContext("{"+mount+"}",context);assert.equal(effects.parentNode,box);assert.equal(box.children[0],effects);assert.equal(box.children[1],hp);
+vm.runInNewContext("{"+mount+"}",context);assert.equal(box.children.length,2);
+const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');
+assert.match(css,/body:not\(\.dungeonRun\) #heroEffects\{position:static;[^}]*background:transparent/);
+assert.match(css,/body:not\(\.dungeonRun\) #heroEffects \.heroEffect\{flex:0 0 18px/);
+console.log('PASS normal tiny icons: nested directly above HP, dungeon return/repeat safe, transparent compact layout');
