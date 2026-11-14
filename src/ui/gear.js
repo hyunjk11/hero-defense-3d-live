@@ -177,7 +177,7 @@ async function doDismantle() {
     catch(e){error=e;}
     finally {if(finishSmith(job))renderSmith();}
     if(!smithOwner(job))return;if(error){alertMsg(error.message);return;}hooks.onChange(true);const f = document.querySelector('.disFoot div'); if (f) f.innerHTML = `<span class="gotPop">+ 강철 ${got.steel} · 마력석 ${got.crystal} 획득!</span>`;
-  },450);
+  },0); // Start the guarded transaction immediately; its wait already shows the melt state.
   } catch(e) {if(finishSmith(job))renderSmith();if(smithOwner(job))alertMsg(e.message);}
 }
 async function doCraft(rk) {

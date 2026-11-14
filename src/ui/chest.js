@@ -65,16 +65,16 @@ function nextChest(note) {
       st.className = `cvStage chestMode g${o.it.g} open`; st.style.setProperty('--gc', GCi(o.it)); st.querySelector('.cvItem').innerHTML = `${card(o.it)}<div class="cvGrade" style="color:${GCi(o.it)}">${E.GRADES[o.it.g].n + (o.it.g === 4 ? ' ★' : '')}</div>${o.souls ? `<div class="cvSoul">영혼석 +${o.souls}</div>` : ''}`;
       Snd.play(o.it.g >= 3 ? 'victory' : 'levelUp', { force: true }); Snd.play('coins'); if (o.it.g >= 3) Snd.play('glass', { rate: 1.4 });
       const left = r.left; st.querySelector('.cvTap').textContent = left ? '눌러서 다음 상자' : '눌러서 닫기'; const bar = $('cbBar'); if (bar) { bar.outerHTML = chestBar(left); bindBar(); }
-      phase = 2; }, 700); };
+      phase = 2; }, 0); }; // Network/storage work must not wait for a decorative animation.
   st.onclick = () => { if (CB.lock) return; if (phase === 0) open(); else if (phase === 2) { Snd.play('ui'); nextChest(); } };
-  if (!full && L.length === 1) setTimeout(() => { if (ov.contains(st)) open(); }, 500); // 상자가 하나뿐이면 자동 개봉, 여러 개면 탭 또는 모두 열기
+  if (!full && L.length === 1) setTimeout(() => { if (ov.contains(st)) open(); }, 0); // 상자가 하나뿐이면 자동 개봉, 여러 개면 탭 또는 모두 열기
 }
 function showNote(t) { let n = document.querySelector('#chestOv .cbNote'); if (!n) { n = document.createElement('div'); n.className = 'cbNote'; $('chestOv').appendChild(n); } n.textContent = t; }
 let lastBatch = null; export const lastChestBatch = () => lastBatch;
 async function openBatch(n) {
   const owner=Acc.A.user?.id,epoch=Acc.sessionId();
   const ov = $('chestOv'); const st = ov.querySelector('.cvStage'); if (st) st.classList.add('shake'); Snd.play('hitArmor'); Snd.play('hitArmor', { delay: .15, rate: 1.2 });
-  let r;try{r=directGearEnabled()?await directOpen(n):doOpen(n);}catch(e){CB.lock=false;CB.busy=false;nextChest(e.message);return;}lastBatch = r; setTimeout(() => {if(owner===Acc.A.user?.id&&epoch===Acc.sessionId())showSummary(r);}, 450);
+  let r;try{r=directGearEnabled()?await directOpen(n):doOpen(n);}catch(e){CB.lock=false;CB.busy=false;nextChest(e.message);return;}lastBatch = r; setTimeout(() => {if(owner===Acc.A.user?.id&&epoch===Acc.sessionId())showSummary(r);}, 0);
 }
 function showSummary(r) {
   const ov = $('chestOv'), list = [...r.opened].sort(E.byRarity), cnt = E.gradeCount(r.opened), best = list.length ? list[0].it.g : 0;
