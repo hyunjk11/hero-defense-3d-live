@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><title>Campaign balance QA</title>
+<style>body{margin:0;background:#161a23;color:#e6dda8;font:15px system-ui}header{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 18px}iframe{border:0;width:100%;height:calc(100vh - 40px)}</style>
+<header><b>무음 · 격리된 밸런스 검증</b><span id="state">준비</span></header><iframe id="game"></iframe>
+<script>
+if(location.hostname!=='127.0.0.1'||location.port!=='8785')throw Error('Isolated test origin only');
+const game=document.querySelector('#game'),label=document.querySelector('#state');window.qaRuns=[];window.qaErrors=[];window.qaBusy=false;
+function waitFor(test,timeout=60000){return new Promise((resolve,reject)=>{const at=performance.now();const timer=setInterval(()=>{let result;try{const g=game.contentWindow.G;if(g?.Snd){g.manual=true;g.Snd.cfg.bgmOn=g.Snd.cfg.sfxOn=false;g.Snd.apply();}result=test()}catch{}if(result){clearInterval(timer);resolve(result)}else if(performance.now()-at>timeout){clearInterval(timer);reject(Error('Game load timeout'))}},100)})}
+async function load(url){game.src=url;await waitFor(()=>game.contentWindow.location.href===new URL(url,location.href).href&&game.contentWindow.G?.ready);const w=game.contentWindow;w.__qaModule=null;const el=w.document.createElement('script');el.type='module';el.textContent="import * as q from '/tests/browser-balance.mjs';window.__qaModule=q";w.document.head.append(el);return await waitFor(()=>w.__qaModule)}
+window.qaProgress=s=>{label.textContent=`${s.stage} · ${s.wave}웨이브 · 코어 ${s.core}/30 · ${qaRuns.length}회 완료`};
+window.startBatch=async(plan,tag)=>{if(qaBusy)throw Error('Already running');qaBusy=true;qaTag=tag;qaRuns=[];qaErrors=[];try{let m=await load('/?test=1&lazy=1');game.contentWindow.G.gear.Acc.playGuest();for(const job of plan){m.seed(job.profile||'fixed',+(job.stage.split('-')[0]));m=await load('/?stage='+job.stage+'&run=1&flow=1&test=1&lazy=1&rng='+(job.rng||12345));await waitFor(()=>game.contentWindow.G?.hero&&game.contentWindow.G.phase==='build');try{const r=await m.run();qaRuns.push({...r,tag,rng:job.rng||12345});}catch(e){qaErrors.push({stage:job.stage,error:String(e)});break}}}catch(e){qaErrors.push({error:String(e)})}finally{qaBusy=false;label.textContent=`${tag} · ${qaRuns.length}회 완료 · 오류 ${qaErrors.length}`}};
+</script>

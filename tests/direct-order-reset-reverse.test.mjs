@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import {source} from './direct-global-migration.test.mjs';
+import {planGlobalMigration,directRoot} from '../direct/global-migration-plan.mjs';
+import {planGlobalReverse} from '../direct/global-reverse-plan.mjs';
+import {reverseCollisionReport} from '../direct/reverse-collisions.mjs';
+import {encodeFields,decodeFields,directDocument,DEMO_PROJECT} from '../src/account/direct-store.js';
+import {toDocument,fromDocument} from '../server/firestore.mjs';
+import {orderSupportDocuments} from '../direct/order-migration.mjs';
+const at='2026-11-10T00:00:00.000Z',wk='2026-11-09';
+function setup(){const s=source();s.documents.push(toDocument('hd3d_spire_weeks',{user_id:'global-a',week:wk,best_floor:10,best_at:at,claimed:false}));s.snapshot.tables.hd3d_spire_weeks++;const p=planGlobalMigration(s),ds=structuredClone([...p.data,...p.activations]);for(const d of ds.filter(d=>d.name.endsWith('/_activation'))){const x=decodeFields(d.fields);x.row.enabled=false;d.fields=encodeFields(x);}return {s,p,ds};}
+const bundle=x=>{const collections={};for(const d of x.ds){const c=d.name.slice(directRoot.length+1).split('/').slice(0,-1).join('/');collections[c]=(collections[c]||0)+1;}return {forward:x.p,target:x.s,direct:{format:1,documents:x.ds,snapshot:{project:DEMO_PROJECT,database:'(default)',readTime:at,complete:true,writersStopped:true,pendingClientJournals:0,collections}}};};
+const edit=(x,tail,fn)=>{const d=x.ds.find(d=>d.name.endsWith(tail));const v=decodeFields(d.fields);fn(v);d.fields=encodeFields(v);};
+const add=(x,col,id,data)=>x.ds.push({name:directRoot+'/'+col+'/'+id,fields:encodeFields(data)});
+let x=setup();assert.equal(planGlobalReverse(bundle(x)).sequenceHighWater.hd3d_orders,100);
+for(const mutate of [x=>edit(x,'hd3d_live_order_counter/main',v=>v.value=99),x=>edit(x,'global-a/hd3d_sequences/order-pending-hero_gunner',v=>v.row.value=77),x=>x.ds.splice(x.ds.findIndex(d=>d.name.endsWith('/hd3d_live_order_counter/main')),1)]){const t=setup();mutate(t);assert.throws(()=>planGlobalReverse(bundle(t)),/Order|order/);}
+console.log('PASS trusted order counter and pending guards cannot be lost, regressed or point to absent orders');
+const row={id:101,user_id:'global-a',item:'hero_gunner',email:'global-a@example.invalid',nickname:'Hero0',status:'pending',created_at:at,decided_at:null,refunded_at:null,note:null,refund_note:null};
+x=setup();x.ds.push(directDocument(DEMO_PROJECT,'global-a','hd3d_orders',101,row));edit(x,'hd3d_live_order_counter/main',v=>v.value=101);edit(x,'global-a/hd3d_sequences/order-pending-hero_gunner',v=>v.row.value=101);edit(x,'global-a/hd3d_sequences/hd3d_orders',v=>v.row.value=101);add(x,'hd3d_live_order_requests','global-a~request-001',{uid:'global-a',request:'request-001',item:'hero_gunner',order:101,row,at});
+let r=planGlobalReverse(bundle(x));assert.equal(r.sequenceHighWater.hd3d_orders,101);assert.equal(fromDocument(r.documents.find(d=>d.name.endsWith('/hd3d_orders/101'))).status,'pending');const saved=structuredClone(x);edit(x,'global-a/hd3d_orders/101',v=>{v.row.status='rejected';v.row.decided_at=at;});assert.doesNotThrow(()=>planGlobalReverse(bundle(x)));edit(x,'global-a/hd3d_orders/101',v=>v.row.email='tampered');assert.throws(()=>planGlobalReverse(bundle(x)),/receipt\/source/);
+console.log('PASS pending and decided orders retain immutable receipt identity and global high-water after reversal');
+x=setup();x.ds=x.ds.filter(d=>!d.name.endsWith('/hd3d_spire_weeks/global-a~'+wk));assert.throws(()=>planGlobalReverse(bundle(x)),/Historical row missing/);
+const audit={actor:'global-b',request:'reset-0001',target:'global-a',action:'admin_spire_reset',logAction:'spire_reset',week:wk,revision:1,reason:'reviewed reset',result:{ok:true,prev:10,week_prev:10},at};
+add(x,'hd3d_live_admin_actions','global-b~reset-0001',audit);add(x,'hd3d_live_spire_resets','global-a',{uid:'global-a',actor:'global-b',request:'reset-0001',week:wk,revision:1,at});
+edit(x,'hd3d_spire_best/global-a',v=>{v.row.best_floor=0;v.row.best_at=null;});r=planGlobalReverse(bundle(x));assert(!r.documents.some(d=>d.name.endsWith('/hd3d_spire_weeks/global-a~'+wk)));assert(r.documents.some(d=>d.name.includes('/hd3d_admin_log/')&&fromDocument(d).action==='spire_reset'));edit(x,'hd3d_live_spire_resets/global-a',v=>v.revision=2);assert.throws(()=>planGlobalReverse(bundle(x)),/marker audit mismatch/);
+console.log('PASS historical week deletion requires matching reset audit, marker integrity and preserved archive');
+x=setup();for(const uid of ['global-a','global-b']){x.ds.push(directDocument(DEMO_PROJECT,uid,'hd3d_mail',201,{id:201,user_id:uid,title:'kept',body:'',reward:null,claimed:true,claimed_at:at,revoked:false,order_id:202,broadcast_id:null,created_at:at}));x.ds.push(directDocument(DEMO_PROJECT,uid,'hd3d_orders',202,{...row,id:202,user_id:uid}));x.ds.push(directDocument(DEMO_PROJECT,uid,'hd3d_owned',uid+'~hero_gunner',{user_id:uid,item:'hero_gunner',source_mail:201}));}
+const before=structuredClone(x),report=reverseCollisionReport(x.ds,x.s.documents);assert.equal(report.collisions.length,2);assert(report.collisions.find(x=>x.table==='hd3d_mail').references.some(r=>r.field==='row.source_mail'));assert(report.collisions.find(x=>x.table==='hd3d_orders').references.some(r=>r.field==='row.order_id'));assert.equal(report.plannedWrites,0);assert.equal(report.automaticMapping,false);assert.throws(()=>planGlobalReverse(bundle(x)),e=>e.code==='REVERSE_ID_COLLISION'&&e.report.collisions.length===2);assert.deepEqual(x,before);assert.deepEqual(reverseCollisionReport(x.ds,x.s.documents),report);
+console.log('PASS all collisions and references reported deterministically; no writes, silent merge, ID rewrite or source mutation');
+assert.throws(()=>orderSupportDocuments([{uid:'global-a',orders:[row,{...row,id:102}]}],102),/Multiple/);

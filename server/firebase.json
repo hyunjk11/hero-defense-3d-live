@@ -1,0 +1,12 @@
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "asia-northeast3",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "authorizedDomains": ["localhost", "127.0.0.1", "legacy.example.invalid", "hero-defense-3d-independent.firebaseapp.com", "hero-defense-3d-independent.web.app"],
+    "providers": { "emailPassword": true, "anonymous": false }
+  }
+}

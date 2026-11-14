@@ -1,0 +1,11 @@
+{
+  "name": "hero-defense-game-api",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {"node": "22"},
+  "dependencies": {
+    "firebase-functions": "7.4.0",
+    "google-auth-library": "11.3.3"
+  }
+}

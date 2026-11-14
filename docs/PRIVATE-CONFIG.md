@@ -1,0 +1,19 @@
+# Private deployment configuration
+
+The public source contains no real game-owner email or runtime service-account identifier. Firebase project ID, browser Firebase web configuration, the Git Pages origin and the game API URL are public application routing configuration, not credentials.
+
+Before any future Functions deployment, supply `HD3D_OWNER_EMAIL`, `HD3D_RUNTIME_SERVICE_ACCOUNT` and `HD3D_FIREBASE_WEB_API_KEY` through Firebase's supported parameter configuration in an ignored `.env.<project-id>` file within `cloud-functions/`. Use the already approved owner identity and existing least-privilege runtime identity. Do not choose a new account or grant additional IAM roles. All three parameters have no defaults; deployment must not silently select a broad default service account. Do not commit the generated file. No Secret Manager resource, new credential or paid resource is needed for these non-secret but private identifiers.
+
+The runtime owner still requires an existing owner row for the verified UID, the matching privately configured email, and no ban. An email alone never creates an administrator. Missing or malformed owner configuration denies owner privileges and bootstrap plans. Ordinary users and non-owner administrators retain their existing checks. The UI waits for the authoritative administrator status instead of guessing from an email address.
+
+`HD3D_LEGACY_ORIGIN` and `HD3D_RUNTIME_SERVICE_ACCOUNT` are also accepted by the archived server adapter when it is deliberately configured. The new Functions handler supplies its own pinned Git origin and metadata token provider, so it does not use the archived Sites host or service-key transport. The existing separately deployed legacy site is not changed by publishing this source.
+
+For isolated offline tests, import `tests/support/private-config-fixture.mjs` before the test. Its example.invalid email and synthetic runtime identity are fixtures, not production settings. Never use these fixture values to deploy. Historical Supabase/direct Rules are retained as reference fixtures and are not production deployment instructions; the root Firebase configuration deploys only the Functions codebase.
+
+This public-source change has not updated the already deployed disabled function. To deploy changed server code later, first stage and verify its dependency closure, supply the approved private configuration, review the source diff and deployment settings, and keep the function disabled until production verification. Preserve existing data and the old site. The public client remains gated.
+
+Firebase parameter configuration: https://firebase.google.com/docs/functions/config-env
+
+The server Auth REST lookup key is also supplied privately via HD3D_FIREBASE_WEB_API_KEY; no server key literal is checked in. Missing configuration fails with 503 and cannot reuse a previously cached identity. Token signature/account validation still occurs at the same Google Auth endpoint. Changing the configured key causes a new validation, without relaxing issuer/project/expiry/UID/disabled checks.
+
+The browser still needs its Firebase web app API key for direct Firebase Authentication. Firebase documents those keys as public application identifiers, not administrator credentials: https://firebase.google.com/docs/projects/api-keys . A read-only console review on 2026-11-13 matched the browser configuration to the Firebase-created Browser key. It is not bound to a service account. Its 25-API allowlist includes Identity Toolkit and Token Service; it is broader than authentication alone. Application/HTTP-referrer restrictions are currently absent, so authentication and quota abuse remain risks. No key restriction was changed. Do not blindly add website restrictions to a key also used by server-side Auth lookups or existing clients. This source is not activated or redeployed.

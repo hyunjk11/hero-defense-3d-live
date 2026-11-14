@@ -1,0 +1,19 @@
+import * as THREE from 'three';
+import {mk,toon,shareGeo,disposeObj} from './toon.js';
+const box=shareGeo(new THREE.BoxGeometry(1,1,1)),gem=shareGeo(new THREE.OctahedronGeometry(1)),cone=shareGeo(new THREE.ConeGeometry(1,1,5)),rod=shareGeo(new THREE.CylinderGeometry(1,1,1,8)),ring=shareGeo(new THREE.TorusGeometry(.2,.035,6,20));
+export function updateEndgameGear(ch,items){
+ const selected=items.filter(it=>it.c===9||it.c===10),sig=selected.map(it=>`${it.c}:${it.s}:${it.h}:${it.g}:${it.id}`).join('|');if(ch.endgameGearSignature===sig)return;
+ for(const n of ch.endgameGearNodes||[]){n.removeFromParent();disposeObj(n);}for(const m of new Set(ch.mats.filter(m=>m.userData.endgameGear)))m.dispose();ch.mats=ch.mats.filter(m=>!m.userData.endgameGear);ch.endgameGearNodes=[];ch.endgameGearSignature=sig;
+ const mat=(c,em=0)=>{const m=toon(c,{emissive:em,emissiveIntensity:.5});m.userData.e=m.emissive.clone();m.userData.endgameGear=true;ch.mats.push(m);return m;};
+ const mount=(names,offset,tip=false)=>{const bone=tip&&ch.tip?ch.tip:names.map(n=>ch.root.getObjectByName(n)).find(Boolean);if(!bone)return null;ch.root.updateMatrixWorld(true);const scale=bone.getWorldScale(new THREE.Vector3()).x,q=bone.getWorldQuaternion(new THREE.Quaternion()).invert(),g=new THREE.Group();g.quaternion.copy(q);g.scale.setScalar(.65/scale);g.position.set(...offset).applyQuaternion(q).multiplyScalar(1/scale);bone.add(g);ch.endgameGearNodes.push(g);return g;};
+ for(const it of selected){const abyss=it.c===9,M={body:mat(abyss?0x73578d:0xa2523a),edge:mat(abyss?0xd1b5df:0xefbf85),core:mat(abyss?0x88e8db:0xffae45,abyss?0x24756a:0x984019)};
+  const add=(p,k,x,y,z,sx,sy=sx,sz=sx,geo=box)=>{const n=mk(geo,M[k],x,y,z,p,.012);n.scale.set(sx,sy,sz);return n;};
+  const sigil=(p,x=0,y=0,z=0)=>{if(abyss){const r=mk(ring,M.edge,x,y,z,p,0);r.scale.setScalar(it.g>=3?1.2:.85);add(p,'core',x,y,z+.04,.11,.17,.05,gem);}else{for(const s of [-1,1])add(p,'edge',x+s*.14,y+.15,z,.055,.32,.045,cone).rotation.z=s*.5;add(p,'core',x,y,z+.04,.11,.18,.06,gem);}};
+  if(it.s==='armor'){for(const side of [-1,1]){const p=mount(side<0?['LeftArm','LeftShoulder']:['RightArm','RightShoulder'],[side*.02,.05,-.02]);if(!p)continue;add(p,'body',0,0,0,.35,.24,.33,abyss?gem:box);for(let j=0;j<(it.g>=3?3:1);j++)add(p,'edge',side*(.1+j*.06),.16,-.06+j*.07,.06,.22+j*.03,.06,cone);}const p=mount(['Spine02','Spine2','Spine','Chest'],[0,.05,-.23]);if(p){add(p,'body',0,0,0,.4,.55,.12,gem);sigil(p,0,.04,-.08);}}
+  else if(it.s==='acc'){const p=mount(['Spine02','Spine2','Spine01','Spine','Chest'],[0,.03,.23]);if(p){add(p,'edge',0,.19,0,.03,.28,.025,rod);sigil(p);}}
+  else if(it.h==='mage'){const p=mount(['RightHand','handslotr'],[0,.04,0],true);if(p){add(p,'body',0,.12,0,.07,.55,.07,rod);sigil(p,0,.38);for(const s of [-1,1])add(p,'edge',s*.2,.34,0,.06,.45,.07,cone).rotation.z=-s*.3;}}
+  else if(it.h==='archer'){const p=mount(['LeftHand','handslotl'],[0,.02,.03]);if(p){for(const s of [-1,1]){add(p,'body',s*.2,s*.2,0,.48,.07,.08).rotation.z=.7;add(p,'edge',s*.33,s*.4,0,.06,.3,.07,cone).rotation.z=-s*.25;}sigil(p);}}
+  else if(it.h==='fighter'||it.h==='gunner'){for(const s of [-1,1]){const p=mount(s<0?['LeftHand','handslotl']:['RightHand','handslotr'],[0,.03,.04]);if(!p)continue;add(p,'body',0,0,0,.24,.22,.25);if(it.h==='gunner'){const n=add(p,'edge',0,.08,.24,.07,.43,.07,rod);n.rotation.x=Math.PI/2;sigil(p,0,.02,.02);}else{for(let i=0;i<3;i++)add(p,'edge',(i-1)*.08,.14,.13,.05,abyss?.16:.25,.065,abyss?gem:cone);add(p,'core',0,.11,.22,.07,.05,.03,gem);}}}
+  else {const p=mount(['RightHand','handslotr'],[0,.02,.03]);if(p){add(p,'body',0,.15,0,.1,.3,.09);add(p,'edge',0,.29,0,.38,.06,.1);add(p,'body',0,.7,0,it.h==='mechanic'?.35:.18,.8,.08,abyss?gem:box);sigil(p,0,.39,.06);add(p,'edge',0,1.15,0,.14,.35,.07,cone);}}
+ }
+}

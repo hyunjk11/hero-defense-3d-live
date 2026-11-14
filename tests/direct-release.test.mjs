@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {resolveDirectConfig,LIVE_PROJECT,DEMO_PROJECT,DIRECT_READY} from '../src/account/direct-config.js';
+import {CLOUD as DEFAULT_CLOUD} from '../src/config/cloud.js';
+// Retained direct transport is tested explicitly; the new release defaults to Functions.
+const CLOUD={...DEFAULT_CLOUD,storageMode:'firestore-direct',directActivation:'pending-rules-and-data'};delete CLOUD.apiUrl;delete CLOUD.functionsActivation;
+import {createFirebaseClient} from '../src/account/firebase-client.js';
+import {createDirectTransport,encodeFields} from '../src/account/direct-store.js';
+import {bootstrapDocuments,ensureDirectAccount} from '../src/account/direct-bootstrap.js';
+import {releaseArtifacts} from '../direct/release-artifacts.mjs';
+import * as catalog from '../direct/catalog.mjs';
+let count=0;const pass=n=>{count++;console.log('PASS '+n);};
+const config={...CLOUD,directActivation:DIRECT_READY};
+assert.equal(CLOUD.storageMode,'firestore-direct');assert(!('apiUrl'in CLOUD));
+assert.throws(()=>resolveDirectConfig(CLOUD),e=>e.code==='DIRECT_ACTIVATION_REQUIRED');
+const runtime=resolveDirectConfig(config);assert.equal(runtime.endpoint,'https://firestore.googleapis.com');assert.equal(runtime.projectId,LIVE_PROJECT);assert(!runtime.emulated);pass('default has no Sites URL and is explicitly pending real cutover');
+for(const change of [{firebase:{...config.firebase,projectId:DEMO_PROJECT}},{firebase:{...config.firebase,authDomain:'wrong.invalid'}},{firestoreEmulator:'http://127.0.0.1:1234'},{authEmulator:'http://127.0.0.1:1234'},{firestoreEndpoint:'https://other.invalid'}])assert.throws(()=>resolveDirectConfig({...config,...change}),e=>e.code==='DIRECT_CONFIG_INVALID');
+let network=0,sdkCalls=0;await assert.rejects(createFirebaseClient(CLOUD,{sdk:{getApps(){sdkCalls++;}},fetch(){network++;}}),e=>e.code==='DIRECT_ACTIVATION_REQUIRED');assert.equal(sdkCalls,0);assert.equal(network,0);pass('invalid or unactivated production profile stops before SDK/network');
+const u={uid:'release-test',email:'test@example.invalid',getIdToken:async()=>'mock-not-an-actual-token'},auth={currentUser:u,authStateReady:async()=>{}},app={name:'hero-defense-live',options:config.firebase};
+const sdk={getApps:()=>[app],initializeApp(){throw Error('must reuse app');},getAuth:a=>(assert.equal(a,app),auth),setPersistence:async()=>{},browserLocalPersistence:{},connectAuthEmulator(){throw Error('must not connect emulator');},onAuthStateChanged:()=>{},signOut:async()=>{auth.currentUser=null;}};
+const activation={fields:encodeFields({row:{schema:1,enabled:true}})};
+const calls=[];const fetcher=async(url,o)=>{calls.push({url,o});assert(url.startsWith('https://firestore.googleapis.com/v1/'+runtime.root));assert.equal(o.headers.Authorization,'Bearer mock-not-an-actual-token');return {ok:true,status:200,json:async()=>activation};};
+const cli=await createFirebaseClient(config,{sdk,fetch:fetcher,directFactory:()=>async()=>{throw Error('synthetic direct failure');}});
+assert.equal((await cli.auth.getSession()).data.session.user.id,u.uid);assert.equal((await cli.rpc('x')).error.message,'synthetic direct failure');assert.equal(calls.length,1);pass('existing Auth app identity and direct session; failed RPC has no Worker fallback');
+auth.emulatorConfig={};await assert.rejects(createFirebaseClient(config,{sdk}),e=>e.code==='DIRECT_CONFIG_INVALID');delete auth.emulatorConfig;
+await assert.rejects(createFirebaseClient(config,{sdk:{...sdk,getApps:()=>[{...app,options:{projectId:'wrong'}}]}}),e=>e.code==='DIRECT_CONFIG_INVALID');pass('wrong-project app and leftover emulator Auth are rejected');
+for(const d of bootstrapDocuments(u.uid,u.email,0,LIVE_PROJECT))assert(d.name.startsWith(runtime.root+'/hd3d_live/'+u.uid+'/'));
+let denied=0;await assert.rejects(ensureDirectAccount(config,{auth,user:u,fetcher:async()=>{denied++;return {ok:false,status:403,json:async()=>({error:{status:'PERMISSION_DENIED'}})};}}),e=>e.code==='PERMISSION_DENIED');assert.equal(denied,1);pass('production bootstrap names correct; denied legacy access cannot initialize replacement');
+const cases=[{kind:'rpc',name:'hd3d_growth_status'},{kind:'rpc',name:'hd3d_admin_users'},{kind:'rpc',name:'hd3d_admin_send_mail',args:{p_email:'other@example.invalid',p_title:'x',p_body:'',p_reward:{souls:1}}},{kind:'rpc',name:'hd3d_admin_ban',args:{p_user:'other-fixture',p_reason:'x'}},{kind:'query',table:'hd3d_notices',action:'select',columns:'*',filters:{}},{kind:'rpc',name:'hd3d_spire_rank',args:{}},{kind:'query',table:'hd3d_orders',action:'insert',values:{item:'hero_gunner'}},{kind:'rpc',name:'hd3d_admin_spire_reset',args:{p_user:u.uid}},{kind:'rpc',name:'hd3d_admin_broadcast',args:{p_title:'x',p_body:'',p_reward:{souls:1}}}];
+const memory=new Map(),storage={getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)};
+for(const op of cases){let seen=0;const t=createDirectTransport(config,{auth,storage,fetcher:async(url,o)=>{seen++;assert(url.startsWith(runtime.endpoint+'/v1/'+runtime.root));if(o.body)assert(!o.body.includes(DEMO_PROJECT));throw Error('endpoint-probe');}});try{await t(op,u);}catch(e){assert(['endpoint-probe','INVALID_ARGUMENT','LOCAL_WRITE_FAILED'].includes(e.message)||['INVALID_ARGUMENT','LOCAL_WRITE_FAILED'].includes(e.code),e.stack);}assert(seen>0,JSON.stringify(op));}
+pass('game/admin/order/rank/notices route through shared project/endpoint policy');
+const rules=readFileSync(new URL('../direct/firestore.rules',import.meta.url),'utf8'),indexes=JSON.parse(readFileSync(new URL('../direct/firestore.indexes.json',import.meta.url),'utf8'));
+const a=releaseArtifacts(rules,indexes);assert.equal(a.productionReady,false);assert(a.rules.includes("aud == '"+LIVE_PROJECT+"'"));assert(!a.rules.includes("aud == '"+DEMO_PROJECT+"'"));
+assert.equal(a.rules.replaceAll(LIVE_PROJECT,DEMO_PROJECT).replace('// RELEASE CANDIDATE; not deployed. Client randomness is not server adjudication.','// PROTOTYPE, EMULATOR ONLY. Not a production replacement for server adjudication.'),rules);
+const old=Object.values(catalog).flatMap(fn=>fn());assert.deepEqual(a.catalog.map(d=>d.fields),old.map(d=>d.fields));assert(a.catalog.every(d=>d.name.startsWith(runtime.root+'/hd3d_live_catalog/')));assert.throws(()=>releaseArtifacts(rules.replace('function demo()', 'function changed()'),indexes),/manual review/);pass('offline Rules changes only project audience/header; all catalog fields byte-equivalent');
+console.log(JSON.stringify({groups:count,pass:true,liveNetwork:0,actualAuth:false}));

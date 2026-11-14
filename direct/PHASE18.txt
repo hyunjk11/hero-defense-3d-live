@@ -1,0 +1,17 @@
+Phase18 LOCAL REVIEW CHECKPOINT, NOT RELEASE READY
+Added existing administrator approve/reject/refund, grant/revoke hero, owner
+add/remove admin via original server/admin.mjs transitions and atomic target
+revision + immutable audit. Current role/ban/owner binding remains in Rules.
+Broadcast freezes snapshot recipients and resumes per-recipient atomic delivery.
+It is NOT an all-audience atomic commit. 5000-recipient manifest bound is not a
+validated production capacity; actual test audience is three plus one late join.
+Weekly local tick uses durable jobs, exclusive local lock, existing trusted
+frozen-source checks and uncertain-commit readback. No service schedule enabled.
+Reverse verifies complete broadcast delivery/mail links and archives admin history.
+Admin email lookup batches10 user reads, reducing30-user HTTP35 to8 (writes unchanged).
+Node122/122; new Rules admin10/broadcast4; local weeklyHTTP3; see evidence report.
+Actual Auth remains blocked by protected config EPERM, never retried or bypassed.
+Customer order insertion and admin tower reset remain unimplemented. Client RNG,
+high write/read costs, cross-account numeric ID collisions on reversal, external
+writer fencing, actual IAM/export/cutover, login/browser QA and independent review
+remain blockers. No production, original copy, Firebase config or GitHub changes.

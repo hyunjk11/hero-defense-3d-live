@@ -1,0 +1,39 @@
+import {pathToFileURL as reviewPathToFileURL} from 'node:url';
+import * as reviewPath from 'node:path';
+const reviewBaselinePath=process.env.HD3D_DF10_BASELINE;
+if(!reviewBaselinePath)throw new Error('Set HD3D_DF10_BASELINE to the preserved phase-10 fixture directory');
+const reviewBaselineURL=reviewPathToFileURL(reviewPath.resolve(reviewBaselinePath)+reviewPath.sep);
+import {stageCatalog,treeCatalog,itemCatalog,bootstrapTemplate} from './catalog.mjs';
+import {assert,fs,seed,user,get,rest,config} from './emulator-harness.mjs';
+const {createFirebaseClient}=await import(new URL('src/account/firebase-client.js',reviewBaselineURL));
+const {directDocument,DEMO_PROJECT,decodeFields}=await import(new URL('src/account/direct-store.js',reviewBaselineURL));
+const {totalXP}=await import(new URL('src/data/hero-growth.js',reviewBaselineURL));
+const memory=new Map(),events=new Map(),locks=new Map();
+globalThis.localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,String(v)),removeItem:k=>memory.delete(k)};
+globalThis.addEventListener=(k,f)=>events.set(k,[...(events.get(k)||[]),f]);
+globalThis.document={addEventListener(){},visibilityState:'visible'};globalThis.location={search:'',hostname:'localhost'};
+Object.defineProperty(globalThis,'navigator',{value:{locks:{request(k,fn){const p=(locks.get(k)||Promise.resolve()).then(fn);locks.set(k,p.catch(()=>{}));return p;}}},configurable:true});
+
+await rest(':commit',{writes:[...stageCatalog(),...treeCatalog(),...itemCatalog(),bootstrapTemplate()].map(update=>({update}))});
+const sessionMemory=new Map();globalThis.sessionStorage={getItem:k=>sessionMemory.get(k)??null,setItem:(k,v)=>sessionMemory.set(k,String(v)),removeItem:k=>sessionMemory.delete(k)};
+const suffix=Date.now().toString(36)+'-'+crypto.randomUUID().slice(0,5),uid='audit10-spire-journal-'+suffix,uidB=uid+'-b',u=user(uid),b=user(uidB);await seed(uid);await seed(uidB);const bBefore=await get(uidB,'progress');
+const auth={currentUser:u,authStateReady:async()=>{}};
+const sdk={getApps:()=>[],initializeApp:()=>({}),getAuth:()=>auth,connectAuthEmulator:(a,url)=>a.emulatorConfig={url},setPersistence:async()=>{},browserLocalPersistence:{},onAuthStateChanged:()=>{},signOut:async()=>{auth.currentUser=null;},signInWithEmailAndPassword:async(a,email)=>{auth.currentUser=email===b.email?b:u;return {user:auth.currentUser};}};
+
+const commits=[],losses=new Set(['spire_start','spire_finish']),lost=[];
+const fetcher=async(url,o)=>{const r=await fetch(url,o);if(!r.ok){console.log('HTTPFAIL',url,await r.clone().text());if(url.endsWith(':commit'))await fs.writeFile(new URL('../../direct-firestore-evidence-22/baseline-rejected-writes.json',import.meta.url),JSON.stringify(JSON.parse(o.body).writes.map(w=>({...w,update:{...w.update,fields:decodeFields(w.update.fields)}})),null,2));}if(url.endsWith(':commit')&&r.ok){const env=JSON.parse(o.body).writes.filter(x=>x.update).map(x=>decodeFields(x.update.fields));const proof=env.find(x=>x.row.proof)?.row.proof;if(proof?.op?.startsWith('spire_')){commits.push({op:proof.op,request:proof.request,owner:env[0].owner});if(losses.has(proof.op)){losses.delete(proof.op);lost.push(proof.op);throw Error('independent lost '+proof.op+' response');}}}return r;};
+const cli=await createFirebaseClient({...config,storageMode:'firestore-direct-prototype',authEmulator:'http://127.0.0.1:9199',authStorageKey:'audit10-spire-auth'},{sdk,fetch:fetcher});globalThis.window={__hd3dCloudMock:()=>cli};
+const base=new URL('src/account/',reviewBaselineURL).href;const Acc=await import(base+'account.js'),HG=await import(base+'hero-growth.js'),Sp=await import(base+'spire.js'),Shop=await import(base+'shop.js');
+await Acc.signIn(u.email,'fixture-only');await HG.refresh();const before=structuredClone(Acc.load());
+const readRows=async table=>{const r=await cli.from('hd3d_'+table).select('*').eq('user_id',uid);assert.equal(r.error,null);return r.data;};
+const first=await Sp.spStart(1),afterLost=await readRows('spire_runs');const afterLostStatus=structuredClone(await Sp.spStatus());console.log('BASELINE',JSON.stringify({first,afterLost,afterLostStatus}));assert.equal(afterLost.length,1);assert.equal(afterLost[0].status,'active');assert.equal(first.mode,'practice');assert.equal(afterLostStatus.used,1);assert.equal(sessionMemory.size,0);
+await Acc.signOut();await Acc.signIn(u.email,'fixture-only');await HG.refresh();const recoveredStatus=structuredClone(await Sp.spStatus());assert.equal(recoveredStatus.used,1);assert.equal(sessionMemory.size,0);
+const second=await Sp.spStart(1),afterRetry=await readRows('spire_runs');assert.equal(second.mode,'ranked');assert.equal(afterRetry.length,2);assert.equal(afterRetry.find(x=>x.token===afterLost[0].token).status,'abandoned');assert.equal((await Sp.spStatus()).used,2);
+// Explicit trusted fixture aging, not a played battle. Both server issuedAt and legacy started_at are moved consistently.
+const r=afterRetry.find(x=>x.token===second.token),env=await rest(`/hd3d_live/${uid}/hd3d_spire_runs/${r.id}`,null,'owner','GET'),d=decodeFields(env.fields);d.row.started_at=new Date(Date.now()-1000*1000).toISOString();const {encodeFields}=await import(base+'direct-store.js');const update={name:env.name,fields:encodeFields(d)};update.fields.issuedAt={timestampValue:d.row.started_at};await rest(':commit',{writes:[{update}]});
+const finish=await Sp.spFinish(second.token,10,{seconds:300,fixture:true});assert.equal(finish.ok,false);assert.equal(finish.reason,'pending');const walletAfterLost=await get(uid,'growth_wallet');assert.equal(walletAfterLost.balance,1080);
+await Acc.signOut();await Acc.signIn(b.email,'fixture-only');await HG.refresh();assert.deepEqual((await get(uidB,'progress')).authority,bBefore.authority);assert.equal(HG.HG.pending,0);
+await Acc.signOut();await Acc.signIn(u.email,'fixture-only');await HG.refresh();assert.equal(HG.HG.pending,0);assert.deepEqual(await get(uid,'growth_wallet'),walletAfterLost);const repeated=await Sp.spFinish(second.token,10,{seconds:300,fixture:true});assert.equal(repeated.ok,true);assert.deepEqual(await get(uid,'growth_wallet'),walletAfterLost);assert.equal(commits.filter(x=>x.op==='spire_finish').length,1);
+await Shop.refresh();const mails=Shop.S.mail.filter(x=>!x.claimed);assert.equal(mails.length,1);assert.deepEqual(mails[0].reward,{souls:900,medals:6});assert.ok((await Shop.claim(mails[0].id)).ok);assert.equal(Acc.load().souls,before.souls+900);const after=structuredClone(Acc.load());await Acc.signOut();await Acc.signIn(u.email,'fixture-only');await HG.refresh();assert.deepEqual(Acc.load(),after);assert.equal(Acc.serverSaveState(),null);assert.equal(HG.HG.pending,0);
+const result={scope:'actual Account/HG/Spire/Shop plus isolated Rules; synthetic Auth/DOM and explicit timestamp aging, no actual battle',uid,commits,lost,startLoss:{first,afterLost,afterLostStatus,recoveredStatus,second,afterRetry,unrecoveredEntryConsumed:true},finishRecovery:{pass:true,finish,repeated,wallet:walletAfterLost,mail:mails[0],before,after,otherAccountUnchanged:true,exactReload:true,pending:HG.HG.pending}};
+await fs.writeFile(new URL('../../direct-firestore-evidence-22/df10-baseline.json',import.meta.url),JSON.stringify(result,null,2));console.log(JSON.stringify({startFirst:first,startUsed:afterLostStatus.used,afterRetry:afterRetry.length,finishRecovery:true,commits,lost}));await Acc.signOut();

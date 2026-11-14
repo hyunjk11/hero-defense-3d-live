@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {rankTimeKey} from '../src/account/direct-ranking.js';
+import {rankingDocuments,rankingBlockDocuments} from '../direct/ranking-migration.mjs';
+import {planWeeklyAwards} from '../direct/weekly-awards-plan.mjs';
+import {decodeFields} from '../src/account/direct-store.js';
+import {weeklyReward} from '../server/spire.mjs';
+const at='2026-10-27T01:02:03.000001Z',week='2026-10-26';
+assert(rankTimeKey(at)<rankTimeKey(at.replace('000001','000002')));assert.equal(rankTimeKey('2026-10-27T01:02:03Z'),rankTimeKey('2026-10-27T01:02:03.000Z'));
+for(const x of ['bad','2026-02-30T00:00:00Z','2026-10-27T01:02:03.0000000001Z'])assert.throws(()=>rankTimeKey(x));
+const row={uid:'a',kind:'all',nick:'A',floor:30,at};const [d]=rankingDocuments([row]);assert.equal(d.fields.at.timestampValue,at);assert.equal(rankingDocuments([{...row,at:'2026-10-27'}])[0].fields.at.timestampValue,'2026-10-27T00:00:00.000Z');assert.equal(decodeFields(d.fields).revision,0);assert.throws(()=>rankingDocuments([row,row]));assert.throws(()=>rankingDocuments([row],{project:'real'}));
+const [b]=rankingBlockDocuments(['b']);assert.deepEqual(Object.keys(b.fields).sort(),['banned','lastRequest','revision','uid','updatedAt']);assert.equal(decodeFields(b.fields).banned,true);assert.throws(()=>rankingBlockDocuments(['b','b']));assert.throws(()=>rankingBlockDocuments(['b'],{project:'real'}));
+const snapshot={project:'demo-hd3d-direct',complete:true,writersStopped:true,activeRuns:0,pendingJournals:0,week,capturedAt:'2026-11-02T00:00:00.000Z',banned:['b'],rows:[{uid:'b',week,floor:999,at,claimed:false},{uid:'already',week,floor:31,at,claimed:true},{uid:'a',week,floor:30,at,claimed:false},{uid:'c',week,floor:30,at:at.replace('000001','000002'),claimed:false}]};
+const p=planWeeklyAwards(snapshot);assert.equal(p.productionReady,false);assert.equal(p.grants.length,2);assert.equal(p.ranked[0].uid,'already');assert.equal(p.ranked[1].uid,'a');const g=decodeFields(p.grants[0].fields).row.result;assert.equal(g.rank,2);assert.equal(g.title,'spire_w10');assert.equal(g.souls,weeklyReward(30).souls);assert.deepEqual(p,planWeeklyAwards(structuredClone(snapshot)));
+for(const change of [{complete:false},{writersStopped:false},{activeRuns:1},{pendingJournals:1},{week:'2026-10-27'},{capturedAt:'bad'},{capturedAt:'2026-11-01T14:59:59Z'},{project:'real'},{rows:[snapshot.rows[0],snapshot.rows[0]]}])assert.throws(()=>planWeeklyAwards({...snapshot,...change}));
+assert.doesNotThrow(()=>planWeeklyAwards({...snapshot,capturedAt:'2026-11-01T15:00:00Z'}));
+console.log('PASS timestamp precision, projection privacy/import uniqueness, closed-week fencing/rank/title/reward and banned/claimed exclusions');

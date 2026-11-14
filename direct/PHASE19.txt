@@ -1,0 +1,28 @@
+Phase 19 LOCAL REVIEW CHECKPOINT. NOT RELEASE READY.
+Customer order requests preserve legacy shape. One pending item guard, global
+numeric allocator, account revision and immutable receipt form a six-write
+atomic commit. This requests a hero purchase, never approves a payment or grants
+assets. Unknown replies are resolved from receipts, not blindly retried.
+Full trusted migration now provisions the counter and pending-item guards;
+zero-account bootstrap creates only zero guards. Existing duplicate pending
+orders block import for review; no legacy order is silently deleted.
+Admin spire reset reuses server/admin.mjs, resets current best/week and public
+ranks, abandons active runs, preserves old rewards/XP/entry counts. A linked reset
+marker prevents an omitted stale run from restoring a reset score. Current role,
+reason, target revision and immutable audit remain mandatory. Large batches
+fail closed; no partial reset or operational admin role change.
+Reverse collision preflight reports all conflicting numeric table/IDs and known
+reference fields; it returns no job/writes and never renames or drops records.
+Explicit remapping is NOT implemented. Mail IDs influence item generation.
+Order allocator/guard/receipt integrity and audited historical week deletion are
+checked during reversal, with the whole direct archive retained.
+The common Rules sequence dispatcher avoids repeated proof evaluation, fixing
+a 55-wave/11-drop challenge expression-budget regression without omitting checks.
+No changes to game balance, reward algorithms, UI, installed/formal PC copies,
+Firebase/Auth/Rules configuration, operational data, scheduling or GitHub.
+See ../../direct-firestore-evidence-19/REPORT.txt and FINAL-VERIFICATION.json.
+Actual Auth login/browser remains untested: protected firebase-tools.json EPERM
+was not retried. Synthetic JWT/DOM and demo operator tests are not real Auth/IAM.
+Client RNG and attestation remain weaker than trusted server adjudication.
+High settlement/read/write costs and production writer/export/cutover verification
+remain unresolved. Emulator-only guard deliberately remains enabled.

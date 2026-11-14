@@ -1,0 +1,41 @@
+{
+  "format": "hd3d-fresh-live-release-plan-v1",
+  "isRuntimeConfig": false,
+  "productionReady": false,
+  "knownProjectFromLocalV34": "hero-defense-3d-independent",
+  "requiredValues": {
+    "projectId": "hero-defense-3d-independent",
+    "authDomain": "hero-defense-3d-independent.firebaseapp.com",
+    "authAudience": "hero-defense-3d-independent",
+    "firestoreRESTRoot": "https://firestore.googleapis.com/v1/projects/hero-defense-3d-independent/databases/(default)/documents",
+    "scopedRoot": "hd3d_live/{authenticatedUid}",
+    "publicFirebaseWebConfig": "reuse existing src/config/cloud.js Firebase Web config after checking project; do not invent admin credentials",
+    "staticOrigin": "PROPOSED, NOT LIVE: https://hyunjk11.github.io/hero-defense-3d-live/",
+    "gitRepository": "PROPOSED, NOT CREATED: https://github.com/hyunjk11/hero-defense-3d-live",
+    "gitBranch": "UNCREATED; publication has not been executed"
+  },
+  "codeGates": [
+    "exact existing Firebase project and endpoint; client activation remains pending",
+    "all direct storage uses hd3d_live scopes",
+    "new browser storage keys and Firebase app name",
+    "prepare-fresh-release.mjs is offline and create-only"
+  ],
+  "activationOrder": [
+    "review fresh-scope Rules alongside current deployed Rules; preserve old scopes",
+    "verify new namespace has no conflicting documents; no old-data scan",
+    "approve Rules/index/catalog/counter provisioning; read back exact initial fields",
+    "test fresh Auth/login/save/recovery and account separation",
+    "approve verified first-owner UID provisioning if needed",
+    "publish only the separately approved new repository/site; preserve old main/Pages/stag"
+  ],
+  "unperformed": [
+    "production Rules/index/catalog/counter/admin or activation writes",
+    "new Git repository or Pages deployment",
+    "actual Auth/browser QA for this fresh candidate",
+    "production data export/import/deletion",
+    "Auth domain/security/billing/IAM changes"
+  ],
+  "phase": "fresh-live",
+  "runtimeMode": "firestore-direct",
+  "runtimeActivation": "pending-rules-and-data"
+}

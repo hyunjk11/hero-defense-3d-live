@@ -1,0 +1,31 @@
+Phase 16 local review checkpoint — NOT RELEASE READY
+
+Current evidence: ../../direct-firestore-evidence-17/REPORT.txt and FINAL-VERIFICATION.json.
+Normal endless/challenge settlement now keeps unlocked-chapter drops, bestWave,
+actual sparse boss-kill counts, original currency/essence formulas and per-item
+recovery. It does not apply campaign's 4/10 boss-drop limit to endless mode.
+Progress/header/revision commit together; item/cursor/progress commit together.
+Earlier asset-free drop preflights are immutable and can resume the same request.
+The old result/town screens are reused. No new panel or gameplay-value change.
+
+Final Node 119/119. Firestore command batch 22/24, corrected support URL rerun
+makes 23/24 effective. Remaining security suite: 50/51; actual local Auth test
+blocked because emulator package initialization reads protected configstore
+(OS EPERM). Not skipped or counted as a pass. Challenge Rules 10/10; product
+Account/HG recovery integration passed using synthetic Auth/DOM, not browser.
+Global import/reverse 3/3 and exact legacy rank time 3/3 in actual local Rules.
+Browser tool unavailable; no current real UI/gameplay or production claims.
+
+Client RNG and combat claims are not trustworthy. Ordinary draws were already
+client-side in v34; moving hard/dungeon server draws to clients is weaker.
+Typed bounds and immutable receipts do not restore server RNG/attestation.
+High-wave cost is material: wave55/11 drops requires 316 HTTP requests and 113
+document writes across34 commits just for settlement (no retries/start/reload).
+These are emulator operation counts, not billable read counts or a speed claim.
+
+Remaining before release: administrator paid-order/hero/mail/broadcast/role and
+spire-reset writes, trusted automatic weekly award finalization, actual browser
+coverage, safe complete production export/import/reverse executor and cutover,
+quota/performance acceptance, independent Rules audit. Existing Worker retained.
+All direct code still explicitly restricts itself to demo/loopback. No live data,
+Rules, Auth, billing, GitHub, Sites or installed/formal game copies changed.

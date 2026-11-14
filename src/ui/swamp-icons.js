@@ -1,0 +1,18 @@
+// Chapter-five inventory art, authored as vectors so it stays sharp in the bag and reward cards.
+const shapes = {
+  archer: '<path d="M23 8Q58 32 23 56L34 32Z" fill="#647d3c"/><path d="M23 8L19 21L30 27M23 56L19 43L30 37" fill="none" stroke="#d0d999" stroke-width="4"/><path d="M23 8L23 56M9 32H52" stroke="#d4b778" stroke-width="2"/><path d="M48 27L57 32L48 37" fill="#cbd68b"/><ellipse cx="36" cy="32" rx="4" ry="7" fill="#eac761"/>',
+  mage: '<path d="M27 56L33 25Q20 12 36 7Q51 10 44 22" fill="none" stroke="#8a6445" stroke-width="6"/><path d="M28 53L33 28" stroke="#d6bd81" stroke-width="2"/><path d="M33 15L29 24L35 37L45 33L48 20L42 13Z" fill="#365e4c"/><path d="M36 18L33 25L37 32L42 29L44 22L40 17Z" fill="#75e4b7"/><path d="M24 42L37 45M24 47L35 50" stroke="#98a66a" stroke-width="3"/>',
+  warrior: '<path d="M43 6L50 17L30 44L20 36Z" fill="#c3d19b"/><path d="M43 6L25 40L31 42L50 17Z" fill="#6c8854"/><path d="M17 32L36 45L33 49L13 36Z" fill="#be934d"/><path d="M23 42L14 57L9 54L18 39Z" fill="#76513c"/><path d="M35 19L43 19L35 24L38 29L29 30" fill="none" stroke="#e3e7bc" stroke-width="2"/>',
+  gunner: '<path d="M9 16L43 12L52 19L49 27L27 27L24 47L12 47L16 25Z" fill="#627d52"/><path d="M12 17L43 15L49 20L25 22Z" fill="#d0d6a0"/><path d="M17 30L23 31L20 43L14 43Z" fill="#7c503d"/><circle cx="32" cy="27" r="7" fill="#354d3d"/><circle cx="32" cy="27" r="4" fill="#d8b840"/><path d="M38 36L55 34L57 41L45 44L42 57L34 54L38 42Z" fill="#8da56b"/>',
+  mechanic: '<path d="M15 24L38 18L50 36L38 51L14 43Z" fill="#617c52"/><path d="M38 18L53 7L51 33Z" fill="#d1d6a2"/><path d="M40 20L50 16M44 25L51 22M46 29L52 27" stroke="#6e894e" stroke-width="3"/><circle cx="27" cy="34" r="11" fill="#344a3f"/><circle cx="27" cy="34" r="6" fill="#d4b147"/><path d="M15 43L9 53L27 57L32 48" fill="#845a43"/>',
+  fighter: '<path d="M12 28L16 14L26 13L29 10L39 13L49 20L53 31L44 43L41 56L21 55L21 43Z" fill="#6e8452"/><path d="M17 16L22 6L27 14M30 12L36 4L39 16M41 17L49 10L50 23" fill="#d3d8a6"/><path d="M20 30L28 24L43 28L44 36L30 41Z" fill="#a6b775"/><path d="M23 45L41 46M22 50L41 51" stroke="#d7b77a" stroke-width="3"/>',
+  armor: '<path d="M21 10L27 15H37L43 10L57 22L50 34L44 29L47 54L17 54L20 29L14 34L7 22Z" fill="#4d684c"/><path d="M19 19L28 17L32 23L36 17L45 19L42 38L32 48L22 38Z" fill="#9ba969"/><path d="M21 25L30 31L22 36M43 25L34 31L42 36" fill="none" stroke="#506b45" stroke-width="3"/><path d="M32 23L38 31L32 39L26 31Z" fill="#dfbe55"/><path d="M16 14L9 19L16 25M48 14L55 19L48 25" fill="#c6d298"/>',
+  acc: '<path d="M16 8Q6 29 30 36M48 8Q58 29 34 36" fill="none" stroke="#bfac70" stroke-width="3"/><path d="M20 35L28 29L37 29L46 35L43 48L32 58L21 48Z" fill="#4c6850"/><path d="M26 35L33 32L40 36L38 47L32 52L26 46Z" fill="#83d6a3"/><path d="M32 36L30 46L35 42" fill="none" stroke="#e2efbc" stroke-width="2"/><path d="M20 37L14 34L17 44M45 38L51 34L48 44" fill="#a6b76e"/>'
+};
+export function swampIcon(it) {
+  if (+it?.c !== 5) return null;
+  const row = it.s === 'weapon' ? it.h : it.s, shape = shapes[row]; if (!shape) return null;
+  const trim = it.g >= 3 ? '<path d="M5 12L8 5L15 8M49 8L56 5L59 12M5 52L8 59L15 56M49 56L56 59L59 52" fill="none" stroke="#dfc777" stroke-width="2"/>' : '';
+  const label = { archer: '활', mage: '지팡이', warrior: '검', gunner: '쌍권총', mechanic: '작업암', fighter: '권갑', armor: '갑주', acc: '펜던트' }[row];
+  return `<svg class="swampItemIcon" viewBox="0 0 64 64" role="img" aria-label="늪지 ${label}" xmlns="http://www.w3.org/2000/svg"><ellipse cx="32" cy="54" rx="23" ry="5" fill="#101f1b" opacity=".5"/><g stroke="#263a31" stroke-width="1.8" stroke-linejoin="round">${shape}</g>${trim}${it.g === 4 ? '<circle cx="53" cy="10" r="3" fill="#fff0a4"/>' : ''}</svg>`;
+}

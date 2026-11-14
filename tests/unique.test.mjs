@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import * as E from '../src/account/equip.js';
+import * as P from '../src/account/progress.js';
+import * as RI from '../src/account/rewarditems.js';
+import * as ST from '../src/data/stages.js';
+import { packSave } from '../src/account/storage.js';
+const normal=E.makeItem('weapon','archer',4,()=>.42,1); normal.id='keep123'; normal.u='multishot';
+const legacy={id:'u_f_bow',uq:'f_bow',e:5,a:3,s:'weapon',h:'archer',g:4,m:['atk',28],sub:[],n:'retired'};
+const raw={...P.empty(),v:2,souls:123,inv:[normal,legacy],stor:[JSON.stringify(['s_arm',8,4]),{...legacy,id:'u_unknown'}],chests:[{it:{...legacy,id:'u_f_acc'},src:'unique'}],eq:{archer:{weapon:'u_f_bow'}},mat:{steel:11,crystal:12,essence:13},uqLog:{f_bow:1},uqPity:{f_arm:59}};
+const clean=P.clean(raw);assert.equal(clean.v,4);assert.deepEqual(clean.inv,[normal]);assert.equal(clean.stor.length,0);assert.equal(clean.chests.length,0);assert.deepEqual(clean.eq.archer,{});assert.deepEqual(clean.mat,raw.mat);assert.equal(clean.souls,123);assert.ok(!('uqLog' in clean));assert.ok(!('uqPity' in clean));assert.deepEqual(P.clean(clean),clean);assert.deepEqual(P.clean(packSave(clean)),clean);assert.equal(raw.inv.length,2);
+assert.equal(E.cleanItem({...normal,id:'u_legacy'},P.HEROES),null);assert.equal(E.legendKey(legacy),null);assert.equal(E.legendKey(normal),'multishot');assert.equal(Object.keys(E.LSK).length,12);
+let s=P.empty();for(const id of Object.keys(ST.STAGES))s=P.applyStage(s,id,3,'archer',()=>.99)[0];s=P.applyRun(s,{wave:60,kills:10,bossKills:[20,25,40,60],ch:'open'},()=>0)[0];assert.ok([...s.inv,...s.stor,...s.chests.map(x=>x.it)].every(x=>!x.uq));assert.ok(s.mat.essence>=4);
+assert.equal(RI.validItem({k:'uq',u:'f_bow'}),false);const [ma,ok,res]=P.applyMail(raw,999,{essence:3,items:[{k:'uq',u:'d_fist'},{k:'gear',s:'armor',g:4}]});assert.ok(ok);assert.equal(res.length,1);assert.equal(ma.mat.essence,16);assert.equal(ma.inv.length,1);assert.equal(ma.chests.length,1);
+assert.equal(E.makeUnique,undefined);assert.equal(E.awaken,undefined);assert.equal(P.backfill,undefined);console.log('Unique retirement: inventory, packed storage, chests, equipment, mail and all 60 stage rewards passed');

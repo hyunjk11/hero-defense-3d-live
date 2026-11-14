@@ -1,0 +1,17 @@
+import {assert,fs,root,host,rest,test,rows} from './emulator-harness.mjs';
+import {source} from '../tests/direct-global-migration.test.mjs';
+import {planGlobalMigration} from './global-migration-plan.mjs';
+import {decodeFields,encodeFields,directDocument} from '../src/account/direct-store.js';
+import {localStore} from './operator-local.mjs';
+import {tickLocalWeeks} from './weekly-local-repository.mjs';
+import {join,resolve} from 'node:path';
+const plan=planGlobalMigration(source()),docs=structuredClone([...plan.data,...plan.activations]).filter(d=>!d.name.includes('/hd3d_bans/'));
+for(const d of docs.filter(d=>d.name.endsWith('/_activation'))){const v=decodeFields(d.fields);v.row.enabled=false;d.fields=encodeFields(v);}
+for(const [uid,floor] of [['global-a',30],['global-b',25]])docs.push(directDocument('demo-hd3d-direct',uid,'hd3d_spire_weeks',uid+'~2026-11-02',{user_id:uid,week:'2026-11-02',best_floor:floor,best_at:'2026-11-03T00:00:00Z',claimed:false}));
+await rest(':commit',{writes:docs.map(update=>({update}))});
+const directory=resolve('../direct-firestore-evidence-22/weekly-jobs-'+Date.now()),opts={now:Date.parse('2026-11-10T00:00:00Z'),assurance:{writersStopped:true,pendingClientJournals:0,exclusiveWriterConfirmed:true}},store=localStore(host);let lost=false;
+const commit=store.commit;store.commit=async writes=>{const r=await commit(writes);if(!lost){lost=true;throw Error('lost response after commit');}return r;};
+await test('local weekly dry-run creates no grants or saved jobs',async()=>{const r=await tickLocalWeeks(directory,store,opts);assert(r.results[0].dryRun);assert.equal(store.stats.commits,0);assert.deepEqual(await fs.readdir(directory),[]);});
+await test('uncertain partial HTTP commit is read back, process restart resumes same disk job, duplicate tick does not award twice',async()=>{await assert.rejects(tickLocalWeeks(directory,store,{...opts,execute:true,batchSize:1,maxBatches:1}),/batch limit/);assert.equal(store.stats.commits,1);const job=JSON.parse(await fs.readFile(join(directory,'2026-11-02.json'),'utf8'));assert(!job.complete);const r=await tickLocalWeeks(directory,store,{...opts,execute:true});assert(r.results[0].complete);assert.equal(store.stats.commits,2);assert((await tickLocalWeeks(directory,store,{...opts,execute:true,now:opts.now+86400000})).results[0].already);assert.equal(store.stats.commits,2);});
+await test('existing lock is preserved and not stolen; completed missing grant blocks recovery instead of silently reissuing',async()=>{const lock=join(directory,'weekly.lock');await fs.writeFile(lock,'{"id":"synthetic-interrupted-owner"}',{flag:'wx'});await assert.rejects(tickLocalWeeks(directory,store,{...opts,execute:true}),/locked/);assert.equal(JSON.parse(await fs.readFile(lock,'utf8')).id,'synthetic-interrupted-owner');await fs.unlink(lock);const all=await store.inventory(),grant=all.find(d=>d.name.includes('~spaward~'));await rest(':commit',{writes:[{delete:grant.name}]});await assert.rejects(tickLocalWeeks(directory,store,{...opts,execute:true}),/missing or changed/);await rest(':commit',{writes:[{update:{name:grant.name,fields:grant.fields}}]});});
+await fs.writeFile('../direct-firestore-evidence-22/weekly-runner-results.json',JSON.stringify({scope:'trusted operator demo-only HTTP and disk jobs; no service scheduler or real writer fencing',directory,stats:store.stats,rows},null,2));if(rows.some(r=>!r.pass))process.exitCode=1;

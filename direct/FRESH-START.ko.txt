@@ -1,0 +1,55 @@
+새 시작 검토본 — 운영 미반영
+
+대상: 기존 Firebase hero-defense-3d-independent / (default), Standard.
+신규 계정 자료: hd3d_live/{uid}/{hd3d_* 내부 테이블}/{id}.
+신규 전역 자료: hd3d_live_* (카탈로그, 계정색인, 주문, 공지, 랭킹 등).
+기존 hd3d_* 루트 및 hd3d_direct*는 읽기/이관/삭제 대상으로 삼지 않는다.
+이전 migration/transfer 도구는 과거 검토 자료이며 새 시작 절차에서 실행하지 않는다.
+
+기존 Auth의 이메일/비밀번호와 UID는 그대로 사용한다. 같은 UID의 과거 세이브,
+관리자 기록이 있어도 새 hd3d_live 저장은 0부터 만든다. 기존 live 저장이 있으면
+덮어쓰지 않는다. 새 계정 7문서는 exists:false 조건의 한 commit으로 생성한다.
+응답 유실 후에는 activation을 조회해 성공 여부를 판별한다.
+클라이언트 기본 activation은 pending-rules-and-data로 유지한다.
+현재 원본 하드 상자 수량/확률/첫 보장/장비 정의는 변경하지 않는다.
+
+브라우저 분리
+- 클라우드 저장/보류/창고/복구: hd3d_live 접두사.
+- 성장 ledger, 던전/탑 토큰, 결과, 자동조작/음량/그래픽/편성/도감 표시 키도 분리.
+- Firebase SDK 앱명 hero-defense-live, Auth 표시 키 hd3dLiveFirebaseAuth.
+- 동일 github.io origin의 다른 저장소도 localStorage를 공유하므로 경로만으로 분리하지 않는다.
+- 기존 키를 읽거나 삭제하거나 새 키로 복사하지 않는다.
+
+오프라인 초기 자료
+node direct/prepare-fresh-release.mjs NEW-local-directory
+카탈로그 197개 + hd3d_live_order_counter/main {value:0} = 198문서 계획.
+모두 exists:false; 기존 대상이 있으면 덮어쓰기/초기화하지 말고 중단한다.
+계정 세이브는 최초 로그인 때 생성한다. 기존 사용자/자산 dump는 포함하지 않는다.
+
+관리자
+- 이메일만으로 권한을 자동 부여하지 않는다. 기존 관리자도 자동 이관하지 않는다.
+- 첫 관리자는 기존 Auth에서 정상 확인한 UID와 기존 owner 이메일 일치를 확인해야 한다.
+- 해당 UID가 새 live 저장을 만든 다음 정확한 activation/revision updateTime을 확인한다.
+- initialOwnerPlan은 그 두 문서를 verify하는 조건과 역할 exists:false 생성을 묶은
+  오프라인 계획만 만든다. 실제 실행 도구는 없으며 운영 쓰기 승인이 별도로 필요하다.
+- 일반 클라이언트의 owner=true 생성은 계속 거부한다.
+
+실제 반영 전 필요한 변경과 영향
+1. 신규 hd3d_live* 대상의 충돌 여부만 제한 조회. 기존 자료 조회/백업은 하지 않는다.
+2. 현 운영 Rules를 확보해 새 경로 부분을 합치고 기존 경로 접근 결과를 회귀 확인.
+   firestore.live.candidate.rules는 독립 검사본이며 그대로 덮어써 배포하면 안 된다.
+   같은 DB의 Rules는 DB 전체에 적용된다. 기존 allow와 겹치면 새 규칙의 deny로 막을 수 없다.
+3. 승인 후 새 Rules/index와 198개 초기 자료만 생성하고 전체 필드/hash를 재확인.
+   Firestore 무료 할당량은 기존 서비스와 공유한다. Blaze/유료 기능 사용 안 함.
+4. 검증 후 클라이언트 activation 변경. 필요하면 검증한 최초 관리자 계획만 별도 적용.
+5. hero-defense-3d-live 신규 Git 저장소/Pages 구성은 아직 실행하지 않았다.
+   hyunjk11.github.io/hero-defense-3d-live/는 예정 주소 형식이며 활성 URL이 아니다.
+   기존 hero-defense-3d main/Pages/?stag는 변경하지 않는다.
+   같은 호스트면 Auth 허용 도메인을 추가할 필요가 없는지 먼저 확인한다.
+   다른 호스트를 쓰면 그 정확한 도메인 승인/로그인 흐름 검증이 필요하다.
+6. 새 사이트에서 로그인/저장/귀환/재접속과 계정 분리를 확인한 후 공개한다.
+
+되돌리기: 새 사이트/프로필만 비활성화하고 신규 자료도 보존한다.
+기존 세이브를 새 저장으로 복원하거나 역이관하는 작업은 하지 않는다.
+공유 Auth 계정 삭제/비밀번호 변경/권한 확대는 포함하지 않는다.
+클라이언트 전투 신고/추첨 신뢰 한계와 읽기/쓰기 비용은 그대로이며 해결됐다고 주장하지 않는다.

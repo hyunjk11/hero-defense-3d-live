@@ -1,0 +1,56 @@
+// node tests/admin.test.mjs — 관리자 순수 로직 (src/account/adminlogic.js)
+import * as L from '../src/account/adminlogic.js';
+let n = 0, f = 0; const ok = (name, c, info = '') => { n++; if (!c) { f++; console.log('FAIL', name, info); } else console.log('OK  ', name); };
+ok('reward_build', JSON.stringify(L.buildReward({ souls: '500', steel: 0, crystal: 2e7, hero: 'gunner' })) === '{"souls":500,"crystal":1000000,"hero":"gunner"}');
+ok('reward_build_neg_bad_hero', JSON.stringify(L.buildReward({ souls: -5, steel: 'x', hero: 'warrior' })) === '{}');
+ok('reward_valid', L.validReward(null) && L.validReward({ souls: 1 }) && L.validReward({ hero: 'mechanic' }) && !L.validReward({ gold: 1 }) && !L.validReward({ souls: 1.5 }) && !L.validReward({ souls: 1000001 }) && !L.validReward([]) && !L.validReward({ hero: 'mage' }));
+ok('reason', L.cleanReason('  환불  ') === '환불' && L.cleanReason('   ') === null && L.cleanReason('x'.repeat(201)) === null && L.cleanReason(null) === null && L.cleanReason('x'.repeat(200)).length === 200);
+ok('email', L.validEmail('a@b.kr') && !L.validEmail('a@b') && !L.validEmail(' ') && !L.validEmail('a b@c.kr'));
+ok('reason_msg', L.reasonMsg('self').includes('자기') && L.reasonMsg('zzz').includes('zzz'));
+ok('errs', L.isMissingErr({ code: 'PGRST202' }) && !L.isMissingErr({ code: '42501' }) && L.isForbiddenErr({ code: '42501' }) && L.isBannedErr({ code: '42501', hint: 'banned' }) && L.isBannedErr({ message: 'banned' }) && !L.isBannedErr({ message: 'forbidden' }));
+let p = L.pageInfo(45, 20, 20); ok('page_mid', p.page === 2 && p.pages === 3 && p.prev === 0 && p.next === 40, p);
+p = L.pageInfo(0, 0, 20); ok('page_empty', p.page === 1 && p.pages === 1 && p.prev === null && p.next === null, p);
+p = L.pageInfo(40, 20, 20); ok('page_last', p.page === 2 && p.next === null, p);
+const sp = L.summaryParts({ stars: 12, hstars: 3, souls: 12345, crystal: 7, essence: 1, bestWave: 30, runs: 9, adv: { gunner: 'thorn' } }, h => h.toUpperCase(), (h, b) => b + '!');
+ok('summary', sp[0] === '★ 12' && sp[1].includes('12,345') && sp[3] === '전직: GUNNER→thorn!', sp);
+ok('summary_none', L.summaryParts(null)[0] === '저장 없음' && L.summaryParts({ adv: {} })[3] === '전직: 없음');
+const now = Date.parse('2026-10-22T12:00:00Z');
+const NS = [{ id: 1, title: 'a', active: true, created_at: '2026-10-20T00:00:00Z' }, { id: 2, title: 'b', active: true, created_at: '2026-10-21T00:00:00Z' }, { id: 3, title: 'off', active: false, created_at: '2026-10-21T00:00:00Z' },
+  { id: 4, title: 'future', active: true, starts_at: '2026-10-23T00:00:00Z', created_at: '2026-10-21T00:00:00Z' }, { id: 5, title: 'ended', active: true, ends_at: '2026-10-22T11:00:00Z', created_at: '2026-10-21T00:00:00Z' }];
+ok('notices_active', L.activeNotices(NS, now).map(x => x.id).join() === '2,1');
+ok('notices_pending', L.pendingNotices(NS, ['2'], now).map(x => x.id).join() === '1' && L.pendingNotices(NS, [1, 2], now).length === 0 && L.pendingNotices(null, null, now).length === 0);
+let ds = []; for (let i = 0; i < 250; i++) ds = L.dismissNotice(ds, i); ok('dismiss_cap', ds.length === L.NOTICE_KEEP && ds.at(-1) === '249' && L.dismissNotice(['1'], 1).length === 1);
+ok('notice_state', L.noticeState(NS[0], now) === 'on' && L.noticeState(NS[2], now) === 'off' && L.noticeState(NS[3], now) === 'wait' && L.noticeState(NS[4], now) === 'ended');
+ok('local_iso', L.localToIso('') === null && L.localToIso('zz') === null && L.isoToLocal(L.localToIso('2026-10-22T09:30')) === '2026-10-22T09:30' && L.isoToLocal(null) === '');
+ok('log_detail', L.logDetail({ detail: { item: 'hero_gunner', reason: '오지급' } }) === '로즈 · 사유: 오지급' && L.logDetail({ detail: { title: 't', recipients: 3, reward: { souls: 1 } } }, () => '영혼석 1') === '「t」 · 영혼석 1 · 3명' && L.logDetail({}) === '');
+ok('action_names', ['order_approve', 'order_reject', 'order_refund', 'mail_send', 'broadcast', 'hero_grant', 'hero_revoke', 'ban', 'unban', 'notice_create', 'notice_update', 'notice_deactivate', 'admin_add', 'admin_remove'].every(k => L.ACTION_N[k]));
+ok('broadcast_text', L.broadcastConfirmText(12, '영혼석 300').includes('12명') && L.broadcastConfirmText(3, '').indexOf('보상') < 0);
+// ---- 아이템 · 조각(전직 정수) 지급 (src/account/rewarditems.js + progress.applyMail) ----
+import * as RI from '../src/account/rewarditems.js';
+import { applyMail, empty } from '../src/account/progress.js';
+import { HERO_KEYS, VISIBLE_HEROES } from '../src/data/heroes.js';
+import { readFileSync } from 'node:fs';
+const SQL = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8'), MOCK = readFileSync(new URL('./sbmock.js', import.meta.url), 'utf8');
+const vi = SQL.slice(SQL.indexOf('function public.hd3d_valid_item'), SQL.indexOf('function public.hd3d_valid_reward'));
+ok('sql_hero_keys_match', HERO_KEYS.every(h => vi.includes(`'${h}'`)));
+const G = { k: 'gear', s: 'weapon', h: 'gunner', g: 4, c: 4 }, U = { k: 'uq', u: 'f_bow' };
+ok('item_valid', RI.validItem(G) && !RI.validItem(U) && RI.validItem({ k: 'gear', s: 'armor', g: 0 }) && RI.validItem({ k: 'gear', s: 'acc', g: 2, c: 1 }));
+ok('item_invalid', ![null, [], 1, { k: 'uq', u: 'zz' }, { k: 'gear', s: 'weapon', g: 1 }, { k: 'gear', s: 'armor', h: 'mage', g: 1 }, { k: 'gear', s: 'armor', g: 5 }, { k: 'gear', s: 'armor', g: '1' }, { k: 'gear', s: 'armor', g: 1, c: 11 }, { k: 'gear', s: 'armor', g: 1, x: 1 }, { k: 'gem' }, { k: 'uq', u: 'f_bow', g: 4 }].some(RI.validItem));
+ok('reward_items_valid', L.validReward({ essence: 10000, items: [G] }) && !L.validReward({ essence: 10001 }) && !L.validReward({ essence: 1.5 }) && !L.validReward({ items: [] }) && !L.validReward({ items: Array(11).fill(U) }) && !L.validReward({ items: [{ k: 'uq', u: 'x' }] }) && !L.validReward({ items: U }));
+ok('reward_build_items', JSON.stringify(L.buildReward({ essence: 20000, items: [G, { k: 'bad' }, U] })) === JSON.stringify({ essence: 10000, items: [G] }) && L.buildReward({ items: Array(15).fill(G) }).items.length === 10);
+ok('item_label', RI.itemLabel(G).includes('전설') && RI.itemLabel(G).includes('총사') && !RI.validItem(U) && RI.itemLabel({ k: 'gear', s: 'armor', g: 0 }).includes('일반 방어구'));
+const cat = RI.catalog(); ok('catalog', cat.length === 11 * 5 * (VISIBLE_HEROES.length + 2) + 7 && cat.every(e => RI.validItem(e.spec)), cat.length);
+ok('search', RI.searchCatalog('세계수').every(e => e.spec.k === 'gear') && RI.searchCatalog('전설 방어구', 50).every(e => e.spec.s === 'armor' && e.spec.g === 4) && RI.searchCatalog('').length === 0);
+ok('preview', RI.previewLines({ souls: 10, essence: 3, items: [G] }).length === 3 && RI.previewLines({ essence: 3 })[0].includes('전직 정수'));
+// grant → claim → 보관함/전직 정수
+let s0 = empty(), [s1, ok1, res1] = applyMail(s0, 11, { essence: 7, steel: 2, items: [G, { k: 'gear', s: 'armor', g: 1 }, U] });
+ok('claim_items', ok1 && s1.mat.essence === 7 && s1.mat.steel === 2 && s1.chests.length === 2 && s1.chests.some(c => c.id === 'cm11_0' && c.it.g === 4 && c.it.h === 'gunner' && c.it.c === 4) && res1.length === 2, s1.chests);
+const [s1b, okb] = applyMail(s1, 11, { essence: 7, items: [G] }); ok('claim_once', !okb && s1b.mat.essence === 7 && s1b.chests.length === 2);
+const [s2, ok2, res2] = applyMail(s1, 12, { items: [U] }); ok('retired_mail_ignored', ok2 && res2.length === 0 && s2.chests.length === 2 && s2.mat.essence === 7);
+const [s3, , res3] = applyMail(empty(), 13, { items: [G] }), [s4] = applyMail(empty(), 13, { items: [G] }); ok('gear_deterministic', JSON.stringify(s3.chests[0].it) === JSON.stringify(s4.chests[0].it) && res3.length === 1, [s3.chests, s4.chests, res3.length]);
+const [s5] = applyMail(empty(), 14, { essence: 1e9, items: [{ k: 'uq', u: 'nope' }, { k: 'gear', s: 'weapon', h: 'mechanic', g: 2 }] }); ok('claim_clamp_hidden', s5.mat.essence === 10000 && s5.chests.length === 1 && s5.chests[0].it.h === 'archer', s5.chests);
+// 던전 메달 우편 (2026-10-23): 0~10,000 정수 · 서버 hd3d_valid_reward 와 같은 규칙 · 세이브에는 더하지 않음 (서버 지갑)
+ok('reward_medals', JSON.stringify(L.buildReward({ medals: '30' })) === '{"medals":30}' && L.buildReward({ medals: 99999 }).medals === 10000 && !('medals' in L.buildReward({ medals: -3 })) && L.validReward({ medals: 10000 }) && !L.validReward({ medals: 10001 }) && !L.validReward({ medals: 1.5 }) && !L.validReward({ medals: '5' }));
+ok('reward_medals_sql', SQL.includes("'items', 'medals'") && SQL.includes("(r ->> 'medals')::int <= 10000") && SQL.includes('public.hd3d_dungeon_wallet.medals + excluded.medals') && MOCK.includes("['medals']"));
+{ const [s6, ok6] = applyMail(empty(), 15, { medals: 50, souls: 5 }); ok('claim_medals_not_in_save', ok6 && s6.souls === 5 && !JSON.stringify(s6).includes('medal'), s6.souls); }
+console.log(`${n - f}/${n}`, f ? 'FAIL' : 'ALL OK'); process.exit(f ? 1 : 0);

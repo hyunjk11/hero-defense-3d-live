@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>RAM hard/tree battle suite</title>
+<button id="run">Run isolated suite</button><pre id="status">Idle — fixtures, accelerated engine, no real accounts</pre><iframe id="game" width="1280" height="720"></iframe>
+<script type="module">
+const status=document.querySelector('#status'),frame=document.querySelector('#game');
+const cases=[
+{profile:'advanced-warrior-10',stage:'hard-1-6',strategy:'mobile',seed:12345},
+{profile:'advanced-fighter-10',stage:'hard-1-6',strategy:'mobile',seed:12345},
+{profile:'advanced-gunner-10',branch:'duel',stage:'hard-1-1',strategy:'mixed',seed:12345},
+{profile:'advanced-gunner-10',branch:'thorn',stage:'hard-1-6',strategy:'mixed',seed:12345,choice:1},
+{profile:'growth-mage-10',stage:'hard-1-6',strategy:'spread',seed:54321,tree:false},
+{profile:'advanced-archer-10',branch:'hawk',stage:'hard-1-6',strategy:'mixed',seed:54321,choice:1},
+{profile:'advanced-fighter-10',branch:'dragon',stage:'hard-1-6',strategy:'mixed',seed:54321,choice:1},
+{profile:'advanced-warrior-10',branch:'berserk',stage:'hard-1-6',strategy:'mixed',seed:54321,choice:1}
+];
+window.qaResults=[];window.qaProgress=s=>status.textContent=JSON.stringify({case:window.qaCurrent,wave:s.wave,phase:s.phase,core:s.core,done:qaResults.length});
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+document.querySelector('#run').onclick=async()=>{document.querySelector('#run').disabled=true;for(let i=0;i<cases.length;i++){
+ const c={...cases[i],device:'hard-suite2-'+i};window.qaCurrent=c;let started=performance.now();
+ try{const f=await fetch('/__scenario',{method:'POST',body:JSON.stringify(c)}).then(r=>r.json());if(!f.ok)throw Error('fixture failed');frame.src='/?qa='+c.device+'&stage='+c.stage+'&run=1&rng='+c.seed;
+ let ready=false;for(let j=0;j<200;j++){await delay(100);if(frame.contentWindow.G?.phase==='build'&&frame.contentWindow.G?.hero){ready=true;break;}}if(!ready)throw Error('load timeout');
+ const result=await frame.contentWindow.hardDriver.run();await delay(600);
+ qaResults.push({case:c,result,realMs:performance.now()-started,errors:frame.contentWindow.__isolatedReview?.errors});
+ }catch(e){qaResults.push({case:c,error:String(e),partial:frame.contentWindow.hardDriver?.result(),errors:frame.contentWindow.__isolatedReview?.errors,realMs:performance.now()-started});}
+ status.textContent=JSON.stringify({done:qaResults.length,last:qaResults.at(-1)?.result?.core,error:qaResults.at(-1)?.error});
+ }window.qaDone=true;status.textContent='Completed '+qaResults.length;};
+</script>

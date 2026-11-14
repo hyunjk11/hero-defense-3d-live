@@ -1,0 +1,1 @@
+{"indexes":[{"collectionGroup":"hd3d_live_notices","queryScope":"COLLECTION","fields":[{"fieldPath":"row.active","order":"ASCENDING"},{"fieldPath":"startsAt","order":"DESCENDING"},{"fieldPath":"endsAt","order":"DESCENDING"}]}],"fieldOverrides":[]}

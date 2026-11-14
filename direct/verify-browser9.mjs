@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {authoritativeSave} from '../src/account/direct-authority.js';
+import {clean} from '../src/account/progress.js';
+const root=new URL('../../direct-firestore-evidence-22/',import.meta.url);
+const read=async n=>JSON.parse(await fs.readFile(new URL(n,root),'utf8'));
+const before=await read('browser-before-reload.json'),reload=await read('browser-after-reload.json'),ret=await read('browser-after-return.json'),fin=await read('browser-final-reload.json');
+assert.deepEqual(before.save,reload.save);assert.deepEqual(ret.save,fin.save);
+for(const r of [before,reload,ret,fin]){assert.equal(r.sync,'saved');assert.equal(r.pending,null);assert.equal(r.guard,null);}
+assert.equal(before.save.souls,1016);assert.equal(before.save.mat.steel,40);assert.equal(before.save.inv.length,1);assert.equal(before.save.chests.length,0);assert.equal(before.save.inv[0].set,'morvia');
+assert.equal(fin.save.souls,1027);assert.equal(fin.save.stats.kills,11);assert.equal(fin.save.stats.runs,1);assert.deepEqual(fin.save.inv,before.save.inv);assert.deepEqual(fin.save.mat,before.save.mat);
+const a=(await read('browser-server-after-return.json')).rows,b=(await read('browser-server-final.json')).rows;
+for(const t of Object.keys(a))assert.deepEqual(a[t],b[t],'No duplicate writes on final reload: '+t);
+const p=b.hd3d_progress[0].row,raw=authoritativeSave(p.cosmetic,p.authority),normalized=clean(raw);
+assert.deepEqual(normalized,fin.save);assert.deepEqual(raw.keepLegacy,{array:[1,2],text:'browser9'});assert.equal(raw.research.arrow.start,1);assert.equal(raw.research.arrow.efficiency,undefined);
+assert.equal(b.hd3d_dungeon_buys.length,2);assert.equal(b.hd3d_dungeon_wallet[0].row.medals,150);assert.equal(b.hd3d_dungeon_wallet[0].row.spent,50);
+assert.equal(b.hd3d_mail.length,2);assert.ok(b.hd3d_mail.every(x=>x.row.claimed&&x.row.server_applied));
+assert.equal(b.hd3d_growth_wallet[0].row.balance,1010);assert.equal(b.hd3d_growth_runs.length,1);assert.equal(b.hd3d_growth_runs[0].row.done,true);assert.equal(b.hd3d_growth_runs[0].row.completed,1);
+assert.equal(b.hd3d_growth_investments.filter(x=>x.row.status==='pending').length,0);
+const normal=b.hd3d_growth_investments.filter(x=>x.row.action==='normal_settle');assert.equal(normal.length,1);assert.equal(normal[0].row.status,'done');
+const result={pass:true,scope:'Actual UI on isolated Auth9199/Firestore9318, synthetic resource/Lv10/legacy-save fixture; no production claim',shopProducts:2,medalsBefore:200,medalsAfter:150,mailClaims:2,storedMorviaItems:1,steel:40,chestsAfterOpen:0,shopReloadIdentical:true,normalBattle:{stage:'1-1',speed:1,hero:'mage',level:10,equipment:'none',auto:true,completedWaves:1,core:30,kills:11,soulsDelta:11,xpDelta:10,notFullClear:true},final:{souls:1027,xpBalance:1010,runs:1,kills:11,pending:null,guard:null,sync:'saved'},finalReloadIdentical:true,rawServerCollectionsUnchangedOnFinalReload:true,rawLegacyUnknownAndAliasPreserved:true,rawAuthorityCleanEqualsClient:true,limitations:['No phase9 full stage clear/dungeon combat/hard settlement','No mobile/touch/production Firestore/performance proof','Two local model-loading stalls; successful reload without code/data changes; root cause not established. Return was confirmed done on server before reconnecting.','Pre-fixture texture-loading errors observed; no general rendering-fix claim'],handoff:{browser:'IAB2 tab8',url:'http://127.0.0.1:57486/?town=1',state:'town/saved/no active battle',staticSession:37694,firestoreSession:77603}};
+await fs.writeFile(new URL('browser-final-verification.json',root),JSON.stringify(result,null,2));console.log(JSON.stringify(result));

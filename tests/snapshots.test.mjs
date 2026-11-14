@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import * as P from '../src/account/progress.js';
+import * as E from '../src/account/equip.js';
+import { reconcile } from '../src/account/snapshots.js';
+const base = P.empty(); base.souls = 1000;
+const item = E.makeItem('armor', undefined, 2, () => .25, 1); item.id = 'consumed'; base.inv = [item];
+const [local] = P.buyPerm(base, 'mage', 'atk'); E.dismantle(local, [item.id]);
+const before = JSON.stringify(local);
+assert.equal(reconcile(local, base, { dirty: true, changed: true }).source, 'conflict');
+assert.equal(JSON.stringify(local), before); assert.equal(local.souls, 960); assert.equal(local.inv.length, 0);
+assert.deepEqual(reconcile(local, base, { dirty: true, changed: false }).data, local);
+assert.equal(reconcile(local, base, { first: true }).source, 'conflict');
+assert.equal(reconcile(P.empty(), base, { first: true }).source, 'cloud');
+assert.equal(reconcile(local, null).source, 'local');
+assert.equal(reconcile(local, local, { dirty: true, changed: true }).source, 'cloud');
+console.log('Conflicts preserve spent currency and dismantled equipment.');

@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+import * as THREE from '../lib/three.module.js';import {hardEnemy,pulseStep,hardHit,hardShape} from '../src/data/hard.js';import {ETYPES} from '../src/data/monsters.js';
+function fixture(){const G={heroes:[],enemies:[]},h={g:new THREE.Group(),dead:0,hp:1000};G.hero=h;const hits=[],rings=[];
+ const env=vm.createContext({G,STAGE:{hard:true,attackMul:1.12},hardEnemy,pulseStep,hardHit,hardShape,ringFx:(p,r,c,t)=>rings.push({p,r,c,t}),heroDamage:(d,h)=>{hits.push(d);h.hp-=d;}});
+ const source=fs.readFileSync(new URL('../src/monsters/hard.js',import.meta.url),'utf8').replace(/^import .*;.*$/gm,'').replace(/export /g,'');vm.runInContext(source+';this.tick=hardTick',env);
+ const e={E:hardEnemy(ETYPES.grunt,true,false,0),g:new THREE.Group(),hardCd:0};return {G,h,e,hits,rings,tick:dt=>env.tick(e,dt)};}
+test('actual hard runtime uses the existing dps field and finite HP on warning impact',()=>{const f=fixture();f.tick(.01);assert.equal(f.hits.length,0);assert.equal(f.rings[0].t,1.2);f.tick(1.21);assert.equal(f.hits[0],ETYPES.grunt.dps*1.12*1.4);assert.ok(Number.isFinite(f.h.hp)&&f.h.hp<1000);});
+test('actual runtime permits both movement dodge and stun cancel without damage',()=>{for(const mode of ['move','stun']){const f=fixture();f.tick(.01);if(mode==='move')f.h.g.position.x=4;else f.e.stunT=1;f.tick(1.21);assert.equal(f.hits.length,0);assert.equal(f.h.hp,1000);}});
+test('normal mode definition and summoned reward behavior remain separate',()=>{const f=fixture();assert.equal(hardEnemy(ETYPES.grunt,false,true,0).gold,0);for(let i=0;i<20;i++){f.e.hardCd=0;f.tick(.01);f.e.stunT=1;f.tick(.01);assert.equal(f.e.hardCast,null);f.e.stunT=0;}assert.equal(f.hits.length,0);});

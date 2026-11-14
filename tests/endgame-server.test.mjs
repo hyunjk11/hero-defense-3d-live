@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {MemoryStore} from '../server/memory-store.mjs';
+import {execute} from '../server/operations.mjs';
+import * as P from '../src/account/progress.js';
+import * as H from '../src/data/hero-growth.js';
+import {STAGES} from '../src/data/stages.js';
+const now=Date.parse('2026-10-28T00:00:00Z'),u={id:'endgame-a',email:'a@example.invalid'},b={id:'endgame-b',email:'b@example.invalid'};
+const save=P.empty();for(const s of Object.values(STAGES).filter(s=>s.ch<=8))save.st[s.id]=2;
+save.souls=1234;save.stor=[];
+const store=new MemoryStore({hd3d_progress:[{user_id:u.id,data:save,updated_at:new Date(now).toISOString(),merged:true}]});
+const rpc=(name,args={},user=u,t=now)=>store.transaction(tx=>execute(tx,user,{kind:'rpc',name:'hd3d_growth_'+name,args},{now:t})).then(x=>x.data);
+const initial=(await rpc('status')).growth;assert.equal(initial.granted,H.initialGrowth(save).granted);
+const start=(id,stage,user=u)=>rpc('start',{p_id:id,p_mode:'campaign',p_stage:stage,p_hero:'mage'},user);
+assert.equal((await start('locked-10-0001','10-1')).reason,'locked');
+assert.equal((await start('locked-other-a','9-1',b)).reason,'locked');
+assert.equal((await start('chapter9-run-01','9-1')).ok,true);
+const payload={p_token:'chapter9-run-01',p_completed:13,p_win:true,p_finish:true};
+const results=await Promise.all([rpc('progress',payload,u,now+120000),rpc('progress',payload,u,now+120000)]);
+assert.equal(results[0].xp,675);assert.equal(results[1].xp,675);assert.equal(results[1].growth.earned,675);
+assert.equal((await rpc('status')).growth.first.filter(k=>k==='9-1').length,1);
+assert.equal((await rpc('progress',payload,b,now+120000)).reason,'bad_token');
+await start('chapter9-run-02','9-1');assert.equal((await rpc('progress',{...payload,p_token:'chapter9-run-02'},u,now+180000)).xp,450);
+assert.equal((await rpc('status')).growth.earned,1125);
+// The old client's ordinary save cannot erase authoritative new-chapter first receipts.
+const row=store.tables.hd3d_progress[0];
+await store.transaction(tx=>execute(tx,u,{kind:'query',table:'hd3d_progress',action:'update',filters:{user_id:u.id,updated_at:row.updated_at},values:{data:{...save,v:3},merged:true},returning:true,columns:'updated_at'},{now:now+200000}));
+assert.ok((await rpc('status')).growth.first.includes('9-1'));assert.equal((await rpc('status')).growth.granted,initial.granted);assert.equal(store.tables.hd3d_progress[0].data.souls,1234);
+// Normal persisted progression unlocks the new chapter; no bypass at XP start.
+let progressed=store.tables.hd3d_progress[0].data;for(let i=1;i<=6;i++)[progressed]=P.applyStage(progressed,'9-'+i,2,'mage',()=>.4);
+const current=store.tables.hd3d_progress[0];
+await store.transaction(tx=>execute(tx,u,{kind:'query',table:'hd3d_progress',action:'update',filters:{user_id:u.id,updated_at:current.updated_at},values:{data:progressed,merged:true},returning:true,columns:'updated_at'},{now:now+210000}));
+assert.equal((await start('chapter10-run-1','10-1')).ok,true);
+const p={p_token:'chapter10-run-1',p_completed:2,p_win:false,p_finish:true};
+assert.equal((await rpc('progress',p,u,now+220000)).xp,56);assert.equal((await rpc('progress',p,u,now+230000)).xp,56);
+assert.equal((await rpc('status')).growth.earned,1181);assert.equal((await rpc('status')).growth.granted,initial.granted);
+console.log('endgame server: unlock, new reward, concurrent replay, first/repeat, account isolation, old-save protection, partial retreat passed');

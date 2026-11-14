@@ -1,0 +1,1884 @@
+rules_version = '2';
+// PROTOTYPE, EMULATOR ONLY. Not a production replacement for server adjudication.
+// Model: hd3d_live/{uid}/{table}/{id}
+// Envelope: owner (immutable UID), version (1), row (typed legacy-compatible map),
+// commitRevision (integer shared by all writes in one atomic transaction).
+// _activation is a trusted migration marker; _revision is a per-account CAS fence.
+// progress.row.saveJson is a <=64KiB UNTRUSTED game-save blob, never an authority
+// source for admin roles, bans, paid ownership or permission grants.
+// Existing hd3d_* documents remain denied and are never changed by this prototype.
+// Consolidated path dispatch; every original allow predicate and resolved
+// validator body is retained. Literal path guards prevent unrelated access.
+service cloud.firestore {
+ match /databases/{database}/documents {
+
+  match /hd3d_live/{uid}/{table}/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function active(uid) { return get(path(uid,'hd3d_sequences','_activation')).data.row.enabled == true &&
+    !exists(path(uid,'hd3d_bans',uid)); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function noticeAdmin() {
+   let uid=request.auth.uid;let role=path(uid,'hd3d_admins',uid);
+   // UID-scoped role is provisioned by a trusted importer, never by email.
+   // Preserve the existing owner's additional case-insensitive email binding.
+   return active(uid)&&exists(role)&&(!get(role).data.row.get('owner',false)||
+    request.auth.token.email.lower()=='owner@example.invalid');
+  }
+  function mail(r,uid) {
+   return r.keys().hasAll(['id','user_id','title','body','reward','claimed','claimed_at','revoked','order_id','broadcast_id','created_at']) &&
+    r.keys().hasOnly(['id','user_id','title','body','reward','claimed','claimed_at','revoked','order_id','broadcast_id','created_at','server_applied']) &&
+    r.user_id==uid&&small(r.id,9007199254740991)&&r.id>0&&str(r.title,100)&&str(r.body,1000)&&
+    r.claimed is bool&&r.revoked is bool&&str(r.created_at,32)&&
+    (r.reward==null || r.reward is map);
+  }
+  function amAuditPath(uid,id) {return /databases/$(database)/documents/hd3d_live_mail_audit/$(uid+'~'+string(id));}
+  function amLinked(uid,id) {let a=getAfter(amAuditPath(uid,id)).data;return !exists(amAuditPath(uid,id))&&a.actor==request.auth.uid&&a.target==uid&&a.mail==id&&a.at==request.time;}
+  function moderationPath(actor,id) {return /databases/$(database)/documents/hd3d_live_moderation/$(actor+'~'+id);}
+  function linkedModeration(uid,d) {let a=getAfter(moderationPath(request.auth.uid,d.lastRequest)).data;return !exists(moderationPath(request.auth.uid,d.lastRequest))&&a.target==uid&&a.revision==d.revision&&a.at==request.time&&a.action==(d.banned?'admin_ban':'admin_unban')&&
+   (d.banned?(getAfter(path(uid,'hd3d_bans',uid)).data.row.reason==a.reason&&getAfter(path(uid,'hd3d_bans',uid)).data.row.banned_by==a.actor):!existsAfter(path(uid,'hd3d_bans',uid)));}
+  function blockPath(uid) {return /databases/$(database)/documents/hd3d_live_rank_blocks/$(uid);}
+  function moderationBan(uid) {let b=getAfter(blockPath(uid)).data;return noticeAdmin()&&b.updatedAt==request.time&&linkedModeration(uid,b);}
+  function validBan(d) {return id==uid&&base(d,uid)&&d.row.keys().hasAll(['user_id','reason','banned_by','created_at'])&&d.row.keys().hasOnly(['user_id','reason','banned_by','created_at'])&&d.row.user_id==uid&&d.row.banned_by==request.auth.uid&&str(d.row.reason,200)&&d.row.reason.size()>=1&&str(d.row.created_at,32);}
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function adminReadTable(t) { return t in ['hd3d_users','hd3d_profiles','hd3d_progress','hd3d_bans','hd3d_admins','hd3d_owned','hd3d_orders','hd3d_mail','hd3d_dungeon_wallet','hd3d_dungeon_runs','hd3d_spire_best','hd3d_spire_weeks','hd3d_spire_runs']; }
+  function coPath(uid,rid) {return /databases/$(database)/documents/hd3d_live_order_requests/$(uid+'~'+rid);}
+  function co(uid) {return getAfter(coPath(uid,proof(uid).request)).data;}
+  function coLink(uid) {let p=proof(uid);let r=co(uid);return owner(uid)&&demo()&&p.op=='order_create'&&!exists(coPath(uid,p.request))&&r.uid==uid&&r.request==p.request&&r.item==p.token&&r.at==request.time;}
+  function aaPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_actions/$(actor+'~'+id);}
+  function aa(uid) {let p=proof(uid);return getAfter(aaPath(p.token,p.request)).data;}
+  function aaLink(uid) {let p=proof(uid);let d=aa(uid);return request.auth!=null&&demo()&&p.op=='admin_action'&&p.token==request.auth.uid&&!exists(aaPath(p.token,p.request))&&d.actor==p.token&&d.request==p.request&&d.target==uid&&d.at==request.time;}
+  function spDay() { return int((request.time.toMillis() + 32400000) / 86400000); }
+  function spBestPath(uid) { return path(uid,'hd3d_spire_best',uid); }
+  function rankPath(uid,kind,wk) { return /databases/$(database)/documents/hd3d_live_ranks/$(kind+'~'+wk+'~'+uid); }
+  function aaBase(uid,d) {return base(d,uid)&&fence(uid,d)&&aaLink(uid);}
+  function coOrder(uid,id,d) {
+   let r=co(uid);let guard=path(uid,'hd3d_sequences','order-pending-'+r.item);let prev=get(guard).data.row.value;
+   return base(d,uid)&&fence(uid,d)&&coLink(uid)&&string(r.order)==id&&d.row==r.row&&
+    !exists(path(uid,'hd3d_owned',uid+'~'+r.item))&&(prev==0||get(path(uid,'hd3d_orders',string(prev))).data.row.status!='pending')&&
+    getAfter(guard).data.row.value==r.order&&getAfter(path(uid,'hd3d_sequences','hd3d_orders')).data.row.value==r.order;
+  }
+  function changed(d) {let a=aa(uid);let r=d.row;let b=resource.data.row;return aaBase(uid,d)&&a.action in ['admin_approve','admin_reject','admin_refund']&&a.order==r.id&&string(r.id)==id&&r.user_id==uid&&r.item==a.item&&
+    (a.action=='admin_refund'?b.status=='approved'&&r.status=='refunded'&&r.diff(b).affectedKeys().hasOnly(['status','refunded_at','refund_note'])&&r.refund_note==a.reason&&str(r.refunded_at,32):b.status=='pending'&&r.status==(a.action=='admin_approve'?'approved':'rejected')&&r.diff(b).affectedKeys().hasOnly(['status','decided_at','note'])&&str(r.decided_at,32)&&(r.note==null||str(r.note,200)));}
+  function createRole(d) {let a=aa(uid);return aaBase(uid,d)&&a.action=='owner_add_admin'&&id==uid&&d.row.keys().hasAll(['user_id','owner','added_by','created_at'])&&d.row.keys().hasOnly(['user_id','owner','added_by','created_at'])&&d.row.user_id==uid&&d.row.owner==false&&d.row.added_by==a.actor&&str(d.row.created_at,32);}
+  function readable(t) { return t in ['hd3d_profiles','hd3d_progress','hd3d_admins','hd3d_owned','hd3d_orders','hd3d_mail','hd3d_bans','hd3d_users','hd3d_growth_wallet','hd3d_growth_runs','hd3d_growth_receipts','hd3d_growth_investments','hd3d_sequences','hd3d_dungeon_wallet','hd3d_dungeon_runs','hd3d_dungeon_buys','hd3d_spire_runs','hd3d_spire_best','hd3d_spire_weeks','hd3d_notices']; }
+  function profile(r,uid) {
+   return r.keys().hasAll(['id','nickname','created_at','updated_at']) &&
+    r.keys().hasOnly(['id','nickname','created_at','updated_at']) && r.id==uid &&
+    str(r.nickname,12)&&r.nickname.size()>0 && str(r.created_at,32)&&str(r.updated_at,32);
+  }
+  function userRow(r,uid,id) { return id==uid&&r.keys().hasAll(['id','email','created_at','last_sign_in_at'])&&
+   r.keys().hasOnly(['id','email','created_at','last_sign_in_at'])&&r.id==uid&&r.email==request.auth.token.email&&
+   str(r.email,320)&&str(r.created_at,32)&&str(r.last_sign_in_at,32); }
+  function catalog(stage) { return get(/databases/$(database)/documents/hd3d_live_catalog/$(stage)).data; }
+  function hardPath(uid) { return path(uid,'hd3d_growth_runs',uid+'~'+proof(uid).token); }
+  function mailItemPath(uid,id,i) { return path(uid,'hd3d_growth_investments',uid+'~mailitem~'+id+'~'+string(i)); }
+  function mailItemPaid(uid,id,i) { return exists(mailItemPath(uid,id,i)); }
+  function hardSpec(x,ch,h,grades) {
+   return x.keys().hasAll(['k','s','g','c'])&&x.keys().hasOnly(x.s=='weapon'?['k','s','g','c','h']:['k','s','g','c'])&&
+    x.k=='gear'&&x.s in ['weapon','armor','acc']&&x.c==ch&&x.g in grades&&(x.s!='weapon'||x.h==h);
+  }
+  function hardSpecs(r,items,s) {
+   let z=r.directReward;let n=items.size();let b=int(r.completed / 5);
+   let t=r.won&&!z.first&&r.repeat?r.target:null;let h=t!=null&&!(t in ['armor','acc'])?t:r.hero;
+   let g=s.hardGrades;
+   return (n==0||hardSpec(items[0],s.ch,h,b>0?g:z.first?[3]:[0,1,2])&&(t==null||items[0].s==(t in ['armor','acc']?t:'weapon')))&&
+    (n<2||hardSpec(items[1],s.ch,r.hero,b>1?g:z.first&&b==1?[3]:[0,1,2]))&&
+    (n<3||hardSpec(items[2],s.ch,r.hero,b>2?g:z.first&&b==2?[3]:[0,1,2]))&&
+    (n<4||hardSpec(items[3],s.ch,r.hero,z.first&&b==3?[3]:[0,1,2]))&&
+    (n<5||hardSpec(items[4],s.ch,r.hero,[0,1,2]));
+  }
+  function spPath(uid) { return path(uid,'hd3d_spire_runs',proof(uid).request); }
+  function spOldBest(uid) { return exists(spBestPath(uid))?get(spBestPath(uid)).data.row:{'user_id':uid,'best_floor':0,'best_at':null,'cleared_bosses':0,'updated_at':''}; }
+  function swGrant(uid) { return get(path(uid,'hd3d_growth_investments',uid+'~spaward~'+proof(uid).source)).data.row.result; }
+  function swWeekPath(uid) { return path(uid,'hd3d_spire_weeks',uid+'~'+proof(uid).source); }
+  function swLast(uid) { return swGrant(uid).weekDay==spDay()-(spDay()+3)%7-7; }
+  function swValid(uid) {
+   let a=swGrant(uid);let w=get(swWeekPath(uid)).data.row;
+   return proof(uid).op=='spire_claim_week'&&a.action=='spire_week_award'&&a.week==proof(uid).source&&a.week==w.week&&a.floor==w.best_floor&&a.floor>0&&
+    a.weekDay is int&&(a.weekDay+3)%7==0&&a.weekDay+7<=spDay()&&a.rank is int&&a.rank>=1&&
+    a.souls==(a.floor*30>1500?1500:a.floor*30)&&a.medals==(int(a.floor / 5)*2>25?25:int(a.floor / 5)*2)&&
+    (a.rank==1?a.title=='spire_w1':a.rank<=10?a.title=='spire_w10':a.title==null)&&!w.claimed;
+  }
+  function swReceiptPath(uid) { return path(uid,'hd3d_growth_investments',uid+'~spclaim~'+proof(uid).source); }
+  function swLinked(uid) {return !exists(swReceiptPath(uid))&&getAfter(swReceiptPath(uid)).data.commitRevision==request.resource.data.commitRevision;}
+  function dgPath(uid) { return path(uid,'hd3d_dungeon_runs',proof(uid).request); }
+  function dgBuyPath(uid) { return path(uid,'hd3d_growth_investments',uid+'~dgbuy~'+proof(uid).request); }
+  function dgBuyResult(uid) { return getAfter(dgBuyPath(uid)).data.row.result; }
+  function hardMail(uid,r) {
+   let run=get(hardPath(uid)).data.row;let z=run.directReward;let items=r.reward.get('items',[]);let s=catalog(run.stage);
+   return proof(uid).op=='hard_mail'&&run.done&&s.hard&&z.mail==r.id&&
+    r.reward.keys().hasOnly(['souls','items'])&&r.reward.souls==z.souls&&items is list&&items.size()==z.total&&
+    !r.claimed&&r.claimed_at==null&&!r.revoked&&!r.get('server_applied',false)&&r.order_id==null&&r.broadcast_id==null&&hardSpecs(run,items,s);
+  }
+  function spSouls(n) { let k=n>100?20:int(n / 5);return 300*k+50*k*(k+1); }
+  function spMedals(n) { let k=n>100?10:int(n / 10);return 5*k+int(k*(k+1) / 2)+(n>100?(int(n / 10)-10)*10:0); }
+  function spMail(uid,r) {
+   let b=spOldBest(uid);let a=getAfter(spBestPath(uid)).data.row;let souls=spSouls(a.cleared_bosses)-spSouls(b.cleared_bosses);let medals=spMedals(a.cleared_bosses)-spMedals(b.cleared_bosses);
+   return proof(uid).op in ['spire_ping','spire_finish']&&getAfter(spBestPath(uid)).data.commitRevision==request.resource.data.commitRevision&&a.cleared_bosses>b.cleared_bosses&&
+    r.reward is map&&r.reward.keys().hasOnly(['souls','medals'])&&r.reward.get('souls',0)==souls&&r.reward.get('medals',0)==medals&&(souls>0||medals>0)&&
+    !r.claimed&&!r.revoked&&!r.get('server_applied',false)&&r.claimed_at==null&&r.order_id==null&&r.broadcast_id==null&&
+    getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.row.value==r.id&&getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function swMail(uid,r) {
+   let a=swGrant(uid);let z=getAfter(swReceiptPath(uid)).data.row.result;
+   return swValid(uid)&&swLinked(uid)&&r.id==z.mail&&r.reward=={'souls':a.souls,'medals':a.medals}&&!r.claimed&&!r.revoked&&!r.get('server_applied',false)&&r.claimed_at==null&&r.order_id==null&&r.broadcast_id==null&&
+    getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.row.value==r.id&&getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function dgBossMail(uid,r) {
+   let run=getAfter(dgPath(uid));let z=run.data.row.boss_reward;
+   return proof(uid).op=='dungeon_boss_drop'&&get(dgPath(uid)).data.row.boss_reward==null&&
+    run.data.commitRevision==request.resource.data.commitRevision&&z.mail==r.id&&r.reward=={'items':[z.item]}&&
+    !r.claimed&&!r.revoked&&!r.get('server_applied',false)&&r.claimed_at==null&&r.order_id==null&&r.broadcast_id==null&&
+    getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.row.value==r.id&&getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function dgShopMail(uid,r) {
+   let z=dgBuyResult(uid);let item=catalog('dungeon-shop')[proof(uid).token];
+   return proof(uid).op=='dungeon_buy'&&z.mail==r.id&&r.reward==item.reward&&!r.claimed&&!r.revoked&&!r.get('server_applied',false)&&r.claimed_at==null&&r.order_id==null&&r.broadcast_id==null&&
+    getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.row.value==r.id&&getAfter(path(uid,'hd3d_sequences','hd3d_mail')).data.commitRevision==request.resource.data.commitRevision&&getAfter(dgBuyPath(uid)).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function dgMail(uid,r) {
+   let run=getAfter(dgPath(uid)).data.row; let old=get(dgPath(uid)).data.row;
+   return proof(uid).op=='dungeon_finish' && old.status=='active' && run.status=='done' &&
+    run.soul_reward.mail==r.id && r.reward=={'souls':run.soul_reward.souls} &&
+    !r.claimed && !r.revoked && !r.get('server_applied',false) && r.order_id==null && r.broadcast_id==null &&
+    getAfter(dgPath(uid)).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function mailItemsPaid(uid,id,m) {
+   let n=m.reward==null?0:m.reward.get('items',[]).size();
+   // Each immutable receipt requires its immediate predecessor. One final read
+   // proves the full bounded chain without exceeding 10 document reads per write.
+   return n<=10&&(n==0||mailItemPaid(uid,id,n-1));
+  }
+  function mailClaim(uid,d,old) {
+   return proof(uid).op=='claim_mail' && proof(uid).request==string(old.row.id) && !old.row.claimed && !old.row.revoked &&
+    d.row.diff(old.row).affectedKeys().hasOnly(['claimed','claimed_at','server_applied']) &&
+    d.row.claimed && d.row.server_applied && str(d.row.claimed_at,32)&&mailItemsPaid(uid,proof(uid).request,old.row) &&
+    getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision &&
+    (!(old.row.reward is map) || !('hero' in old.row.reward) || exists(path(uid,'hd3d_owned',uid+'~hero_'+old.row.reward.hero)) ||
+      getAfter(path(uid,'hd3d_owned',uid+'~hero_'+old.row.reward.hero)).data.commitRevision==d.commitRevision) &&
+    (!(old.row.reward is map) || old.row.reward.get('medals',0)==0 || getAfter(path(uid,'hd3d_dungeon_wallet',uid)).data.commitRevision==d.commitRevision);
+  }
+  function amCreate(uid,id,d) {return request.auth!=null&&demo()&&base(d,uid)&&d.commitRevision==0&&string(d.row.id)==id&&amLinked(uid,d.row.id)&&d.row==getAfter(amAuditPath(uid,d.row.id)).data.row;}
+  function aaMailNew(uid,id,d) {let a=aa(uid);return aaBase(uid,d)&&a.action in ['admin_approve','admin_reject','admin_refund']&&mail(d.row,uid)&&string(d.row.id)==id&&d.row.id==a.mail&&d.row.order_id==a.order&&d.row.broadcast_id==null&&!d.row.claimed&&!d.row.revoked&&d.row.claimed_at==null&&!('server_applied' in d.row)&&(a.action=='admin_approve'?d.row.reward=={'hero':a.item.replace('hero_','')}:d.row.reward==null);}
+  function aaMailRevoke(uid,d,old) {let a=aa(uid);return aaBase(uid,d)&&old.owner==uid&&!old.row.claimed&&!old.row.revoked&&d.row.diff(old.row).affectedKeys().hasOnly(['revoked'])&&d.row.revoked==true&&
+   (a.action=='admin_refund'?old.row.order_id==a.order:a.action=='admin_revoke_hero'&&old.row.reward.hero==a.item.replace('hero_',''));}
+  function valid_8(d) { return string(d.row.id)==id&&mail(d.row,uid); }
+  function createRow_3(d) { return d.commitRevision==0?amCreate(uid,id,d):proof(uid).op=='admin_action'?aaMailNew(uid,id,d):writeBase(uid,d)&&valid_8(d)&&(proof(uid).op=='hard_mail'?hardMail(uid,d.row):proof(uid).op=='spire_claim_week'?swMail(uid,d.row):proof(uid).op=='dungeon_buy'?dgShopMail(uid,d.row):proof(uid).op=='dungeon_boss_drop'?dgBossMail(uid,d.row):proof(uid).op in ['spire_ping','spire_finish']?spMail(uid,d.row):dgMail(uid,d.row)); }
+  function updateRow_4(d) { return proof(uid).op=='admin_action'?aaMailRevoke(uid,d,resource.data):updateBase(uid,d)&&valid_8(d)&&(mailClaim(uid,d,resource.data)); }
+  function linkedRank(uid,kind,wk,d) { let r=getAfter(rankPath(uid,kind,wk)).data;return r.revision==d.commitRevision&&r.floor==d.row.best_floor&&r.at==d.row.best_at; }
+  function spWeek(uid,d,b) {
+   let r=getAfter(spPath(uid)).data.row;let a=d.row;
+   return proof(uid).op in ['spire_ping','spire_finish']&&getAfter(spPath(uid)).data.commitRevision==d.commitRevision&&r.status in ['active','done']&&
+    a.keys().hasOnly(['user_id','week','best_floor','best_at','claimed'])&&a.user_id==uid&&a.week==r.week&&a.best_floor==r.top_floor&&a.best_floor>b.best_floor&&a.best_floor>=r.from_floor&&
+    a.best_at==request.time&&a.claimed==b.claimed&&linkedRank(uid,'week',a.week,d);
+  }
+  function swClaim(uid,d,b) {return swValid(uid)&&swLinked(uid)&&d.row.diff(b).affectedKeys().hasOnly(['claimed'])&&d.row.claimed;}
+  function aaResetWeek(uid,id) {return aaLink(uid)&&aa(uid).action=='admin_spire_reset'&&id==uid+'~'+aa(uid).week&&resource.data.row.week==aa(uid).week&&resource.data.owner==uid;}
+  function dgBuyRow(uid,d,id) {
+   let r=d.row;let z=dgBuyResult(uid);
+   return proof(uid).op=='dungeon_buy'&&r.keys().hasAll(['id','user_id','item','price','mail_id','created_at'])&&r.keys().hasOnly(['id','user_id','item','price','mail_id','created_at'])&&
+    string(r.id)==id&&r.user_id==uid&&r.id==z.buy&&r.item==z.item&&r.price==z.price&&r.mail_id==z.mail&&str(r.created_at,32)&&
+    getAfter(path(uid,'hd3d_sequences','hd3d_dungeon_buys')).data.row.value==r.id&&getAfter(path(uid,'hd3d_sequences','hd3d_dungeon_buys')).data.commitRevision==d.commitRevision&&
+    getAfter(dgBuyPath(uid)).data.commitRevision==d.commitRevision;
+  }
+  function claimedMail(uid) {
+   let m=get(path(uid,'hd3d_mail',proof(uid).request)).data.row;
+   let after=getAfter(path(uid,'hd3d_mail',proof(uid).request)).data;
+   return proof(uid).op=='claim_mail'&&!m.claimed&&!m.revoked&&after.row.claimed&&after.row.server_applied&&
+    after.commitRevision==request.resource.data.commitRevision;
+  }
+  function spTitles(uid,a,b) {
+   let old=spOldBest(uid).cleared_bosses;let n=getAfter(spBestPath(uid)).data.row.cleared_bosses;let added=(old<30&&n>=30?['spire_30']:[]).concat(old<50&&n>=50?['spire_50']:[]);
+   return proof(uid).op in ['spire_ping','spire_finish']&&getAfter(spBestPath(uid)).data.commitRevision==request.resource.data.commitRevision&&added.size()>0&&
+    a.diff(b).affectedKeys().hasOnly(['titles','updated_at'])&&a.titles.toSet()==b.titles.toSet().union(added.toSet())&&a.titles.size()==a.titles.toSet().size();
+  }
+  function swTitles(uid,a,b) {
+   let award=swGrant(uid);let old=b.titles.toSet().difference(['spire_w1','spire_w10'].toSet());let add=award.title==null?[]:[award.title];
+   return swValid(uid)&&swLinked(uid)&&swLast(uid)&&a.diff(b).affectedKeys().hasOnly(['titles','updated_at'])&&a.titles.toSet()==old.union(add.toSet())&&a.titles.size()==a.titles.toSet().size();
+  }
+  function dgWallet(r,uid) {
+   return r.keys().hasAll(['user_id','medals','earned','spent','titles','uniques','uq_pity','updated_at']) &&
+    r.keys().hasOnly(['user_id','medals','earned','spent','titles','uniques','uq_pity','updated_at']) &&
+    r.user_id==uid && small(r.medals,1000000)&&small(r.earned,1000000000)&&small(r.spent,1000000000) &&
+    r.titles is list && r.uniques is list && small(r.uq_pity,1000000) && str(r.updated_at,32);
+  }
+  function dgCurrency(uid,a,b) {
+   let rp=dgPath(uid); let r=getAfter(rp).data.row; let old=get(rp).data.row;
+   let gained=r.floors*2+(r.win?5:0);
+   return proof(uid).op=='dungeon_finish' && old.status=='active' && r.status=='done' &&
+    getAfter(rp).data.commitRevision==request.resource.data.commitRevision &&
+    a.diff(b).affectedKeys().hasOnly(['medals','earned','updated_at']) && a.earned==b.earned+gained &&
+    a.medals==(b.medals+gained>1000000?1000000:b.medals+gained);
+  }
+  function emptyDg(uid) { return {'user_id':uid,'medals':0,'earned':0,'spent':0,'titles':[],'uniques':[],'uq_pity':0,'updated_at':''}; }
+  function dgBuyCurrency(uid,a,b) {
+   let p=proof(uid);let item=catalog('dungeon-shop')[p.token];let z=dgBuyResult(uid);
+   return p.op=='dungeon_buy'&&!exists(dgBuyPath(uid))&&getAfter(dgBuyPath(uid)).data.commitRevision==request.resource.data.commitRevision&&
+    a.diff(b).affectedKeys().hasOnly(['medals','spent','titles','updated_at'])&&b.medals>=item.price&&a.medals==b.medals-item.price&&a.spent==b.spent+item.price&&
+    ('title' in item?(!(item.title in b.titles)&&a.titles==b.titles.concat([item.title])):a.titles==b.titles)&&z.medals==a.medals&&z.titles==a.titles;
+  }
+  function mailMedals(uid,a,b) {
+   let reward=get(path(uid,'hd3d_mail',proof(uid).request)).data.row.reward.medals;
+   return claimedMail(uid)&&small(reward,10000)&&reward>0&&
+    a.diff(b).affectedKeys().hasOnly(['medals','earned','updated_at'])&&
+    a.earned==b.earned+reward&&a.medals==(b.medals+reward>1000000?1000000:b.medals+reward);
+  }
+  function valid_10(d) { return id==uid&&dgWallet(d.row,uid); }
+  function createRow_5(d) { return writeBase(uid,d)&&valid_10(d)&&((proof(uid).op=='spire_claim_week'?swTitles(uid,d.row,emptyDg(uid)):proof(uid).op=='claim_mail'?mailMedals(uid,d.row,emptyDg(uid)):proof(uid).op=='dungeon_buy'?dgBuyCurrency(uid,d.row,emptyDg(uid)):proof(uid).op in ['spire_ping','spire_finish']?spTitles(uid,d.row,emptyDg(uid)):dgCurrency(uid,d.row,emptyDg(uid)))); }
+  function updateRow_6(d) { return updateBase(uid,d)&&valid_10(d)&&((proof(uid).op=='spire_claim_week'?swTitles(uid,d.row,resource.data.row):proof(uid).op=='claim_mail'?mailMedals(uid,d.row,resource.data.row):proof(uid).op=='dungeon_buy'?dgBuyCurrency(uid,d.row,resource.data.row):proof(uid).op in ['spire_ping','spire_finish']?spTitles(uid,d.row,resource.data.row):dgCurrency(uid,d.row,resource.data.row))); }
+  function spXP(uid,r) {
+   let run=getAfter(spPath(uid)).data.row;
+   return proof(uid).op in ['spire_ping','spire_finish']&&proof(uid).token==r.token&&run.growth&&run.status in ['active','done']&&getAfter(spPath(uid)).data.commitRevision==request.resource.data.commitRevision&&
+    r.mode=='spire'&&r.amount==(run.top_floor-run.from_floor+1)*8&&getAfter(path(uid,'hd3d_growth_wallet',uid)).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function modeReceipt(r,uid,id) {
+   return r.keys().hasAll(['id','user_id','mode','token','amount','at']) &&
+    r.keys().hasOnly(['id','user_id','mode','token','amount','at']) && r.user_id==uid && r.id==id &&
+    r.mode in ['dungeon','spire'] && id==uid+'~'+r.mode+'~'+r.token && str(r.token,80) && small(r.amount,300) && str(r.at,32);
+  }
+  function dgAmount(r) { return (r.status=='done'?r.floors:r.get('xp_floors',0))*40+(r.status=='done'&&r.win?100:0); }
+  function dgReceipt(uid,r) {
+   let rp=dgPath(uid); let run=getAfter(rp).data.row;
+   return proof(uid).op in ['dungeon_ping','dungeon_finish'] && proof(uid).token==r.token && run.growth &&
+    getAfter(rp).data.commitRevision==request.resource.data.commitRevision && r.amount==dgAmount(run) &&
+    getAfter(path(uid,'hd3d_growth_wallet',uid)).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function valid_11(d) { return modeReceipt(d.row,uid,id); }
+  function createRow_6(d) { return writeBase(uid,d)&&valid_11(d)&&(d.row.mode=='spire'?spXP(uid,d.row):dgReceipt(uid,d.row)); }
+  function updateRow_7(d) { return updateBase(uid,d)&&valid_11(d)&&(d.row.amount>resource.data.row.amount&&(d.row.mode=='spire'?spXP(uid,d.row):dgReceipt(uid,d.row))); }
+  function valid_12(d) { return id==uid&&profile(d.row,uid); }
+  function createRow_7(d) { return writeBase(uid,d)&&valid_12(d)&&(true); }
+  function updateRow_8(d) { return updateBase(uid,d)&&valid_12(d)&&(d.row.created_at==resource.data.row.created_at); }
+  function valid_13(d) { return userRow(d.row,uid,id); }
+  function createRow_8(d) { return writeBase(uid,d)&&valid_13(d)&&(true); }
+  function updateRow_9(d) { return updateBase(uid,d)&&valid_13(d)&&(d.row.created_at==resource.data.row.created_at); }
+  function ownedRow(r,uid,id) { return r.keys().hasAll(['user_id','item','source_mail','created_at'])&&
+   r.keys().hasOnly(['user_id','item','source_mail','created_at'])&&r.user_id==uid&&
+   r.item in ['hero_gunner','hero_fighter','hero_mechanic']&&id==uid+'~'+r.item&&small(r.source_mail,9007199254740991)&&str(r.created_at,32); }
+  function mailHero(uid,r) { return claimedMail(uid)&&string(r.source_mail)==proof(uid).request&&
+   r.item=='hero_'+get(path(uid,'hd3d_mail',proof(uid).request)).data.row.reward.hero; }
+  function aaOwned(uid,id,d) {let a=aa(uid);return aaBase(uid,d)&&a.action=='admin_grant_hero'&&id==uid+'~'+a.item&&d.row.keys().hasAll(['user_id','item','source_mail','created_at'])&&d.row.keys().hasOnly(['user_id','item','source_mail','created_at'])&&d.row.user_id==uid&&d.row.item==a.item&&d.row.source_mail==null&&str(d.row.created_at,32);}
+  function aaRemoveOwned(uid,id) {let a=aa(uid);return aaLink(uid)&&a.action in ['admin_revoke_hero','admin_refund']&&id==uid+'~'+a.item&&resource.data.owner==uid;}
+  function valid_15(d) { return ownedRow(d.row,uid,id); }
+   allow get: if request.auth!=null&&((request.auth!=null&&demo()&&noticeAdmin()&&adminReadTable(table))||(owner(uid)&&demo()&&readable(table))||((table=='hd3d_bans'&&((noticeAdmin())))));
+   allow list: if request.auth!=null&&((request.auth!=null&&demo()&&noticeAdmin()&&adminReadTable(table)&&request.query.limit<=100)||(owner(uid)&&demo()&&readable(table))||(false));
+   allow create: if request.auth!=null&&(table.matches('^(hd3d_admins|hd3d_bans|hd3d_dungeon_buys|hd3d_dungeon_wallet|hd3d_growth_receipts|hd3d_mail|hd3d_orders|hd3d_owned|hd3d_profiles|hd3d_spire_weeks|hd3d_users)$')&&((table=='hd3d_admins'&&((createRole(request.resource.data))))||(table=='hd3d_bans'&&((validBan(request.resource.data)&&moderationBan(uid)&&getAfter(blockPath(uid)).data.banned)))||(table=='hd3d_dungeon_buys'&&((writeBase(uid,request.resource.data)&&dgBuyRow(uid,request.resource.data,id))))||(table=='hd3d_dungeon_wallet'&&((createRow_5(request.resource.data))))||(table=='hd3d_growth_receipts'&&((createRow_6(request.resource.data))))||(table=='hd3d_mail'&&((createRow_3(request.resource.data))))||(table=='hd3d_orders'&&((coOrder(uid,id,request.resource.data))))||(table=='hd3d_owned'&&((proof(uid).op=='admin_action'?aaOwned(uid,id,request.resource.data):writeBase(uid,request.resource.data)&&valid_15(request.resource.data)&&mailHero(uid,request.resource.data.row))))||(table=='hd3d_profiles'&&((createRow_7(request.resource.data))))||(table=='hd3d_spire_weeks'&&((writeBase(uid,request.resource.data)&&id==uid+'~'+request.resource.data.row.week&&spWeek(uid,request.resource.data,{'best_floor':0,'claimed':false}))))||(table=='hd3d_users'&&((createRow_8(request.resource.data))))));
+   allow update: if request.auth!=null&&(table.matches('^(hd3d_bans|hd3d_dungeon_wallet|hd3d_growth_receipts|hd3d_mail|hd3d_orders|hd3d_profiles|hd3d_spire_weeks|hd3d_users)$')&&((table=='hd3d_bans'&&((validBan(request.resource.data)&&moderationBan(uid)&&getAfter(blockPath(uid)).data.banned)))||(table=='hd3d_dungeon_wallet'&&((updateRow_6(request.resource.data))))||(table=='hd3d_growth_receipts'&&((updateRow_7(request.resource.data))))||(table=='hd3d_mail'&&((updateRow_4(request.resource.data))))||(table=='hd3d_orders'&&((changed(request.resource.data))))||(table=='hd3d_profiles'&&((updateRow_8(request.resource.data))))||(table=='hd3d_spire_weeks'&&((updateBase(uid,request.resource.data)&&id==uid+'~'+request.resource.data.row.week&&(proof(uid).op=='spire_claim_week'?swClaim(uid,request.resource.data,resource.data.row):spWeek(uid,request.resource.data,resource.data.row)))))||(table=='hd3d_users'&&((updateRow_9(request.resource.data))))));
+   allow delete: if request.auth!=null&&(table.matches('^(hd3d_admins|hd3d_bans|hd3d_owned|hd3d_spire_weeks)$')&&((table=='hd3d_admins'&&((id==uid&&aaLink(uid)&&aa(uid).action=='owner_remove_admin'&&resource.data.row.owner==false)))||(table=='hd3d_bans'&&((id==uid&&moderationBan(uid)&&!getAfter(blockPath(uid)).data.banned)))||(table=='hd3d_owned'&&((aaRemoveOwned(uid,id))))||(table=='hd3d_spire_weeks'&&((aaResetWeek(uid,id))))));
+  }
+
+  match /hd3d_live/{uid}/hd3d_dungeon_runs/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function hero(h) { return h in ['mage','archer','warrior','gunner','fighter']; }
+  function dgPath(uid) { return path(uid,'hd3d_dungeon_runs',proof(uid).request); }
+  function dgRun(r,uid,id) {
+   return r.keys().hasAll(['id','user_id','day','token','growth','status','started_at','finished_at','floors','win','medals','uq','boss_reward','soul_reward','created_at']) &&
+    r.keys().hasOnly(['id','user_id','day','token','growth','status','started_at','finished_at','floors','win','medals','uq','boss_reward','soul_reward','created_at','xp_floors']) &&
+    r.user_id==uid && string(r.id)==id && small(r.id,9007199254740991) && str(r.token,80) && str(r.day,10) &&
+    r.growth is bool && r.status in ['active','abandoned','done'] && str(r.started_at,32) && str(r.created_at,32);
+  }
+  function dgNew(uid,d) {
+   let r=d.row; let dayKey='dungeon-'+string(int((request.time.toMillis() + 32400000) / 86400000));
+   return proof(uid).op=='dungeon_start' && proof(uid).request==string(r.id) && proof(uid).token==r.token &&
+    d.issuedAt==request.time && d.closedAt==null && r.status=='active' && r.floors==null && r.win==null && r.finished_at==null &&
+    r.medals==0 && r.uq==null && r.boss_reward==null && r.soul_reward==null && !('xp_floors' in r) &&
+    !exists(path(uid,'hd3d_sequences',dayKey)) && getAfter(path(uid,'hd3d_sequences',dayKey)).data.row.value==r.id &&
+    getAfter(path(uid,'hd3d_sequences',dayKey)).data.commitRevision==d.commitRevision;
+  }
+  function dgDone(uid,d,old) {
+   let a=d.row; let b=old.row;
+   return proof(uid).op=='dungeon_finish' && proof(uid).token==b.token && b.status=='active' &&
+    d.issuedAt==old.issuedAt && d.closedAt==request.time && a.diff(b).affectedKeys().hasOnly(['status','finished_at','floors','win','medals','soul_reward']) &&
+    a.status=='done' && small(a.floors,5) && a.win is bool && (!a.win||a.floors==5) &&
+    request.time>=d.issuedAt+duration.value(a.floors*20,'s') && request.time<=d.issuedAt+duration.value(10800,'s') &&
+    a.medals==a.floors*2+(a.win?5:0) && a.soul_reward.souls==[0,150,400,700,1100,1700][a.floors]+(a.win?300:0) &&
+    getAfter(path(uid,'hd3d_dungeon_wallet',uid)).data.commitRevision==d.commitRevision &&
+    (a.soul_reward.souls==0 || (getAfter(path(uid,'hd3d_mail',string(a.soul_reward.mail))).data.row.reward=={'souls':a.soul_reward.souls} &&
+      getAfter(path(uid,'hd3d_mail',string(a.soul_reward.mail))).data.commitRevision==d.commitRevision));
+  }
+  function dgPing(uid,d,old) {
+   let a=d.row; let b=old.row;
+   return proof(uid).op=='dungeon_ping' && proof(uid).token==a.token && b.status=='active' && b.growth &&
+    d.issuedAt==old.issuedAt && d.closedAt==old.get('closedAt',null) && a.diff(b).affectedKeys().hasOnly(['xp_floors']) && small(a.xp_floors,5) &&
+    a.xp_floors>=b.get('xp_floors',0) && request.time>=d.issuedAt+duration.value(a.xp_floors*20,'s') &&
+    request.time<=d.issuedAt+duration.value(10800,'s');
+  }
+  function dgBossItem(it,h) {
+   return it is map&&it.k=='gear'&&it.g==3&&it.set=='morvia'&&
+    (it.s=='weapon'?it.keys().hasOnly(['k','s','g','set','h'])&&it.h==h:
+      it.s in ['armor','acc']&&it.keys().hasOnly(['k','s','g','set']));
+  }
+  function dgBoss(uid,d,old) {
+   let a=d.row;let b=old.row;let z=a.boss_reward;let p=proof(uid);
+   return p.op=='dungeon_boss_drop'&&p.request==string(b.id)&&p.token==b.token&&hero(p.hero)&&b.boss_reward==null&&
+    d.issuedAt==old.issuedAt&&d.closedAt==old.get('closedAt',null)&&a.diff(b).affectedKeys().hasOnly(['boss_reward'])&&
+    (b.status=='active'||(b.status=='done'&&b.floors>=4&&old.closedAt is timestamp&&request.time<old.closedAt+duration.value(600,'s')))&&
+    request.time>=d.issuedAt+duration.value(100,'s')&&request.time<=d.issuedAt+duration.value(10800,'s')&&
+    z is map&&z.keys().hasAll(['item','mail'])&&z.keys().hasOnly(['item','mail'])&&
+    (z.item==null?z.mail==null:(dgBossItem(z.item,p.hero)&&z.mail is int&&z.mail>0&&
+      getAfter(path(uid,'hd3d_mail',string(z.mail))).data.row.reward=={'items':[z.item]}&&
+      getAfter(path(uid,'hd3d_mail',string(z.mail))).data.commitRevision==d.commitRevision));
+  }
+  function dgAbandon(uid,d,old) {
+   return old.row.status=='active'&&d.row.status=='abandoned'&&d.issuedAt==old.issuedAt&&
+    d.row.diff(old.row).affectedKeys().hasOnly(['status','finished_at','floors','win'])&&
+    d.row.floors==0&&d.row.win==false&&str(d.row.finished_at,32)&&
+    (proof(uid).op=='dungeon_finish'?request.time>d.issuedAt+duration.value(10800,'s'):
+     proof(uid).op=='dungeon_start'&&getAfter(dgPath(uid)).data.row.status=='active'&&
+      getAfter(dgPath(uid)).data.commitRevision==d.commitRevision&&proof(uid).request!=string(old.row.id));
+  }
+  function valid_9(d) { return dgRun(d.row,uid,id); }
+  function createRow_4(d) { return writeBase(uid,d)&&valid_9(d)&&(dgNew(uid,d)); }
+  function updateRow_5(d) { return updateBase(uid,d)&&valid_9(d)&&(d.row.status=='abandoned'?dgAbandon(uid,d,resource.data):proof(uid).op=='dungeon_ping'?dgPing(uid,d,resource.data):proof(uid).op=='dungeon_finish'?dgDone(uid,d,resource.data):proof(uid).op=='dungeon_boss_drop'?dgBoss(uid,d,resource.data):false); }
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((createRow_4(request.resource.data)))));
+   allow update: if ((((updateRow_5(request.resource.data)))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_growth_investments/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function spDay() { return int((request.time.toMillis() + 32400000) / 86400000); }
+  function spBestPath(uid) { return path(uid,'hd3d_spire_best',uid); }
+  function validSub(v,main,bounds) { return v is map&&v.keys().hasAll(['k','v'])&&v.keys().hasOnly(['k','v'])&&v.k in bounds&&v.k!=main&&v.v is int&&v.v>=bounds[v.k][0]&&v.v<=bounds[v.k][1]; }
+  function validSubs(sub,main,c) { return sub is list&&sub.size()==c.subCount&&
+   (sub.size()==0||validSub(sub[0],main,c.subBounds))&&
+   (sub.size()<2||(validSub(sub[1],main,c.subBounds)&&sub[0].k!=sub[1].k)); }
+  function newItemShape(it,c) { return it.id is string&&it.id.size()>0&&it.id.size()<=16&&small(it.g,4)&&it.keys().hasOnly(['id','g','e','s','c','h','body','hasE','unique','packed','raw','mainKey','spec','set'])&&it.get('set','')==c.get('set','')&&
+   it.e==0&&it.hasE&&it.body==''&&!it.unique&&!it.packed&&it.raw==''&&
+   it.spec.keys().hasAll(['n','m','sub','u'])&&it.spec.keys().hasOnly(['n','m','sub','u'])&&
+   it.spec.n in c.names&&it.spec.m is list&&it.spec.m.size()==2&&it.spec.m[0] in c.mains&&it.spec.m[1]==c.mains[it.spec.m[0]]&&
+   it.mainKey==it.spec.m[0]&&it.spec.u in c.u; }
+  function catalog(stage) { return get(/databases/$(database)/documents/hd3d_live_catalog/$(stage)).data; }
+  function plausibleKills(uid,token,wave,kills) {
+   let d=get(path(uid,'hd3d_growth_runs',uid+'~'+token));let s=catalog(d.data.row.stage);
+   let seconds=int((request.time.toMillis()-d.data.issuedAt.toMillis()) / 1000);
+   return wave==0?kills==0:(seconds>=0&&kills<=s.killBase[wave]*(s.renewable?1+seconds*32:1));
+  }
+  function chPath(uid) {return path(uid,'hd3d_growth_investments',uid+'~challenge~'+proof(uid).token);}
+  function chLootPath(uid,i) {return path(uid,'hd3d_growth_investments',uid+'~challenge-loot~'+proof(uid).token+'~'+string(i));}
+  function unusedDrop(it,g) { return !(it.id in g.bagIds)&&!(it.id in g.storedIds)&&!(it.id in g.chestItemIds); }
+  function hardPath(uid) { return path(uid,'hd3d_growth_runs',uid+'~'+proof(uid).token); }
+  function mailItemPath(uid,id,i) { return path(uid,'hd3d_growth_investments',uid+'~mailitem~'+id+'~'+string(i)); }
+  function chDropPath(uid,id) {return path(uid,'hd3d_growth_investments',uid+'~challenge-drop~'+proof(uid).token+'~'+id);}
+  function hardSpec(x,ch,h,grades) {
+   return x.keys().hasAll(['k','s','g','c'])&&x.keys().hasOnly(x.s=='weapon'?['k','s','g','c','h']:['k','s','g','c'])&&
+    x.k=='gear'&&x.s in ['weapon','armor','acc']&&x.c==ch&&x.g in grades&&(x.s!='weapon'||x.h==h);
+  }
+  function hardSpecs(r,items,s) {
+   let z=r.directReward;let n=items.size();let b=int(r.completed / 5);
+   let t=r.won&&!z.first&&r.repeat?r.target:null;let h=t!=null&&!(t in ['armor','acc'])?t:r.hero;
+   let g=s.hardGrades;
+   return (n==0||hardSpec(items[0],s.ch,h,b>0?g:z.first?[3]:[0,1,2])&&(t==null||items[0].s==(t in ['armor','acc']?t:'weapon')))&&
+    (n<2||hardSpec(items[1],s.ch,r.hero,b>1?g:z.first&&b==1?[3]:[0,1,2]))&&
+    (n<3||hardSpec(items[2],s.ch,r.hero,b>2?g:z.first&&b==2?[3]:[0,1,2]))&&
+    (n<4||hardSpec(items[3],s.ch,r.hero,z.first&&b==3?[3]:[0,1,2]))&&
+    (n<5||hardSpec(items[4],s.ch,r.hero,[0,1,2]));
+  }
+  function spPath(uid) { return path(uid,'hd3d_spire_runs',proof(uid).request); }
+  function spOldBest(uid) { return exists(spBestPath(uid))?get(spBestPath(uid)).data.row:{'user_id':uid,'best_floor':0,'best_at':null,'cleared_bosses':0,'updated_at':''}; }
+  function swGrant(uid) { return get(path(uid,'hd3d_growth_investments',uid+'~spaward~'+proof(uid).source)).data.row.result; }
+  function swWeekPath(uid) { return path(uid,'hd3d_spire_weeks',uid+'~'+proof(uid).source); }
+  function swLast(uid) { return swGrant(uid).weekDay==spDay()-(spDay()+3)%7-7; }
+  function swValid(uid) {
+   let a=swGrant(uid);let w=get(swWeekPath(uid)).data.row;
+   return proof(uid).op=='spire_claim_week'&&a.action=='spire_week_award'&&a.week==proof(uid).source&&a.week==w.week&&a.floor==w.best_floor&&a.floor>0&&
+    a.weekDay is int&&(a.weekDay+3)%7==0&&a.weekDay+7<=spDay()&&a.rank is int&&a.rank>=1&&
+    a.souls==(a.floor*30>1500?1500:a.floor*30)&&a.medals==(int(a.floor / 5)*2>25?25:int(a.floor / 5)*2)&&
+    (a.rank==1?a.title=='spire_w1':a.rank<=10?a.title=='spire_w10':a.title==null)&&!w.claimed;
+  }
+  function receipt(r,uid) {
+   return r.keys().hasAll(['id','user_id','body','at']) && r.keys().hasOnly(['id','user_id','body','at','result']) &&
+    r.user_id==uid && str(r.id,256)&&str(r.body,2048)&&str(r.at,32);
+  }
+  function newItem(it,c) { return newItemShape(it,c)&&validSubs(it.spec.sub,it.mainKey,c); }
+  function gearReceipt(uid,r) {
+   let p=proof(uid);let progress=getAfter(path(uid,'hd3d_progress',uid));
+    return r.id==uid+'~gear~'+p.request&&p.op=='gear_'+r.result.action&&r.result.ok==true&&r.result.id==p.request&&
+    progress.data.commitRevision==request.resource.data.commitRevision&&
+     (p.op!='gear_craft'||(r.result.action=='craft'&&newItem(r.result.it,catalog('item-'+string(p.level)+'-'+(p.slot=='weapon'?p.hero:p.slot)).grades[r.result.it.g])));
+  }
+  function chOpen(b,ch) {return ch in [1,2,3,4,5,6,7,8,9,10]&&(ch==1||b.st.get(string(ch-1)+'-6',0)>0);}
+  function validDrop(it,ch,h) {
+    let c=catalog('item-'+string(ch)+'-'+(it.s=='weapon'?h:it.s)).grades[it.g];
+    // newItem validates the entire typed schema, grade/equipment/substats.
+    // Keep contextual checks here; do not evaluate that schema twice.
+    return it.c==ch&&it.h==(it.s=='weapon'?h:'')&&it.g>=1&&it.id.matches('^[A-Za-z0-9_-]{1,16}$')&&newItem(it,c);
+   }
+  function challengeDrop(uid,d) {
+   let z=d.row.result;let p=proof(uid);let run=get(path(uid,'hd3d_growth_runs',uid+'~'+p.token)).data.row;
+   let b=get(path(uid,'hd3d_progress',uid)).data.row.authority;
+   return d.row.id==uid+'~challenge-drop~'+p.token+'~'+p.choice&&z.drop.id==p.choice&&run.mode=='challenge'&&run.done&&!run.won&&
+    chOpen(b,z.drop.c)&&validDrop(z.drop,z.drop.c,run.hero)&&unusedDrop(z.drop,b.gear);
+  }
+  function challengeRow(uid,r) {return r.keys().hasAll(['id','user_id','body','at','action','status','token','result'])&&r.keys().hasOnly(['id','user_id','body','at','action','status','token','result'])&&r.id==uid+'~challenge~'+proof(uid).token&&r.user_id==uid&&r.token==proof(uid).token&&r.token.matches('^[A-Za-z0-9_-]{8,64}$')&&r.body.matches('^[a-f0-9]{64}$')&&str(r.at,32)&&r.action=='challenge_settle'&&r.status in ['pending','done'];}
+  function chPlausible(uid,z) {
+   let d=get(path(uid,'hd3d_growth_runs',uid+'~'+proof(uid).token));let seconds=int((request.time.toMillis()-d.data.issuedAt.toMillis()) / 1000);
+   // Original waves have 8+3*n spawns, packs/split and renewable summons.
+   return z.wave==0?z.kills==0:seconds>=0&&z.kills<=4*(17*z.wave+int(3*z.wave*(z.wave+1) / 2))*(z.wave>=40?1+seconds*32:1);
+  }
+  function challengeNew(uid,d) {
+   let r=d.row;let z=r.result;let p=proof(uid);let run=get(path(uid,'hd3d_growth_runs',uid+'~'+p.token)).data.row;let b=get(path(uid,'hd3d_progress',uid)).data.row.authority;
+   let maxEss=int(z.wave / 5)-3;
+   return challengeRow(uid,r)&&run.mode=='challenge'&&run.done&&!run.won&&
+    z.keys().hasAll(['ok','kind','token','hero','wave','kills','bosses','trials','unlock','dropNext','lastDrop','souls','essence','best','bestWave','base','drops','total','next','stored','dismantled'])&&z.keys().hasOnly(['ok','kind','token','hero','wave','kills','bosses','trials','unlock','dropNext','lastDrop','souls','essence','best','bestWave','base','drops','total','next','stored','dismantled'])&&
+    z.ok&&z.kind=='challenge'&&z.token==p.token&&z.hero==run.hero&&z.wave==p.level&&z.kills==p.kills&&small(z.wave,10000)&&small(z.kills,1000000000)&&
+    z.wave>=run.completed&&z.wave<=run.completed+1&&chPlausible(uid,z)&&small(z.bosses,int(z.wave / 5))&&
+    z.unlock==b.st&&z.souls==z.wave*8+int(z.kills / 3)&&small(z.trials,999)&&z.trials<=z.bosses&&z.trials<=(maxEss>0?maxEss:0)&&small(z.essence,z.trials)&&
+    z.best==(z.wave>b.bestWave)&&z.bestWave==(z.best?z.wave:b.bestWave)&&z.base==int(z.wave / 5)&&small(z.drops,z.bosses)&&z.total==z.base+z.drops&&z.next==0&&z.stored==0&&z.dismantled==0&&
+    r.status==(z.total==0?'done':'pending')&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function chOriginal(uid,b,it) {let d=get(chDropPath(uid,b.dropNext)).data.row.result.drop;return it.diff(d).affectedKeys().hasOnly(['id']);}
+  function challengeLootReceipt(uid,d) {
+   let z=d.row.result;let p=proof(uid);let before=get(chPath(uid)).data.row.result;let after=getAfter(chPath(uid));let it=z.it;
+   return d.row.id==uid+'~challenge-loot~'+p.token+'~'+string(p.pos)&&d.row.body==''&&
+    z.keys().hasAll(['action','token','index','it','src','entry'])&&z.keys().hasOnly(['action','token','index','it','src','entry'])&&z.action=='challenge_loot'&&z.token==p.token&&z.index==before.next&&z.index==p.pos&&z.index<before.total&&
+    after.data.commitRevision==d.commitRevision&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision&&
+    chOpen({'st':before.unlock},it.c)&&it.h==(it.s=='weapon'?before.hero:'')&&it.g>=(z.index<before.base?(it.c>=3?1:0):1)&&
+    z.src==(z.index<before.base?'chest':'boss')&&(z.src!='boss'||chOriginal(uid,before,it))&&
+    validSubs(it.spec.sub,it.mainKey,catalog('item-'+string(it.c)+'-'+(it.s=='weapon'?it.h:it.s)).grades[it.g]);
+  }
+  function challengeStep(uid,d,old) {
+   let a=d.row;let b=old.row;let z=a.result;let before=b.result;let step=getAfter(chLootPath(uid,before.next));let entry=step.data.row.result.entry;
+   return challengeRow(uid,a)&&b.status=='pending'&&a.diff(b).affectedKeys().hasOnly(['result','status'])&&
+    before.next==proof(uid).pos&&before.next<before.total&&z.diff(before).affectedKeys().hasOnly(['next','stored','dismantled','dropNext'])&&z.next==before.next+1&&z.dropNext==(before.next<before.base?before.dropNext:get(chDropPath(uid,before.dropNext)).data.row.result.next)&&
+    z.stored==before.stored+(entry.auto?0:1)&&z.dismantled==before.dismantled+(entry.auto?1:0)&&a.status==(z.next==z.total?'done':'pending')&&
+    !exists(chLootPath(uid,before.next))&&step.data.commitRevision==d.commitRevision&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function normalDropReceipt(uid,r) {
+    let p=proof(uid);let z=r.result;let run=get(path(uid,'hd3d_growth_runs',uid+'~'+p.token)).data.row;let s=catalog(run.stage);
+    return p.op=='normal_drop'&&p.pos in [0,1,2,3]&&r.id==uid+'~drop~'+p.token+'~'+string(p.pos)&&p.source.matches('^[a-f0-9]{64}$')&&
+     z.keys().hasAll(['ok','action','token','drop','ref','index'])&&z.keys().hasOnly(['ok','action','token','drop','ref','index'])&&
+     z.ok&&z.action=='normal_drop'&&z.token==p.token&&z.ref==p.source&&z.index==p.pos&&run.mode=='campaign'&&run.done&&!s.hard&&validDrop(z.drop,s.ch,run.hero);
+   }
+  function normalDropAt(uid,z,i) {let memoProof=proof(uid);
+    let validated=get(path(uid,'hd3d_growth_investments',uid+'~drop~'+memoProof.token+'~'+string(i))).data.row.result;
+    return validated.action=='normal_drop'&&validated.token==memoProof.token&&validated.ref==z.refs[i]&&validated.drop==z.drops[i];
+   }
+  function normalManifest(uid,r) {
+    let p=proof(uid);let z=r.result;let d=z.drops;let n=d.size();
+    return p.op=='normal_manifest'&&r.id==uid+'~drops~'+p.token&&p.source.matches('^[a-f0-9]{64}$')&&
+     z.keys().hasAll(['ok','action','token','drops','refs','ref'])&&z.keys().hasOnly(['ok','action','token','drops','refs','ref'])&&
+     z.ok&&z.action=='normal_manifest'&&z.token==p.token&&z.ref==p.source&&d is list&&n>0&&n<=4&&z.refs is list&&z.refs.size()==n&&
+     normalDropAt(uid,z,0)&&(n<2||(normalDropAt(uid,z,1)&&d[1].id!=d[0].id))&&
+     (n<3||(normalDropAt(uid,z,2)&&d[2].id!=d[0].id&&d[2].id!=d[1].id))&&
+     (n<4||(normalDropAt(uid,z,3)&&d[3].id!=d[0].id&&d[3].id!=d[1].id&&d[3].id!=d[2].id));
+   }
+  function normalRow(uid,r) {let memoProof=proof(uid);
+   return r.keys().hasAll(['id','user_id','token','action','status','body','at','result'])&&r.keys().hasOnly(['id','user_id','token','action','status','body','at','result'])&&
+    r.id==uid+'~normal~'+memoProof.token&&r.user_id==uid&&r.token==memoProof.token&&str(r.token,64)&&
+    r.action=='normal_settle'&&str(r.body,14000)&&str(r.at,32)&&r.status in ['pending','done'];
+  }
+  function normalNew(uid,d) {
+   let p=proof(uid);let r=d.row;let z=r.result;
+   let run=get(path(uid,'hd3d_growth_runs',uid+'~'+p.token)).data.row;
+   let s=catalog(run.stage);let b=get(path(uid,'hd3d_progress',uid)).data.row.authority;
+   let prev=b.st.get(run.stage,0);let stars=run.won?(z.stars>prev?z.stars:prev):prev;
+   let starTo=run.won&&int((b.starsTotal+stars-prev) / 5)>b.starRw?int((b.starsTotal+stars-prev) / 5):b.starRw;
+   return p.op=='normal_settle'&&normalRow(uid,r)&&run.mode=='campaign'&&run.done&&s.hard==false&&
+    !exists(path(uid,'hd3d_growth_investments',uid+'~gear~run-'+p.token))&&
+    z.keys().hasAll(['ok','stage','hero','ch','wave','kills','won','stars','prev','first','souls','base','starFrom','starTo','total','next','loot','drops','dropManifest','unlocked'])&&
+    z.keys().hasOnly(['ok','stage','hero','ch','wave','kills','won','stars','prev','first','souls','base','starFrom','starTo','total','next','loot','drops','dropManifest','unlocked'])&&
+    z.ok==true&&z.stage==run.stage&&z.hero==run.hero&&z.ch==s.ch&&z.won==run.won&&z.wave==p.level&&z.kills==p.kills&&
+    small(z.wave,s.waves)&&plausibleKills(uid,p.token,z.wave,z.kills)&&z.wave<=run.completed+1&&small(z.kills,1000000)&&
+    (run.won?(run.completed==s.waves&&z.wave==s.waves&&z.stars in [1,2,3]):z.stars==0)&&
+    z.prev==prev&&z.first==(run.won&&prev==0)&&
+    z.souls==z.wave*8+int(z.kills / 3)+(run.won?(prev==0?s.reward:int((s.reward+1) / 2)):0)&&
+     z.base==int(z.wave / 5)&&z.drops is list&&z.drops.size()<=s.bossMax[z.wave]&&
+    z.starFrom==b.starRw&&z.starTo==starTo&&z.total==z.base+z.drops.size()+(z.first?1:0)+starTo-b.starRw&&
+    small(z.total,60)&&z.next==0&&z.loot==[]&&z.unlocked is list&&z.unlocked.size()<=60&&
+    r.status==(z.total==0?'done':'pending')&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function normalItem(uid,z,old) {
+   let i=old.next;let it=z.last.it;let run=get(path(uid,'hd3d_growth_runs',uid+'~'+proof(uid).token)).data.row;
+   let targeted=old.won&&run.repeat&&i==0&&run.target!=null;
+   let slot=targeted?(run.target=='armor'?'armor':run.target=='acc'?'acc':'weapon'):it.s;
+   let hero=targeted&&slot=='weapon'?run.target:old.hero;
+   let drop=i>=old.base&&i<old.base+old.drops.size();
+   return it.c==old.ch&&it.s==slot&&it.h==(slot=='weapon'?hero:'')&&it.g>=(drop?1:catalog(old.stage).minGrade)&&
+    validSubs(it.spec.sub,it.mainKey,catalog('item-'+string(it.c)+'-'+(it.s=='weapon'?it.h:it.s)).grades[it.g])&&
+    (drop?it==old.drops[i-old.base]:true)&&
+    z.last.src==(i<old.base?'chest':drop?'boss':old.first&&i==old.base+old.drops.size()?'stage':'star');
+  }
+  function readableDrop(it) {
+    // Historical malformed entries must fail validation as a boolean, not throw
+    // while looking up a missing catalog or calling keys() on a non-map.
+    return it is map&&it.keys().hasAll(['id','g','e','s','c','h','body','hasE','unique','packed','raw','mainKey','spec'])&&
+     it.s in ['weapon','armor','acc']&&it.g in [0,1,2,3,4]&&it.id is string&&it.c is int&&it.h is string&&
+     it.e is int&&it.body is string&&it.hasE is bool&&it.unique is bool&&it.packed is bool&&it.raw is string&&it.mainKey is string&&
+     it.spec is map&&it.spec.keys().hasAll(['n','m','sub','u'])&&it.spec.n is string&&it.spec.m is list&&it.spec.m.size()==2&&
+     it.spec.m[0] is string&&it.spec.m[1] is number&&it.spec.sub is list&&it.spec.sub.size()<=2&&it.spec.u is string&&
+     (it.spec.sub.size()==0||(it.spec.sub[0] is map&&it.spec.sub[0].keys().hasAll(['k','v'])&&it.spec.sub[0].k is string&&it.spec.sub[0].v is int))&&
+     (it.spec.sub.size()<2||(it.spec.sub[1] is map&&it.spec.sub[1].keys().hasAll(['k','v'])&&it.spec.sub[1].k is string&&it.spec.sub[1].v is int));
+   }
+  function normalSkip(uid,z,old) {
+    let index=old.next-old.base;let it=old.drops[index];let g=get(path(uid,'hd3d_progress',uid)).data.row.authority.gear;
+    return index>=0&&index<old.drops.size()&&(!readableDrop(it)||!validDrop(it,old.ch,old.hero)||!unusedDrop(it,g))&&
+     z.last=={'src':'boss','skipped':true,'reason':'invalid_drop'}&&z.loot[old.next]==z.last;
+   }
+  function normalStep(uid,d,old) {let memoProof=proof(uid);
+   let a=d.row;let b=old.row;let z=a.result;let before=b.result;
+   return memoProof.op=='normal_loot'&&normalRow(uid,a)&&b.status=='pending'&&
+    a.diff(b).affectedKeys().hasOnly(['result','status'])&&before.next==memoProof.pos&&before.next<before.total&&
+    z.diff(before).affectedKeys().hasOnly(['next','loot','last'])&&z.next==before.next+1&&
+    z.loot.size()==z.next&&z.loot==before.loot.concat([z.loot[before.next]])&&
+     (z.last.get('skipped',false)?normalSkip(uid,z,before):
+       (z.last.keys().hasAll(['it','src'])&&z.last.keys().hasOnly(['it','src'])&&normalItem(uid,z,before)))&&
+    a.status==(z.next==z.total?'done':'pending')&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function hardNormalRow(uid,r) {let memoProof=proof(uid);
+   return r.keys().hasAll(['id','user_id','token','action','status','body','at','result'])&&r.keys().hasOnly(['id','user_id','token','action','status','body','at','result'])&&
+    r.id==uid+'~hard~'+memoProof.token&&r.user_id==uid&&r.token==memoProof.token&&r.body==r.token&&str(r.at,32)&&r.action=='hard_settle'&&r.status in ['pending','done'];
+  }
+  function hardNormalNew(uid,d) {
+   let r=d.row;let z=r.result;let run=get(hardPath(uid)).data.row;let entitled=run.directReward;
+   return hardNormalRow(uid,r)&&run.done&&!run.hardSaved&&entitled.method=='normal'&&
+    z.keys().hasAll(['ok','souls','total','next','loot','specs'])&&z.keys().hasOnly(['ok','souls','total','next','loot','specs'])&&
+    z.ok==true&&z.souls==entitled.souls&&z.total==entitled.total&&z.next==0&&z.loot==[]&&z.specs is list&&z.specs.size()==z.total&&
+    hardSpecs(run,z.specs,catalog(run.stage))&&r.status==(z.total==0?'done':'pending')&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function hardNormalItem(it,spec) {
+   return it.s==spec.s&&it.c==spec.c&&it.g==spec.g&&it.h==spec.get('h','')&&
+    validSubs(it.spec.sub,it.mainKey,catalog('item-'+string(it.c)+'-'+(it.s=='weapon'?it.h:it.s)).grades[it.g]);
+  }
+  function hardNormalStep(uid,d,old) {
+   let a=d.row;let b=old.row;let z=a.result;let before=b.result;
+   return hardNormalRow(uid,a)&&b.status=='pending'&&a.diff(b).affectedKeys().hasOnly(['result','status'])&&before.next==proof(uid).pos&&before.next<before.total&&
+    z.diff(before).affectedKeys().hasOnly(['next','loot','last'])&&z.next==before.next+1&&z.loot.size()==z.next&&z.loot==before.loot.concat([z.loot[before.next]])&&
+    z.last.keys().hasAll(['it','src'])&&z.last.keys().hasOnly(['it','src'])&&z.last.src=='chest'&&hardNormalItem(z.last.it,before.specs[before.next])&&
+    a.status==(z.next==z.total?'done':'pending')&&getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function receiptNew(uid,r) {
+   let p=proof(uid); let a=getAfter(path(uid,'hd3d_growth_wallet',uid)).data.row;
+   let b=get(path(uid,'hd3d_growth_wallet',uid)).data.row;
+   // Match the API request ID alphabet; reserved ~drop~/~normal~/~tree~
+   // namespaces cannot be forged through an investment receipt with extra keys.
+   return p.op=='growth_invest' && p.request.matches('^[A-Za-z0-9-]{8,80}$')&&r.id==uid+'~'+p.request && a.xp[p.hero]>b.xp[p.hero] &&
+    r.result.ok==true && r.result.id==p.request && r.result.hero==p.hero && r.result.level==p.level &&
+    r.result.cost==a.spent-b.spent && r.result.growth.balance==a.balance && r.result.growth.xp==a.xp &&
+    getAfter(path(uid,'hd3d_growth_wallet',uid)).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function treeReceipt(uid,r) {let memoProof=proof(uid); return memoProof.op=='growth_build'&&r.id==uid+'~tree~'+memoProof.request&&
+   !('result' in r)&&getAfter(path(uid,'hd3d_growth_wallet',uid)).data.commitRevision==request.resource.data.commitRevision; }
+  function spEntryReceipt(uid,d) {
+   let p=proof(uid);let z=d.row.result;let run=getAfter(spPath(uid));let count=getAfter(path(uid,'hd3d_sequences','spire-'+string(spDay())));
+   return p.op=='spire_start'&&p.source.matches('^[A-Za-z0-9_-]{8,64}$')&&d.row.id==uid+'~spstart~'+p.source&&
+    z.keys().hasAll(['ok','action','request','token','from','best','limit','used','left','growth'])&&z.keys().hasOnly(['ok','action','request','token','from','best','limit','used','left','growth'])&&
+    z.ok&&z.action=='spire_start'&&z.request==p.source&&z.token==run.data.row.token&&z.from==run.data.row.from_floor&&z.growth==run.data.row.growth&&
+    z.best==spOldBest(uid).best_floor&&z.limit==30&&z.used==count.data.row.value&&z.left==30-z.used&&
+    !exists(spPath(uid))&&run.data.row.status=='active'&&run.data.commitRevision==d.commitRevision&&count.data.commitRevision==d.commitRevision;
+  }
+  function swReceipt(uid,d) {
+   let a=swGrant(uid);let z=d.row.result;let mail=getAfter(path(uid,'hd3d_mail',string(z.mail)));let w=getAfter(swWeekPath(uid));
+   return swValid(uid)&&d.row.id==uid+'~spclaim~'+proof(uid).source&&
+    z.keys().hasAll(['ok','action','week','best','rank','souls','medals','title','mail'])&&z.keys().hasOnly(['ok','action','week','best','rank','souls','medals','title','mail'])&&
+    z.ok&&z.action=='spire_claim_week'&&z.week==a.week&&z.best==a.floor&&z.rank==a.rank&&z.souls==a.souls&&z.medals==a.medals&&z.title==(swLast(uid)?a.title:null)&&
+    w.data.row.claimed&&w.data.commitRevision==d.commitRevision&&mail.data.commitRevision==d.commitRevision&&mail.data.row.reward=={'souls':a.souls,'medals':a.medals}&&
+    (!swLast(uid)||getAfter(path(uid,'hd3d_dungeon_wallet',uid)).data.commitRevision==d.commitRevision);
+  }
+  function dgBuyReceipt(uid,d) {
+   let p=proof(uid);let r=d.row;let z=r.result;let item=catalog('dungeon-shop')[p.token];let bp=path(uid,'hd3d_dungeon_buys',string(z.buy));
+   return p.op=='dungeon_buy'&&p.request.matches('^[A-Za-z0-9_-]{8,64}$')&&r.id==uid+'~dgbuy~'+p.request&&
+    z.keys().hasOnly(['ok','action','item','price','medals','titles','mail','buy'])&&z.ok&&z.action=='dungeon_buy'&&z.item==p.token&&z.price==item.price&&
+    getAfter(bp).data.commitRevision==d.commitRevision&&getAfter(bp).data.row.item==p.token&&getAfter(bp).data.row.mail_id==z.mail&&
+    getAfter(path(uid,'hd3d_dungeon_wallet',uid)).data.commitRevision==d.commitRevision&&
+    ('reward' in item?(z.mail is int&&getAfter(path(uid,'hd3d_mail',string(z.mail))).data.commitRevision==d.commitRevision&&getAfter(path(uid,'hd3d_mail',string(z.mail))).data.row.reward==item.reward):z.mail==null);
+  }
+  function mailAutoPart(items,i,pos,room,yields) { return i>=pos&&i<items.size()&&i-pos>=room?yields[items[i].g]:0; }
+  function mailAutoSum(items,pos,room,yields) {
+   return mailAutoPart(items,0,pos,room,yields)+mailAutoPart(items,1,pos,room,yields)+mailAutoPart(items,2,pos,room,yields)+mailAutoPart(items,3,pos,room,yields)+mailAutoPart(items,4,pos,room,yields)+
+    mailAutoPart(items,5,pos,room,yields)+mailAutoPart(items,6,pos,room,yields)+mailAutoPart(items,7,pos,room,yields)+mailAutoPart(items,8,pos,room,yields)+mailAutoPart(items,9,pos,room,yields);
+  }
+  function mailCapacity(uid,b,rw,pos,part) {
+   let items=rw.get('items',[]);let room=200-b.gear.chests.size();let wp=path(uid,'hd3d_dungeon_wallet',uid);
+   return b.souls+rw.get('souls',0)<=1000000000&&b.mat.get('essence',0)+rw.get('essence',0)<=1000000000&&
+    (part=='steel'?b.mat.steel+rw.get('steel',0)+mailAutoSum(items,pos,room,[2,4,8,12,20])<=1000000000:
+      b.mat.crystal+rw.get('crystal',0)+mailAutoSum(items,pos,room,[0,0,1,3,8])<=1000000000)&&
+    (rw.get('medals',0)==0||(exists(wp)?get(wp).data.row.earned:0)+rw.medals<=1000000000);
+  }
+  function mailBudgetReceipt(uid,d) {
+   let p=proof(uid);let m=get(path(uid,'hd3d_mail',p.request)).data.row;let b=get(path(uid,'hd3d_progress',uid)).data.row.authority;let part=d.row.result.part;
+   return p.op=='mail_item'&&p.pos<10&&part in ['steel','crystal']&&!m.claimed&&!m.revoked&&d.row.id==uid+'~mailbudget~'+p.request+'~'+string(p.pos)+'~'+part&&
+    d.row.result=={'action':'mail_budget','mail':m.id,'index':p.pos,'part':part}&&mailCapacity(uid,b,m.reward,p.pos,part)&&
+    getAfter(mailItemPath(uid,p.request,p.pos)).data.commitRevision==d.commitRevision;
+  }
+  function mailItemReceipt(uid,d) {
+   let p=proof(uid);let r=d.row;let z=r.result;let m=get(path(uid,'hd3d_mail',p.request)).data.row;let x=m.reward.items[p.pos];let it=z.it;
+   let h=x.get('h','')=='mechanic'?'archer':x.get('h','');let set=x.get('set','');
+   let cat=catalog('item-'+(set==''?string(x.get('c',0)):set)+'-'+(x.s=='weapon'?h:x.s)).grades[x.g];
+   return p.op=='mail_item'&&p.pos<10&&!m.claimed&&!m.revoked&&r.id==uid+'~mailitem~'+p.request+'~'+string(p.pos)&&
+    z.keys().hasOnly(['action','mail','index','it','entry'])&&z.action=='mail_item'&&z.mail==m.id&&z.index==p.pos&&
+    it.s==x.s&&it.h==h&&it.g==x.g&&it.c==x.get('c',0)&&it.get('set','')==set&&str(it.id,16)&&newItem(it,cat)&&
+    getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function valid_7(d) { return id==d.row.id&&receipt(d.row,uid); }
+  function createRow_2(d) { let op=proof(uid).op; return writeBase(uid,d)&&(op=='challenge_settle'?id==d.row.id&&challengeNew(uid,d):op=='normal_settle'?id==d.row.id&&normalNew(uid,d):op=='hard_settle'?id==d.row.id&&hardNormalNew(uid,d):valid_7(d)&&(op=='spire_claim_week'?swReceipt(uid,d):op=='spire_start'?spEntryReceipt(uid,d):op=='mail_item'?(d.row.result.action=='mail_budget'?mailBudgetReceipt(uid,d):mailItemReceipt(uid,d)):op=='dungeon_buy'?dgBuyReceipt(uid,d):op=='challenge_drop'?challengeDrop(uid,d):op=='challenge_loot'?challengeLootReceipt(uid,d):op=='normal_drop'?normalDropReceipt(uid,d.row):op=='normal_manifest'?normalManifest(uid,d.row):op.matches('gear_.*')?gearReceipt(uid,d.row):op=='growth_build'?treeReceipt(uid,d.row):receiptNew(uid,d.row))); }
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((createRow_2(request.resource.data)))));
+   allow update: if ((((updateBase(uid,request.resource.data)&&id==request.resource.data.row.id&&(proof(uid).op=='challenge_loot'?challengeStep(uid,request.resource.data,resource.data):proof(uid).op=='hard_loot'?hardNormalStep(uid,request.resource.data,resource.data):normalStep(uid,request.resource.data,resource.data))))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_growth_runs/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function catalog(stage) { return get(/databases/$(database)/documents/hd3d_live_catalog/$(stage)).data; }
+  function hardNormalPath(uid) { return path(uid,'hd3d_growth_investments',uid+'~hard~'+proof(uid).token); }
+  function mailItemPath(uid,id,i) { return path(uid,'hd3d_growth_investments',uid+'~mailitem~'+id+'~'+string(i)); }
+  function run(r,uid) {
+   return r.keys().hasAll(['id','user_id','token','mode','hero','stage','completed','xp','won','done','started_at','version','repeat','target','requestedTarget','build']) &&
+    r.keys().hasOnly(['id','user_id','token','mode','hero','stage','completed','xp','won','done','started_at','version','repeat','target','requestedTarget','build','partner','partyVersion','party','loadouts','hardRewardVersion','firstBonus','updated_at','kills','reward','hardSaved','directReward']) &&
+    r.user_id==uid && str(r.token,80) && r.id==uid+'~'+r.token && r.mode in ['campaign','challenge'] &&
+    r.hero in ['mage','archer','warrior','gunner','fighter'] &&
+    (r.hero in ['mage','archer','warrior'] || exists(path(uid,'hd3d_owned',uid+'~hero_'+r.hero))) &&
+    (!('partner' in r) || (r.partyVersion==1 && r.partner!=r.hero &&
+      r.partner in ['mage','archer','warrior','gunner','fighter'] &&
+      (r.partner in ['mage','archer','warrior'] || exists(path(uid,'hd3d_owned',uid+'~hero_'+r.partner))) &&
+      r.party==[r.hero,r.partner])) &&
+    small(r.completed,9999)&&small(r.xp,1000000000)&&r.won is bool&&r.done is bool&&r.repeat is bool&&
+    str(r.started_at,32)&&r.version==1;
+  }
+  function xpBase(r) { return r.mode=='challenge'?r.completed*12:r.completed*catalog(r.stage).unit+(r.won?catalog(r.stage).clear:0); }
+  function xpBonus(uid,r,b) {
+   let w=get(path(uid,'hd3d_growth_wallet',uid)).data.row;
+   return r.won && !(r.stage in w.first) ? int(xpBase(r) / 2) : b.get('firstBonus',0);
+  }
+  function unlock(uid,r) {
+   let c=catalog(r.stage); let a=get(path(uid,'hd3d_progress',uid)).data.row.authority;
+   let st=c.hard==true?get(path(uid,'hd3d_growth_wallet',uid)).data.row.get('hard',{}).get('st',{}):a.st;
+   return (c.hard==true?a.st.get('10-6',0)>0:(c.chapterPrev==''||a.st.get(c.chapterPrev,0)>0)) &&
+    (c.prev=='' || st.get(r.stage,0)>0 || st.get(c.prev,0)>0) && r.repeat==(st.get(r.stage,0)>0);
+  }
+  function runNew(uid,d) {
+   let r=d.row;
+   return proof(uid).op=='growth_start' && r.token==proof(uid).request && r.hero==proof(uid).hero &&
+    d.issuedAt==request.time && r.completed==0 && r.xp==0 && !r.done && !r.won &&
+    !('firstBonus' in r) && !('reward' in r) && !('hardSaved' in r) && !('directReward' in r) && !('kills' in r) &&
+     (r.target==null||r.target in ['armor','acc','mage','archer','warrior','gunner','fighter']) && r.target==(r.repeat?r.requestedTarget:null) &&
+    (r.mode=='challenge'?(r.stage==null&&!r.repeat&&!('partner' in r)):
+      (unlock(uid,r)&&(!('partner' in r)||catalog(r.stage).hard==true)&&(!catalog(r.stage).hard||r.hardRewardVersion==2)));
+  }
+  function hardNormalPrepared(uid,d,old) {
+   let r=d.row;let z=r.directReward;let s=catalog(r.stage);
+   let version=r.repeat&&proof(uid).source=='finish'?r.get('hardRewardVersion',1):1;
+   return z.keys().hasAll(['method','first','stars','version','souls','total'])&&z.keys().hasOnly(['method','first','stars','version','souls','total'])&&z.method=='normal'&&
+    !('directReward' in old.row)&&!r.hardSaved&&!('reward' in r)&&small(r.get('kills',0),1000000)&&r.get('kills',0)>=old.row.get('kills',0)&&
+    z.version==version&&version in [1,2]&&z.souls==r.completed*(14+2*(s.ch-1))+(r.won?180+s.idx*20+20*(s.ch-1):0)+(r.won&&z.first?240:0)&&
+    z.total==int(r.completed / 5)+(r.won&&z.first?1:0)+(version==2&&r.won&&!z.first?2:0)&&small(z.total,5);
+  }
+  function hardPrepared(uid,d,old) {
+   let r=d.row;let z=r.directReward;let s=catalog(r.stage);
+   let version=r.repeat&&proof(uid).source=='finish'?r.get('hardRewardVersion',1):1;
+   let seq=getAfter(path(uid,'hd3d_sequences','hd3d_mail'));
+   return z.keys().hasAll(['mail','first','stars','version','souls','total'])&&z.keys().hasOnly(['mail','first','stars','version','souls','total'])&&
+    !('directReward' in old.row)&&!r.hardSaved&&!('reward' in r)&&small(r.get('kills',0),1000000)&&r.get('kills',0)>=old.row.get('kills',0)&&
+    z.version==version&&version in [1,2]&&z.souls==r.completed*(14+2*(s.ch-1))+(r.won?180+s.idx*20+20*(s.ch-1):0)+(r.won&&z.first?240:0)&&
+    z.total==int(r.completed / 5)+(r.won&&z.first?1:0)+(version==2&&r.won&&!z.first?2:0)&&small(z.total,5)&&
+    seq.data.commitRevision==d.commitRevision&&z.mail==seq.data.row.value;
+  }
+  function runDelta(uid,d,old) {
+   let a=d.row; let b=old.row;
+   return proof(uid).op=='growth_progress' && proof(uid).token==a.token && d.issuedAt==old.issuedAt &&
+    !b.done && a.diff(b).affectedKeys().hasOnly(['completed','xp','won','done','updated_at','firstBonus','kills','reward','hardSaved','directReward']) &&
+    small(a.completed,9999)&&small(a.xp,1000000000)&&a.done is bool&&a.won is bool&&str(a.updated_at,32)&&a.completed>=b.completed && (!b.won||a.won) &&
+    request.time>=d.issuedAt+duration.value(a.completed*2,'s') &&
+    (a.mode=='challenge'?!a.won:(a.completed<=catalog(a.stage).waves&&(!a.won||a.completed==catalog(a.stage).waves))) &&
+    (!a.won||a.done) && a.get('firstBonus',0)==xpBonus(uid,a,b) && a.xp==xpBase(a)+xpBonus(uid,a,b) &&
+    getAfter(path(uid,'hd3d_growth_wallet',uid)).data.commitRevision==d.commitRevision &&
+     (a.mode=='campaign'&&catalog(a.stage).hard?(a.done?(a.directReward.get('method','')=='normal'?hardNormalPrepared(uid,d,old):hardPrepared(uid,d,old)):!('directReward' in a)&&!('reward' in a)&&!a.get('hardSaved',false)):!('directReward' in a)&&!('reward' in a)&&!('hardSaved' in a));
+  }
+  function hardLootValue(uid,z,i) {
+   let e=i<z.total?get(mailItemPath(uid,string(z.mail),i)).data.row.result.entry:{'auto':true};
+   return i>=z.total?0:(e.auto?e.y.steel*1000+e.y.crystal:1000000);
+  }
+  function hardLootTotal(uid,z) { return hardLootValue(uid,z,0)+hardLootValue(uid,z,1)+hardLootValue(uid,z,2)+hardLootValue(uid,z,3)+hardLootValue(uid,z,4); }
+  function hardLegacyFinalRun(uid,d,old) {let memoProof=proof(uid);
+   let a=d.row;let b=old.row;let z=b.directReward;let m=get(path(uid,'hd3d_mail',string(z.mail))).data.row;let reward=a.reward;
+   // The bounded positional encoding sums the three display counts with one
+   // read per item; limits below prevent carry between the three components.
+   return memoProof.op=='hard_finalize'&&memoProof.token==a.token&&d.issuedAt==old.issuedAt&&b.done&&!b.hardSaved&&m.claimed&&m.server_applied&&!m.revoked&&
+    a.hardSaved&&a.diff(b).affectedKeys().hasOnly(['hardSaved','reward'])&&reward.keys().hasOnly(['souls','chests','steel','crystal'])&&reward.souls==z.souls&&
+    small(reward.chests,5)&&small(reward.steel,100)&&small(reward.crystal,40)&&reward.chests*1000000+reward.steel*1000+reward.crystal==hardLootTotal(uid,z)&&
+    getAfter(path(uid,'hd3d_progress',uid)).data.commitRevision==d.commitRevision;
+  }
+  function hardNormalValue(z,i) { let e=i<z.total?z.loot[i]:{'auto':true};return i>=z.total?0:(e.auto?e.y.steel*1000+e.y.crystal:1000000); }
+  function hardNormalFinalRun(uid,d,old) {
+   let a=d.row;let b=old.row;let receipt=get(hardNormalPath(uid)).data.row;let z=receipt.result;let reward=a.reward;
+   return proof(uid).token==a.token&&d.issuedAt==old.issuedAt&&b.done&&!b.hardSaved&&receipt.status=='done'&&z.next==z.total&&
+    a.hardSaved&&a.diff(b).affectedKeys().hasOnly(['hardSaved','reward'])&&reward.keys().hasOnly(['souls','chests','steel','crystal'])&&reward.souls==z.souls&&
+    small(reward.chests,5)&&small(reward.steel,100)&&small(reward.crystal,40)&&reward.chests*1000000+reward.steel*1000+reward.crystal==hardNormalValue(z,0)+hardNormalValue(z,1)+hardNormalValue(z,2)+hardNormalValue(z,3)+hardNormalValue(z,4);
+  }
+  function hardFinalRun(uid,d,old) { return old.row.directReward.get('method','')=='normal'?hardNormalFinalRun(uid,d,old):hardLegacyFinalRun(uid,d,old); }
+  function valid_6(d) { return id==d.row.id&&run(d.row,uid); }
+  function createRow(d) { return writeBase(uid,d)&&valid_6(d)&&(runNew(uid,d)); }
+  function updateRow_3(d) { return updateBase(uid,d)&&id==d.row.id&&(proof(uid).op=='hard_finalize'?hardFinalRun(uid,d,resource.data):runDelta(uid,d,resource.data)); }
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((createRow(request.resource.data)))));
+   allow update: if ((((updateRow_3(request.resource.data)))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_growth_wallet/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function xp(x) {
+   return x is map && x.size()==6 && x.keys().hasOnly(['warrior','archer','mage','gunner','mechanic','fighter']) &&
+    x.warrior is int&&x.warrior>=0&&x.warrior<=51940 && x.archer is int&&x.archer>=0&&x.archer<=51940 &&
+    x.mage is int&&x.mage>=0&&x.mage<=51940 && x.gunner is int&&x.gunner>=0&&x.gunner<=51940 &&
+    x.mechanic is int&&x.mechanic>=0&&x.mechanic<=51940 && x.fighter is int&&x.fighter>=0&&x.fighter<=51940;
+  }
+  function wallet(r,uid) {
+   let keys=r.keys();
+   return keys.hasAll(['user_id','version','rev','earned','granted','spent','balance','xp','first','legacyAdv','migrated']) &&
+    keys.hasOnly(['user_id','version','rev','earned','granted','spent','balance','xp','first','legacyAdv','migrated','migration','created_at','trees','hard']) &&
+    r.user_id==uid && r.version==1 && r.migrated==true && xp(r.xp) &&
+    small(r.rev,1000000000)&&small(r.earned,1000000000)&&small(r.granted,1000000000)&&
+    small(r.spent,311640)&&small(r.balance,1000000000) &&
+    r.spent==r.xp.warrior+r.xp.archer+r.xp.mage+r.xp.gunner+r.xp.mechanic+r.xp.fighter &&
+    r.balance==r.earned+r.granted-r.spent &&
+    r.first is list && r.first.size()<=90 && r.legacyAdv is list && r.legacyAdv.size()<=6;
+  }
+  function cosmetics(c) {
+   let a=c.get('settings',{}).get('audio',{});
+   return c is map && c.keys().hasOnly(['hero','nick','settings']) &&
+    (!('hero' in c)||c.hero in ['mage','archer','warrior','gunner','fighter','mechanic']) &&
+    (!('nick' in c)||str(c.nick,12)) && c.get('settings',{}) is map && c.get('settings',{}).keys().hasOnly(['audio']) &&
+    a is map && a.keys().hasOnly(['bgm','sfx','bgmOn','sfxOn']) &&
+    a.get('bgm',0) is number && a.get('bgm',0)>=0 && a.get('bgm',0)<=1 &&
+    a.get('sfx',0) is number && a.get('sfx',0)>=0 && a.get('sfx',0)<=1 &&
+    a.get('bgmOn',true) is bool && a.get('sfxOn',true) is bool;
+  }
+  function authority(a) { return a is map && a.keys().hasAll(['souls','mat','heroLv','st','adv','hq','starRw','starsTotal','sealed','present','gear','research','barLv','xch','hardRewardSeq','bestWave']) &&
+    a.keys().hasOnly(['souls','mat','heroLv','st','adv','hq','starRw','starsTotal','sealed','present','gear','research','barLv','xch','hardRewardSeq','bestWave']) && small(a.souls,1000000000) &&
+   a.mat is map && a.mat.keys().hasOnly(['steel','crystal','essence']) &&
+   small(a.mat.steel,1000000000) && small(a.mat.crystal,1000000000) && small(a.mat.get('essence',0),1000000000) &&
+    a.gear is map && a.present is list && a.present.toSet().hasOnly(['souls','mat','heroLv','st','adv','hq','starRw','research','barLv','xch','hardRewardSeq','bestWave']) && a.present.size()<=12 && small(a.hardRewardSeq,1000000000) && small(a.bestWave,1000000000) && a.research is map && small(a.barLv,10) && a.xch is map && a.hq is map && small(a.starRw,36) && small(a.starsTotal,180) && a.heroLv is map && a.st is map && a.adv is map && str(a.sealed,65535); }
+  function progress(r,uid) {
+   return r.keys().hasAll(['user_id','saveJson','merged','created_at','updated_at','authority','cosmetic']) &&
+    r.keys().hasOnly(['user_id','saveJson','merged','created_at','updated_at','authority','cosmetic']) &&
+    r.user_id==uid && cosmetics(r.cosmetic) && authority(r.authority) && str(r.saveJson,65535) && r.merged is bool &&
+    str(r.created_at,32) && str(r.updated_at,32);
+  }
+  function profile(r,uid) {
+   return r.keys().hasAll(['id','nickname','created_at','updated_at']) &&
+    r.keys().hasOnly(['id','nickname','created_at','updated_at']) && r.id==uid &&
+    str(r.nickname,12)&&r.nickname.size()>0 && str(r.created_at,32)&&str(r.updated_at,32);
+  }
+  function userRow(r,uid,id) { return id==uid&&r.keys().hasAll(['id','email','created_at','last_sign_in_at'])&&
+   r.keys().hasOnly(['id','email','created_at','last_sign_in_at'])&&r.id==uid&&r.email==request.auth.token.email&&
+   str(r.email,320)&&str(r.created_at,32)&&str(r.last_sign_in_at,32); }
+  function hero(h) { return h in ['mage','archer','warrior','gunner','fighter']; }
+  function owned(uid,h) { return h in ['mage','archer','warrior'] || exists(path(uid,'hd3d_owned',uid+'~hero_'+h)); }
+  function catalog(stage) { return get(/databases/$(database)/documents/hd3d_live_catalog/$(stage)).data; }
+  function totalXP(l) { return 100*(l-1)+20*(l-1)*(l-2); }
+  function bootstrap(uid,t,id,d) {
+   let template=catalog('_bootstrap'); let r=d.row;
+   // Fresh namespace: never consult/import legacy records, even for the same UID.
+   // A live account still cannot reset its existing activation or economic state.
+   let newAccount=!exists(path(uid,'hd3d_sequences','_activation'));
+   return newAccount && d.commitRevision==0 &&
+    getAfter(path(uid,'hd3d_sequences','_activation')).data.row=={'id':'_activation','schema':1,'enabled':true,'spireVersion':1} &&
+    getAfter(path(uid,'hd3d_sequences','_revision')).data.row=={'id':'_revision','value':0} &&
+    getAfter(path(uid,'hd3d_progress',uid)).data.row.authority==template.authority &&
+    getAfter(path(uid,'hd3d_growth_wallet',uid)).data.row.diff(template.wallet).affectedKeys().hasOnly(['user_id']) &&
+    ((t=='hd3d_progress'&&id==uid&&progress(r,uid)&&r.authority==template.authority&&r.saveJson==template.saveJson&&r.merged&&r.created_at==r.updated_at) ||
+     (t=='hd3d_growth_wallet'&&id==uid&&wallet(r,uid)&&r.diff(template.wallet).affectedKeys().hasOnly(['user_id'])) ||
+     (t=='hd3d_profiles'&&id==uid&&profile(r,uid)&&r.created_at==r.updated_at) ||
+     (t=='hd3d_users'&&userRow(r,uid,id)&&r.created_at==r.last_sign_in_at) ||
+     (t=='hd3d_sequences'&&r=={'id':id,'value':0}&&id in ['_revision','hd3d_orders','hd3d_mail','hd3d_admin_log','hd3d_broadcasts','hd3d_notices','hd3d_dungeon_runs','hd3d_dungeon_buys','hd3d_spire_runs','order-pending-hero_gunner','order-pending-hero_mechanic','order-pending-hero_fighter']) ||
+     (t=='hd3d_sequences'&&id=='_activation'&&r=={'id':'_activation','schema':1,'enabled':true,'spireVersion':1}));
+  }
+  function bootBase(uid,t,id,d) { return owner(uid)&&demo()&&base(d,uid)&&d.commitRevision==0&&bootstrap(uid,t,id,d); }
+  function invest(uid,a,b) {
+   let p=proof(uid); let cost=totalXP(p.level)-b.xp[p.hero];
+   let receipt=path(uid,'hd3d_growth_investments',uid+'~'+p.request);
+   return p.op=='growth_invest' && hero(p.hero) && owned(uid,p.hero) && p.level>=2 && p.level<=50 && cost>0 &&
+    !exists(receipt) && getAfter(receipt).data.commitRevision==request.resource.data.commitRevision &&
+    a.diff(b).affectedKeys().hasOnly(['xp','spent','balance','rev']) &&
+    a.xp.diff(b.xp).affectedKeys().hasOnly([p.hero]) && a.xp[p.hero]==totalXP(p.level) &&
+    a.spent==b.spent+cost && a.balance==b.balance-cost && a.rev==b.rev+1;
+  }
+  function hardProgress(uid,a,b,r) {
+   let before=b.get('hard',{}).get('st',{});let after=a.hard.st;let stars=r.directReward.stars;let prev=before.get(r.stage,0);
+   return r.directReward.first==(prev==0)&&r.directReward.stars==(r.won?(proof(uid).choice in ['1','2','3']?int(proof(uid).choice):1):0)&&a.hard.keys().hasOnly(['version','st'])&&a.hard.version==1&&(r.won?(after.diff(before).affectedKeys().hasOnly([r.stage])&&after[r.stage]==(stars>prev?stars:prev)):after==before);
+  }
+  function credit(uid,a,b) {
+   let p=proof(uid); let rp=path(uid,'hd3d_growth_runs',uid+'~'+p.token);
+   let r=getAfter(rp).data.row; let old=get(rp).data.row; let delta=r.xp-old.xp;let hard=r.mode=='campaign'&&catalog(r.stage).hard&&r.done;
+   return p.op=='growth_progress' && getAfter(rp).data.commitRevision==request.resource.data.commitRevision &&
+    delta>=0 && a.diff(b).affectedKeys().hasOnly(hard?['earned','balance','rev','first','hard']:['earned','balance','rev','first']) &&
+    a.earned==b.earned+delta && a.balance==b.balance+delta && a.rev==b.rev+(delta>0?1:0)+(hard?1:0) && (!hard||hardProgress(uid,a,b,r)) &&
+    a.first==(r.won&&!(r.stage in b.first)?b.first.concat([r.stage]):b.first);
+  }
+  function treeChange(uid,a,b) {
+   let p=proof(uid); let c=catalog('tree-'+p.hero+'-'+p.branch);
+   let advance=get(path(uid,'hd3d_progress',uid)).data.row.authority.adv.get(p.hero,{});
+   let at=a.trees; let bt=b.get('trees',{}); let ah=at[p.hero]; let bh=bt.get(p.hero,{});
+   let before=bh.get(p.branch,{'active':0,'presets':[{},{}]}); let after=ah[p.branch];
+   return p.op=='growth_build'&&hero(p.hero)&&owned(uid,p.hero)&&p.preset in [0,1]&&
+    c.hero==p.hero&&c.branch==p.branch&&(advance is string?advance:advance.get('b',''))==p.branch&&
+    a.diff(b).affectedKeys().hasOnly(['trees','rev'])&&a.rev==b.rev+1&&
+    at.diff(bt).affectedKeys().hasOnly([p.hero])&&ah.diff(bh).affectedKeys().hasOnly([p.branch])&&
+    after.keys().hasAll(['active','presets'])&&after.keys().hasOnly(['active','presets'])&&after.presets.size()==2&&
+    (p.tier==null?(after.active==p.preset&&after.presets==before.presets):
+     (p.tier in [15,20,30,40,50]&&b.xp[p.hero]>=totalXP(p.tier)&&p.choice in c.options[string(p.tier)]&&
+      after.active==before.active&&after.presets[1-p.preset]==before.presets[1-p.preset]&&
+      after.presets[p.preset].diff(before.presets[p.preset]).affectedKeys().hasOnly([string(p.tier)])&&
+      after.presets[p.preset][string(p.tier)]==p.choice))&&
+    !exists(path(uid,'hd3d_growth_investments',uid+'~tree~'+p.request))&&
+    getAfter(path(uid,'hd3d_growth_investments',uid+'~tree~'+p.request)).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function spCredit(uid,a,b) {
+   let rp=path(uid,'hd3d_growth_receipts',uid+'~spire~'+proof(uid).token);let amount=getAfter(rp).data.row.amount;let before=exists(rp)?get(rp).data.row.amount:0;
+   return amount>before&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&a.diff(b).affectedKeys().hasOnly(['earned','balance','rev'])&&
+    a.earned==b.earned+amount-before&&a.balance==b.balance+amount-before&&a.rev==b.rev+1;
+  }
+  function dgCredit(uid,a,b) {
+   let rp=path(uid,'hd3d_growth_receipts',uid+'~dungeon~'+proof(uid).token);
+   let amount=getAfter(rp).data.row.amount; let before=exists(rp)?get(rp).data.row.amount:0;
+   return amount>before && getAfter(rp).data.commitRevision==request.resource.data.commitRevision &&
+    a.diff(b).affectedKeys().hasOnly(['earned','balance','rev']) && a.earned==b.earned+amount-before &&
+    a.balance==b.balance+amount-before && a.rev==b.rev+1;
+  }
+  function valid_5(d) { return id==uid&&wallet(d.row,uid); }
+  function updateRow_2(d) {let memoProof=proof(uid); return updateBase(uid,d)&&valid_5(d)&&(memoProof.op=='growth_build'?treeChange(uid,d.row,resource.data.row):memoProof.op=='growth_invest'?(hero(memoProof.hero)&&invest(uid,d.row,resource.data.row)):memoProof.op=='growth_progress'?credit(uid,d.row,resource.data.row):memoProof.op in ['dungeon_ping','dungeon_finish']?dgCredit(uid,d.row,resource.data.row):memoProof.op in ['spire_ping','spire_finish']?spCredit(uid,d.row,resource.data.row):false); }
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((bootBase(uid,'hd3d_growth_wallet',id,request.resource.data)))));
+   allow update: if ((((updateRow_2(request.resource.data)))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_progress/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function xp(x) {
+   return x is map && x.size()==6 && x.keys().hasOnly(['warrior','archer','mage','gunner','mechanic','fighter']) &&
+    x.warrior is int&&x.warrior>=0&&x.warrior<=51940 && x.archer is int&&x.archer>=0&&x.archer<=51940 &&
+    x.mage is int&&x.mage>=0&&x.mage<=51940 && x.gunner is int&&x.gunner>=0&&x.gunner<=51940 &&
+    x.mechanic is int&&x.mechanic>=0&&x.mechanic<=51940 && x.fighter is int&&x.fighter>=0&&x.fighter<=51940;
+  }
+  function wallet(r,uid) {
+   let keys=r.keys();
+   return keys.hasAll(['user_id','version','rev','earned','granted','spent','balance','xp','first','legacyAdv','migrated']) &&
+    keys.hasOnly(['user_id','version','rev','earned','granted','spent','balance','xp','first','legacyAdv','migrated','migration','created_at','trees','hard']) &&
+    r.user_id==uid && r.version==1 && r.migrated==true && xp(r.xp) &&
+    small(r.rev,1000000000)&&small(r.earned,1000000000)&&small(r.granted,1000000000)&&
+    small(r.spent,311640)&&small(r.balance,1000000000) &&
+    r.spent==r.xp.warrior+r.xp.archer+r.xp.mage+r.xp.gunner+r.xp.mechanic+r.xp.fighter &&
+    r.balance==r.earned+r.granted-r.spent &&
+    r.first is list && r.first.size()<=90 && r.legacyAdv is list && r.legacyAdv.size()<=6;
+  }
+  function cosmetics(c) {
+   let a=c.get('settings',{}).get('audio',{});
+   return c is map && c.keys().hasOnly(['hero','nick','settings']) &&
+    (!('hero' in c)||c.hero in ['mage','archer','warrior','gunner','fighter','mechanic']) &&
+    (!('nick' in c)||str(c.nick,12)) && c.get('settings',{}) is map && c.get('settings',{}).keys().hasOnly(['audio']) &&
+    a is map && a.keys().hasOnly(['bgm','sfx','bgmOn','sfxOn']) &&
+    a.get('bgm',0) is number && a.get('bgm',0)>=0 && a.get('bgm',0)<=1 &&
+    a.get('sfx',0) is number && a.get('sfx',0)>=0 && a.get('sfx',0)<=1 &&
+    a.get('bgmOn',true) is bool && a.get('sfxOn',true) is bool;
+  }
+  function authority(a) { return a is map && a.keys().hasAll(['souls','mat','heroLv','st','adv','hq','starRw','starsTotal','sealed','present','gear','research','barLv','xch','hardRewardSeq','bestWave']) &&
+    a.keys().hasOnly(['souls','mat','heroLv','st','adv','hq','starRw','starsTotal','sealed','present','gear','research','barLv','xch','hardRewardSeq','bestWave']) && small(a.souls,1000000000) &&
+   a.mat is map && a.mat.keys().hasOnly(['steel','crystal','essence']) &&
+   small(a.mat.steel,1000000000) && small(a.mat.crystal,1000000000) && small(a.mat.get('essence',0),1000000000) &&
+    a.gear is map && a.present is list && a.present.toSet().hasOnly(['souls','mat','heroLv','st','adv','hq','starRw','research','barLv','xch','hardRewardSeq','bestWave']) && a.present.size()<=12 && small(a.hardRewardSeq,1000000000) && small(a.bestWave,1000000000) && a.research is map && small(a.barLv,10) && a.xch is map && a.hq is map && small(a.starRw,36) && small(a.starsTotal,180) && a.heroLv is map && a.st is map && a.adv is map && str(a.sealed,65535); }
+  function progress(r,uid) {
+   return r.keys().hasAll(['user_id','saveJson','merged','created_at','updated_at','authority','cosmetic']) &&
+    r.keys().hasOnly(['user_id','saveJson','merged','created_at','updated_at','authority','cosmetic']) &&
+    r.user_id==uid && cosmetics(r.cosmetic) && authority(r.authority) && str(r.saveJson,65535) && r.merged is bool &&
+    str(r.created_at,32) && str(r.updated_at,32);
+  }
+  function profile(r,uid) {
+   return r.keys().hasAll(['id','nickname','created_at','updated_at']) &&
+    r.keys().hasOnly(['id','nickname','created_at','updated_at']) && r.id==uid &&
+    str(r.nickname,12)&&r.nickname.size()>0 && str(r.created_at,32)&&str(r.updated_at,32);
+  }
+  function userRow(r,uid,id) { return id==uid&&r.keys().hasAll(['id','email','created_at','last_sign_in_at'])&&
+   r.keys().hasOnly(['id','email','created_at','last_sign_in_at'])&&r.id==uid&&r.email==request.auth.token.email&&
+   str(r.email,320)&&str(r.created_at,32)&&str(r.last_sign_in_at,32); }
+  function hero(h) { return h in ['mage','archer','warrior','gunner','fighter']; }
+  function owned(uid,h) { return h in ['mage','archer','warrior'] || exists(path(uid,'hd3d_owned',uid+'~hero_'+h)); }
+  function validSub(v,main,bounds) { return v is map&&v.keys().hasAll(['k','v'])&&v.keys().hasOnly(['k','v'])&&v.k in bounds&&v.k!=main&&v.v is int&&v.v>=bounds[v.k][0]&&v.v<=bounds[v.k][1]; }
+  function validSubs(sub,main,c) { return sub is list&&sub.size()==c.subCount&&
+   (sub.size()==0||validSub(sub[0],main,c.subBounds))&&
+   (sub.size()<2||(validSub(sub[1],main,c.subBounds)&&sub[0].k!=sub[1].k)); }
+  function newItemShape(it,c) { return it.id is string&&it.id.size()>0&&it.id.size()<=16&&small(it.g,4)&&it.keys().hasOnly(['id','g','e','s','c','h','body','hasE','unique','packed','raw','mainKey','spec','set'])&&it.get('set','')==c.get('set','')&&
+   it.e==0&&it.hasE&&it.body==''&&!it.unique&&!it.packed&&it.raw==''&&
+   it.spec.keys().hasAll(['n','m','sub','u'])&&it.spec.keys().hasOnly(['n','m','sub','u'])&&
+   it.spec.n in c.names&&it.spec.m is list&&it.spec.m.size()==2&&it.spec.m[0] in c.mains&&it.spec.m[1]==c.mains[it.spec.m[0]]&&
+   it.mainKey==it.spec.m[0]&&it.spec.u in c.u; }
+  function catalog(stage) { return get(/databases/$(database)/documents/hd3d_live_catalog/$(stage)).data; }
+  function plausibleKills(uid,token,wave,kills) {
+   let d=get(path(uid,'hd3d_growth_runs',uid+'~'+token));let s=catalog(d.data.row.stage);
+   let seconds=int((request.time.toMillis()-d.data.issuedAt.toMillis()) / 1000);
+   return wave==0?kills==0:(seconds>=0&&kills<=s.killBase[wave]*(s.renewable?1+seconds*32:1));
+  }
+  function chPath(uid) {return path(uid,'hd3d_growth_investments',uid+'~challenge~'+proof(uid).token);}
+  function chLootPath(uid,i) {return path(uid,'hd3d_growth_investments',uid+'~challenge-loot~'+proof(uid).token+'~'+string(i));}
+  function unusedDrop(it,g) { return !(it.id in g.bagIds)&&!(it.id in g.storedIds)&&!(it.id in g.chestItemIds); }
+  function totalXP(l) { return 100*(l-1)+20*(l-1)*(l-2); }
+  function hardPath(uid) { return path(uid,'hd3d_growth_runs',uid+'~'+proof(uid).token); }
+  function hardNormalPath(uid) { return path(uid,'hd3d_growth_investments',uid+'~hard~'+proof(uid).token); }
+  function mailItemPath(uid,id,i) { return path(uid,'hd3d_growth_investments',uid+'~mailitem~'+id+'~'+string(i)); }
+  function mailItemPaid(uid,id,i) { return exists(mailItemPath(uid,id,i)); }
+  function bootstrap(uid,t,id,d) {
+   let template=catalog('_bootstrap'); let r=d.row;
+   // Fresh namespace: never consult/import legacy records, even for the same UID.
+   // A live account still cannot reset its existing activation or economic state.
+   let newAccount=!exists(path(uid,'hd3d_sequences','_activation'));
+   return newAccount && d.commitRevision==0 &&
+    getAfter(path(uid,'hd3d_sequences','_activation')).data.row=={'id':'_activation','schema':1,'enabled':true,'spireVersion':1} &&
+    getAfter(path(uid,'hd3d_sequences','_revision')).data.row=={'id':'_revision','value':0} &&
+    getAfter(path(uid,'hd3d_progress',uid)).data.row.authority==template.authority &&
+    getAfter(path(uid,'hd3d_growth_wallet',uid)).data.row.diff(template.wallet).affectedKeys().hasOnly(['user_id']) &&
+    ((t=='hd3d_progress'&&id==uid&&progress(r,uid)&&r.authority==template.authority&&r.saveJson==template.saveJson&&r.merged&&r.created_at==r.updated_at) ||
+     (t=='hd3d_growth_wallet'&&id==uid&&wallet(r,uid)&&r.diff(template.wallet).affectedKeys().hasOnly(['user_id'])) ||
+     (t=='hd3d_profiles'&&id==uid&&profile(r,uid)&&r.created_at==r.updated_at) ||
+     (t=='hd3d_users'&&userRow(r,uid,id)&&r.created_at==r.last_sign_in_at) ||
+     (t=='hd3d_sequences'&&r=={'id':id,'value':0}&&id in ['_revision','hd3d_orders','hd3d_mail','hd3d_admin_log','hd3d_broadcasts','hd3d_notices','hd3d_dungeon_runs','hd3d_dungeon_buys','hd3d_spire_runs','order-pending-hero_gunner','order-pending-hero_mechanic','order-pending-hero_fighter']) ||
+     (t=='hd3d_sequences'&&id=='_activation'&&r=={'id':'_activation','schema':1,'enabled':true,'spireVersion':1}));
+  }
+  function bootBase(uid,t,id,d) { return owner(uid)&&demo()&&base(d,uid)&&d.commitRevision==0&&bootstrap(uid,t,id,d); }
+  function gearCommon(uid,a,b) {
+   let p=proof(uid);let receipt=path(uid,'hd3d_growth_investments',uid+'~gear~'+p.request);
+   return a.diff(b).affectedKeys().hasOnly(['souls','mat','gear'])&&a.gear.present==b.gear.present&&
+    !exists(receipt)&&getAfter(receipt).data.commitRevision==request.resource.data.commitRevision;
+  }
+  function gearItem(it) { return it.keys().hasAll(['id','g','e','s','c','h','body','hasE','unique','packed','raw'])&&
+   str(it.id,32)&&it.id.size()>0&&small(it.g,4)&&small(it.e,10)&&it.hasE is bool&&(it.hasE||it.e==0)&&it.s in ['weapon','armor','acc']&&
+   small(it.c,10)&&it.h is string&&it.body is string&&it.unique is bool; }
+  function unEquipped(eq,id) { return !(id in eq.get('mage',{}).values())&&!(id in eq.get('archer',{}).values())&&
+   !(id in eq.get('warrior',{}).values())&&!(id in eq.get('gunner',{}).values())&&
+   !(id in eq.get('fighter',{}).values())&&!(id in eq.get('mechanic',{}).values()); }
+  function codexMark(a,b,it) {
+   let ch=string(it.c);let row=it.s=='weapon'?it.h:it.s;
+   let old=b.get(ch,{});let mask=old.get(row,0);let bit=[1,2,4,8,16][it.g];
+   return it.c==0||it.unique?a==b:(a.diff(b).affectedKeys().hasOnly([ch])&&a[ch].diff(old).affectedKeys().hasOnly([row])&&
+    a[ch][row]==mask+(int(mask / bit)%2==0?bit:0));
+  }
+  function gearOpen(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let c=before.chests[p.pos];let it=c.it;
+   return p.op=='gear_open'&&gearCommon(uid,a,b)&&c.id==p.token&&gearItem(it)&&!it.packed&&
+    before.present.hasAll(['inv','chests','codex','stats'])&&before.inv.size()<40&&!(it.id in before.bagIds)&&!(it.id in before.storedIds)&&
+    after.diff(before).affectedKeys().hasOnly(['inv','bagIds','chests','chestItemIds','codex','stats'])&&
+    after.inv==before.inv.concat([it])&&after.bagIds==before.bagIds.concat([it.id])&&
+    after.chests==before.chests.removeAll([c])&&after.chests.size()==before.chests.size()-1&&after.chestItemIds==before.chestItemIds.removeAll([it.id])&&
+    a.mat==b.mat&&small(c.souls,100)&&a.souls==b.souls+c.souls&&
+    after.stats.diff(before.stats).affectedKeys().hasOnly(['souls'])&&after.stats.souls==before.stats.get('souls',0)+c.souls&&
+    codexMark(after.codex,before.codex,it);
+  }
+  function gearDismantle(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let it=before.inv[p.pos];
+   return p.op=='gear_dismantle'&&gearCommon(uid,a,b)&&gearItem(it)&&!it.unique&&it.id==p.token&&unEquipped(before.eq,it.id)&&
+    after.diff(before).affectedKeys().hasOnly(['inv','bagIds'])&&after.inv==before.inv.removeAll([it])&&
+    after.inv.size()==before.inv.size()-1&&after.bagIds==before.bagIds.removeAll([it.id])&&a.souls==b.souls&&
+    a.mat.diff(b.mat).affectedKeys().hasOnly(['steel','crystal'])&&
+    a.mat.steel==b.mat.steel+[2,4,8,12,20][it.g]+it.e*2&&
+    a.mat.crystal==b.mat.crystal+[0,0,1,3,8][it.g]+int(it.e / 3);
+  }
+  function gearMove(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let take=p.op=='gear_take';
+   let it=(take?before.stor:before.inv)[p.pos];let next=take?after.inv[after.inv.size()-1]:it;
+   return p.op in ['gear_take','gear_store']&&gearCommon(uid,a,b)&&gearItem(it)&&it.id==p.token&&
+    after.diff(before).affectedKeys().hasOnly(['inv','stor','bagIds','storedIds'])&&a.mat==b.mat&&a.souls==b.souls&&
+    (take?(before.inv.size()<40&&!(it.id in before.bagIds)&&
+      next.diff(it).affectedKeys().hasOnly(['packed','raw'])&&!next.packed&&next.raw==''&&
+      after.inv==before.inv.concat([next])&&after.stor==before.stor.removeAll([it])&&after.stor.size()==before.stor.size()-1&&
+      after.bagIds==before.bagIds.concat([it.id])&&after.storedIds==before.storedIds.removeAll([it.id])):
+     (before.stor.size()<60+before.storX*10&&!(it.id in before.storedIds)&&unEquipped(before.eq,it.id)&&
+      after.stor==before.stor.concat([it])&&after.inv==before.inv.removeAll([it])&&after.inv.size()==before.inv.size()-1&&
+      after.storedIds==before.storedIds.concat([it.id])&&after.bagIds==before.bagIds.removeAll([it.id])));
+  }
+  function gearExpand(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let receipt=path(uid,'hd3d_growth_investments',uid+'~gear~'+p.request);
+   return p.op=='gear_expand'&&before.storX<4&&p.pay in ['steel','souls']&&
+    a.diff(b).affectedKeys().hasOnly(['souls','mat','gear'])&&
+    after.diff(before).affectedKeys().hasOnly(['present','storX'])&&after.storX==before.storX+1&&
+    after.present.size()<=8&&after.present.toSet()==before.present.toSet().union(['storX'].toSet())&&
+    !exists(receipt)&&getAfter(receipt).data.commitRevision==request.resource.data.commitRevision&&
+    (p.pay=='souls'?(a.mat==b.mat&&a.souls==b.souls-[500,900,1500,2400][before.storX]):
+     (a.souls==b.souls&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel'])&&a.mat.steel==b.mat.steel-[120,200,320,480][before.storX]));
+  }
+  function gearEnhance(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let it=before.inv[p.pos];let next=after.inv[p.pos];
+    // v34 ordinary enhancement is client RNG. Validate costs and one attempt;
+    // a valid paid success is NOT proof of a fair random draw.
+    return p.op=='gear_enhance'&&gearCommon(uid,a,b)&&gearItem(it)&&it.id==p.token&&it.e<10&&
+    after.diff(before).affectedKeys().hasOnly(['inv'])&&next.diff(it).affectedKeys().hasOnly(['e','hasE'])&&
+    (next.e==it.e+1||(it.e>0&&next.e==it.e))&&next.hasE==true&&after.inv.size()==before.inv.size()&&
+    after.inv.removeAll([next])==before.inv.removeAll([it])&&
+    a.souls==b.souls-10*(it.e+1)*(2+it.g)&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel','crystal'])&&
+    a.mat.steel==b.mat.steel-2-it.e*2&&a.mat.crystal==b.mat.crystal-(it.e>=5?it.e-4:0);
+  }
+  function gearCraft(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let it=after.inv[before.inv.size()];
+   let c=catalog('item-'+string(p.level)+'-'+(p.slot=='weapon'?p.hero:p.slot));let recipe=c.recipes[p.choice];
+   return p.op=='gear_craft'&&gearCommon(uid,a,b)&&hero(p.hero)&&owned(uid,p.hero)&&p.level<=10&&
+    (p.level==0||b.st.get(string(p.level)+'-6',0)>0)&&before.inv.size()<40&&
+    it.s==p.slot&&it.c==p.level&&it.h==(p.slot=='weapon'?p.hero:'')&&it.g in recipe.grades&&it==getAfter(path(uid,'hd3d_growth_investments',uid+'~gear~'+p.request)).data.row.result.it&&
+    !(it.id in before.bagIds)&&!(it.id in before.storedIds)&&!(it.id in before.chestItemIds)&&
+    after.diff(before).affectedKeys().hasOnly(['inv','bagIds','codex'])&&after.inv==before.inv.concat([it])&&after.bagIds==before.bagIds.concat([it.id])&&
+    a.souls==b.souls-recipe.cost.souls&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel','crystal'])&&
+    a.mat.steel==b.mat.steel-recipe.cost.steel&&a.mat.crystal==b.mat.crystal-recipe.cost.crystal&&codexMark(after.codex,before.codex,it);
+  }
+  function gearReroll(uid,a,b) {
+   let p=proof(uid);let it=b.gear.inv[p.pos];let c=catalog('item-0-armor').grades[it.g];
+   let result=getAfter(path(uid,'hd3d_growth_investments',uid+'~gear~'+p.request)).data.row.result;
+   return p.op=='gear_reroll'&&gearCommon(uid,a,b)&&gearItem(it)&&it.id==p.token&&!it.unique&&it.g>0&&
+    a.gear==b.gear&&a.souls==b.souls&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel'])&&a.mat.steel==b.mat.steel-[0,25,40,60,90][it.g]&&
+    result.action=='reroll'&&result.item==it.id&&validSubs(result.sub,it.mainKey,c);
+  }
+  function gearApply(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let it=before.inv[p.pos];let next=after.inv[p.pos];
+   let result=get(path(uid,'hd3d_growth_investments',uid+'~gear~'+p.source)).data.row.result;
+   // The immutable paid reroll receipt was already validated at creation.
+   let sub=result.sub;
+   return p.op=='gear_reroll_apply'&&gearCommon(uid,a,b)&&p.request=='apply-'+p.source&&gearItem(it)&&it.id==p.token&&!it.unique&&it.g>0&&
+    result.action=='reroll'&&result.item==it.id&&result.ok&&
+    a.mat==b.mat&&a.souls==b.souls&&after.diff(before).affectedKeys().hasOnly(['inv'])&&after.inv.size()==before.inv.size()&&
+    after.inv.removeAll([next])==before.inv.removeAll([it])&&
+    ('spec' in it?(next.diff(it).affectedKeys().hasOnly(['spec'])&&next.spec.diff(it.spec).affectedKeys().hasOnly(['sub'])&&next.spec.sub==sub):
+     (next.diff(it).affectedKeys().hasOnly(['rolledSub'])&&next.rolledSub==sub));
+  }
+  function gearReturn(uid,a,b) {
+   let p=proof(uid);let r=get(path(uid,'hd3d_growth_runs',uid+'~'+p.token)).data.row;
+   let c=catalog(r.stage);let got=p.level*8+int(p.kills / 3);let x=a.gear.stats;let y=b.gear.stats;
+   return !exists(path(uid,'hd3d_growth_investments',uid+'~normal~'+p.token))&&p.op=='gear_run_return'&&gearCommon(uid,a,b)&&p.request=='run-'+p.token&&c.hard==false&&r.done&&!r.won&&
+    plausibleKills(uid,p.token,p.level,p.kills)&&p.level<5&&p.level<=c.waves&&p.level<=r.completed+1&&small(p.kills,p.op.matches('challenge_.*')?1000000000:1000000)&&
+    a.mat==b.mat&&a.souls==b.souls+got&&a.gear.diff(b.gear).affectedKeys().hasOnly(['stats'])&&
+    x.diff(y).affectedKeys().hasOnly(['runs','kills','waves','souls'])&&
+    x.runs==y.get('runs',0)+1&&x.kills==y.get('kills',0)+p.kills&&x.waves==y.get('waves',0)+p.level&&x.souls==y.get('souls',0)+got&&
+    small(x.runs,1000000000)&&small(x.kills,1000000000)&&small(x.waves,1000000000)&&small(x.souls,1000000000);
+  }
+  function eqHero(a,b,h,chosen,sl,id) { return h==chosen?(a[sl]==id&&a.diff(b).affectedKeys().hasOnly([sl])):
+   (b.get(sl,'')!=id?a==b:(!(sl in a)&&a.diff(b).affectedKeys().hasOnly([sl]))); }
+  function gearEquip(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let it=before.inv[p.pos];let sl=it.s;
+   return p.op=='gear_equip'&&gearCommon(uid,a,b)&&hero(p.hero)&&owned(uid,p.hero)&&sl in ['weapon','armor','acc']&&it.id==p.token&&
+    (sl!='weapon'||it.h==p.hero)&&after.diff(before).affectedKeys().hasOnly(['eq'])&&
+    after.eq.keys().toSet()==before.eq.keys().toSet().union([p.hero].toSet())&&
+    after.eq.diff(before.eq).affectedKeys().hasOnly(['mage','archer','warrior','gunner','fighter','mechanic'])&&a.souls==b.souls&&a.mat==b.mat&&
+    eqHero(after.eq.get('mage',{}),before.eq.get('mage',{}),'mage',p.hero,sl,it.id)&&eqHero(after.eq.get('archer',{}),before.eq.get('archer',{}),'archer',p.hero,sl,it.id)&&
+    eqHero(after.eq.get('warrior',{}),before.eq.get('warrior',{}),'warrior',p.hero,sl,it.id)&&eqHero(after.eq.get('gunner',{}),before.eq.get('gunner',{}),'gunner',p.hero,sl,it.id)&&
+    eqHero(after.eq.get('fighter',{}),before.eq.get('fighter',{}),'fighter',p.hero,sl,it.id)&&eqHero(after.eq.get('mechanic',{}),before.eq.get('mechanic',{}),'mechanic',p.hero,sl,it.id);
+  }
+  function gearUnequip(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;
+   return p.op=='gear_unequip'&&gearCommon(uid,a,b)&&hero(p.hero)&&owned(uid,p.hero)&&p.slot in ['weapon','armor','acc']&&
+    after.diff(before).affectedKeys().hasOnly(['eq'])&&after.eq.diff(before.eq).affectedKeys().hasOnly([p.hero])&&
+    after.eq[p.hero].diff(before.eq[p.hero]).affectedKeys().hasOnly([p.slot])&&p.slot in before.eq[p.hero]&&!(p.slot in after.eq[p.hero])&&
+    a.mat==b.mat&&a.souls==b.souls;
+  }
+  function gearCodex(uid,a,b) {
+   let p=proof(uid);let before=b.gear;let after=a.gear;let ch=string(p.level);let row=p.choice;
+   let c=catalog('codex-'+ch);let bits=before.codex.get(ch,{});let rw=row=='all'?c.rewards.all:c.rewards.row;
+   return p.op=='gear_codex'&&gearCommon(uid,a,b)&&p.level==c.ch&&p.token==ch+':'+row&&!(p.token in before.codexRw)&&
+    (row in c.rows||row=='all')&&after.diff(before).affectedKeys().hasOnly(['codexRw'])&&after.codexRw==before.codexRw.concat([p.token])&&
+    a.souls==b.souls+rw.get('souls',0)&&a.mat.diff(b.mat).affectedKeys().hasOnly(['crystal','essence'])&&
+    a.mat.crystal==b.mat.crystal+rw.get('crystal',0)&&a.mat.get('essence',0)==b.mat.get('essence',0)+rw.get('essence',0)&&
+    (row=='all'?(bits.get('mage',0) in c.complete&&bits.get('warrior',0) in c.complete&&bits.get('archer',0) in c.complete&&
+     bits.get('gunner',0) in c.complete&&bits.get('fighter',0) in c.complete&&bits.get('armor',0) in c.complete&&bits.get('acc',0) in c.complete):bits.get(row,0) in c.complete);
+  }
+  function townCommon(uid,a,b,key) {
+    let receipt=path(uid,'hd3d_growth_investments',uid+'~gear~'+proof(uid).request);
+    return !exists(receipt)&&getAfter(receipt).data.commitRevision==request.resource.data.commitRevision&&
+     a.diff(b).affectedKeys().hasOnly(['souls','mat',key,'present'])&&
+     a.present.toSet()==b.present.toSet().union([key].toSet())&&a.present.size()==a.present.toSet().size();
+   }
+  function townResearch(uid,a,b) {
+    let p=proof(uid);let type=p.branch;let key=p.choice;let r=b.research.get(type,{});
+    let lv=r.get(key,key=='efficiency'?r.get('start',0):0);let c=catalog('town').research[key];let cost=c.costs[lv];
+    return type in ['arrow','cannon','magic']&&key in ['atk','rng','spd','efficiency']&&townCommon(uid,a,b,'research')&&
+     small(lv,c.max-1)&&(c.need==0||r.get('atk',0)+r.get('rng',0)+r.get('spd',0)>=c.need)&&
+     a.research.diff(b.research).affectedKeys().hasOnly([type])&&a.research[type].diff(r).affectedKeys().hasOnly([key])&&
+     a.research[type][key]==lv+1&&a.souls==b.souls-cost.souls&&a.mat.diff(b.mat).affectedKeys().hasOnly([c.mat])&&a.mat[c.mat]==b.mat[c.mat]-cost[c.mat];
+   }
+  function townBar(uid,a,b) {
+    return townCommon(uid,a,b,'barLv')&&small(b.barLv,9)&&a.barLv==b.barLv+1&&a.souls==b.souls&&
+     a.mat.diff(b.mat).affectedKeys().hasOnly(['steel'])&&a.mat.steel==b.mat.steel-40-20*b.barLv;
+   }
+  function padDay(n) { return n<10?'0'+string(n):string(n); }
+  function kstDay() { let t=request.time+duration.value(9,'h');return string(t.year())+'-'+padDay(t.month())+'-'+padDay(t.day()); }
+  function townExchange(uid,a,b) {
+    let n=proof(uid).level;let day=kstDay();let used=b.xch.get('d','')==day?b.xch.n:0;
+    return townCommon(uid,a,b,'xch')&&n>=1&&n<=15&&small(used,15)&&used+n<=15&&
+     a.xch=={'d':day,'n':used+n}&&a.souls==b.souls+30*n&&
+     a.mat.diff(b.mat).affectedKeys().hasOnly(['steel'])&&a.mat.steel==b.mat.steel-10*n;
+   }
+  function townAdvance(uid,a,b) {
+    let p=proof(uid);let c=catalog('town').advance;let old=b.adv.get(p.hero,{});let branch=old is string?old:old.get('b','');
+    let current=branch in c.branches[p.hero];let count=old is map?old.get('n',1):1;let cost=current?c.switch:c.first;
+    return hero(p.hero)&&owned(uid,p.hero)&&p.branch in c.branches[p.hero]&&p.branch!=branch&&townCommon(uid,a,b,'adv')&&
+     a.adv.diff(b.adv).affectedKeys().hasOnly([p.hero])&&a.adv[p.hero]=={'b':p.branch,'n':current?count+1:1}&&
+     a.souls==b.souls-cost.souls&&
+     (current?a.mat==b.mat:(b.st.get('2-4',0)>0&&b.hq.get(p.hero,{}).get('boss',0)>=1&&
+      get(path(uid,'hd3d_growth_wallet',uid)).data.row.xp[p.hero]>=totalXP(10)&&
+      a.mat.diff(b.mat).affectedKeys().hasOnly(['crystal','essence'])&&
+      a.mat.crystal==b.mat.crystal-cost.crystal&&a.mat.get('essence',0)==b.mat.get('essence',0)-cost.essence));
+   }
+  function gearChange(uid,a,b) {
+   let op=proof(uid).op;
+     return op=='gear_research'?townResearch(uid,a,b):op=='gear_bar'?townBar(uid,a,b):op=='gear_exchange'?townExchange(uid,a,b):op=='gear_advance'?townAdvance(uid,a,b):op=='gear_craft'?gearCraft(uid,a,b):op=='gear_reroll'?gearReroll(uid,a,b):op=='gear_reroll_apply'?gearApply(uid,a,b):op=='gear_run_return'?gearReturn(uid,a,b):op=='gear_codex'?gearCodex(uid,a,b):op=='gear_open'?gearOpen(uid,a,b):op=='gear_dismantle'?gearDismantle(uid,a,b):
+    op in ['gear_store','gear_take']?gearMove(uid,a,b):op=='gear_expand'?gearExpand(uid,a,b):
+    op=='gear_enhance'?gearEnhance(uid,a,b):op=='gear_equip'?gearEquip(uid,a,b):op=='gear_unequip'?gearUnequip(uid,a,b):false;
+  }
+  function challengeSettle(uid,a,b) {
+   let rp=chPath(uid);let z=getAfter(rp).data.row.result;let x=a.gear.stats;let y=b.gear.stats;
+   return !exists(rp)&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&
+    a.diff(b).affectedKeys().hasOnly(['souls','bestWave','mat','gear','present'])&&a.souls==b.souls+z.souls&&a.bestWave==z.bestWave&&
+    a.mat.diff(b.mat).affectedKeys().hasOnly(['essence'])&&a.mat.get('essence',0)==b.mat.get('essence',0)+z.essence&&
+    a.present.toSet()==b.present.toSet().union((z.essence>0?['souls','bestWave','mat']:['souls','bestWave']).toSet())&&
+    a.gear.diff(b.gear).affectedKeys().hasOnly(['stats','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['stats'].toSet())&&x.diff(y).affectedKeys().hasOnly(['runs','kills','waves','souls'])&&
+    x.runs==y.get('runs',0)+1&&x.kills==y.get('kills',0)+z.kills&&x.waves==y.get('waves',0)+z.wave&&x.souls==y.get('souls',0)+z.souls&&
+    small(x.runs,1000000000)&&small(x.kills,1000000000)&&small(x.waves,1000000000)&&small(x.souls,1000000000);
+  }
+  function challengeGrant(uid,a,b) {
+   let rp=chPath(uid);let before=get(rp).data.row.result;let lp=chLootPath(uid,before.next);let step=getAfter(lp);let z=step.data.row.result;
+   let it=z.it;let src=z.src;let c={'body':'','src':src,'id':'c'+it.id,'it':it,'souls':[4,6,10,16,30][it.g]};
+   let entry=z.entry;let y={'steel':[2,4,8,12,20][it.g],'crystal':[0,0,1,3,8][it.g]};
+   return !exists(lp)&&step.data.commitRevision==request.resource.data.commitRevision&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&
+    str(it.id,16)&&newItemShape(it,catalog('item-'+string(it.c)+'-'+(it.s=='weapon'?it.h:it.s)).grades[it.g])&&
+    a.diff(b).affectedKeys().hasOnly(['gear','mat'])&&!(it.id in b.gear.bagIds)&&!(it.id in b.gear.storedIds)&&
+    (b.gear.chests.size()<200?
+     (a.mat==b.mat&&!(it.id in b.gear.chestItemIds)&&a.gear.diff(b.gear).affectedKeys().hasOnly(['chests','chestItemIds','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['chests'].toSet())&&a.gear.chests==b.gear.chests.concat([c])&&a.gear.chestItemIds==b.gear.chestItemIds.concat([it.id])&&entry=={'it':it,'src':src,'auto':false,'chest':c.id}):
+     (a.gear==b.gear&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel','crystal'])&&a.mat.steel==b.mat.steel+y.steel&&a.mat.crystal==b.mat.crystal+y.crystal&&entry=={'it':it,'src':src,'auto':true,'y':y}));
+  }
+  function normalPath(uid) { return path(uid,'hd3d_growth_investments',uid+'~normal~'+proof(uid).token); }
+  function normalDropList(uid,z) {let memoProof=proof(uid);
+    let v=get(path(uid,'hd3d_growth_investments',uid+'~drops~'+memoProof.token)).data.row.result;
+    return v.action=='normal_manifest'&&v.token==memoProof.token&&v.ref==z.dropManifest&&v.drops==z.drops;
+   }
+  function normalDrops(uid,z,b) {
+    let d=z.drops;let n=d.size();
+    // The actual v34 stage catalog has at most four boss spawns, including 10-6.
+    return n<=4&&(n==0?z.dropManifest=='':normalDropList(uid,z))&&
+     (n==0||unusedDrop(d[0],b.gear))&&(n<2||unusedDrop(d[1],b.gear))&&(n<3||unusedDrop(d[2],b.gear))&&(n<4||unusedDrop(d[3],b.gear));
+   }
+  function normalQuest(a,b,z) {
+   let old=b.hq.get(z.hero,{});let next=a.hq[z.hero];let s=catalog(z.stage);
+   return a.hq.diff(b.hq).affectedKeys().hasOnly([z.hero])&&next.diff(old).affectedKeys().hasOnly(['clr','boss'])&&
+    next.clr==old.get('clr',0)+1&&next.boss==old.get('boss',0)+(s.boss?1:0)&&small(next.clr,1000000000)&&small(next.boss,1000000000);
+  }
+  function normalSettle(uid,a,b) {
+   let rp=normalPath(uid);let z=getAfter(rp).data.row.result;let x=a.gear.stats;let y=b.gear.stats;
+   // Cross-linked progress and entitlement must BOTH be written in this commit.
+   // Validate drop references here, and run/currency arithmetic on the receipt,
+   // so each independently enforced write stays below the Rules expression cap.
+   return !exists(rp)&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&normalDrops(uid,z,b)&&
+    a.diff(b).affectedKeys().hasOnly(['souls','gear','st','hq','starRw','starsTotal','present'])&&a.souls==b.souls+z.souls&&
+    a.present.toSet()==b.present.toSet().union((z.won?['souls','st','hq','starRw']:['souls']).toSet())&&
+    a.gear.diff(b.gear).affectedKeys().hasOnly(['stats','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['stats'].toSet())&&x.diff(y).affectedKeys().hasOnly(['runs','kills','waves','souls'])&&
+    x.runs==y.get('runs',0)+1&&x.kills==y.get('kills',0)+z.kills&&x.waves==y.get('waves',0)+z.wave&&x.souls==y.get('souls',0)+z.souls&&
+    small(x.runs,1000000000)&&small(x.kills,1000000000)&&small(x.waves,1000000000)&&small(x.souls,1000000000)&&
+    a.starRw==z.starTo&&
+    (z.won?(a.st.diff(b.st).affectedKeys().hasOnly([z.stage])&&a.st[z.stage]==(z.stars>z.prev?z.stars:z.prev)&&
+      a.starsTotal==b.starsTotal+a.st[z.stage]-z.prev&&normalQuest(a,b,z)):
+     (a.st==b.st&&a.starsTotal==b.starsTotal&&a.hq==b.hq));
+  }
+  function campaignChestGrant(a,b,it,src,entry) {
+   let c={'body':'','src':src,'id':'c'+it.id,'it':it,'souls':[4,6,10,16,30][it.g]};
+   let y={'steel':[2,4,8,12,20][it.g],'crystal':[0,0,1,3,8][it.g]};
+   return str(it.id,16)&&newItemShape(it,catalog('item-'+string(it.c)+'-'+(it.s=='weapon'?it.h:it.s)).grades[it.g])&&
+    a.diff(b).affectedKeys().hasOnly(['gear','mat'])&&!(it.id in b.gear.bagIds)&&!(it.id in b.gear.storedIds)&&
+    (b.gear.chests.size()<200?
+      (a.mat==b.mat&&!(it.id in b.gear.chestItemIds)&&a.gear.diff(b.gear).affectedKeys().hasOnly(['chests','chestItemIds','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['chests'].toSet())&&a.gear.chests==b.gear.chests.concat([c])&&a.gear.chestItemIds==b.gear.chestItemIds.concat([it.id])&&
+       entry=={'it':it,'src':src,'auto':false,'chest':c.id}):
+      (a.gear==b.gear&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel','crystal'])&&
+       a.mat.steel==b.mat.steel+y.steel&&a.mat.crystal==b.mat.crystal+y.crystal&&entry=={'it':it,'src':src,'auto':true,'y':y}));
+  }
+  function normalGrant(uid,a,b) {
+   let rp=normalPath(uid);let before=get(rp).data.row.result;let z=getAfter(rp).data.row.result;
+   return getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&campaignChestGrant(a,b,z.last.it,z.last.src,z.loot[before.next]);
+  }
+  function normalLoot(uid,a,b) {
+    let rp=normalPath(uid);let z=getAfter(rp).data.row.result;
+    return z.last.get('skipped',false)?a==b&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision:normalGrant(uid,a,b);
+   }
+  function train(uid,a,b) {
+   let p=proof(uid);
+   let old=b.heroLv[p.hero][p.stat];
+   let costs=p.stat=='hp'?[30,45,68,101,152,228,342,513,769,1153,1730,2595,3892,5839,8758]:[40,60,90,135,203,304,456,683,1025,1538,2307,3460,5190,7785,11677];
+   return p.op=='economy_perm' && hero(p.hero) && owned(uid,p.hero) && p.stat in ['hp','atk'] &&
+    old>=0 && old<(p.hero in b.adv?15:10) &&
+    a.diff(b).affectedKeys().hasOnly(['souls','heroLv']) &&
+    a.heroLv.diff(b.heroLv).affectedKeys().hasOnly([p.hero]) &&
+    a.heroLv[p.hero].diff(b.heroLv[p.hero]).affectedKeys().hasOnly([p.stat]) &&
+    a.heroLv[p.hero][p.stat]==old+1 && a.souls==b.souls-costs[old];
+  }
+  function hardFinalSave(uid,a,b) {
+   let d=getAfter(hardPath(uid));let run=d.data.row;let z=run.directReward;let x=a.gear.stats;let y=b.gear.stats;
+   let count=z.souls>0||z.total>0||run.get('kills',0)>0;
+   return z.get('method','')!='normal'&&d.data.commitRevision==request.resource.data.commitRevision&&run.hardSaved&&!get(hardPath(uid)).data.row.hardSaved&&
+    (count?(a.diff(b).affectedKeys().hasOnly(['gear','hardRewardSeq','present'])&&a.hardRewardSeq==b.get('hardRewardSeq',0)+1&&small(a.hardRewardSeq,1000000000) && small(a.bestWave,1000000000)&&
+     a.present.toSet()==b.present.toSet().union(['hardRewardSeq'].toSet())&&a.gear.diff(b.gear).affectedKeys().hasOnly(['stats','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['stats'].toSet())&&
+     x.diff(y).affectedKeys().hasOnly(['runs','kills','waves','souls'])&&x.runs==y.get('runs',0)+1&&x.kills==y.get('kills',0)+run.get('kills',0)&&x.waves==y.get('waves',0)+run.completed&&x.souls==y.get('souls',0)+z.souls&&
+     small(x.runs,1000000000)&&small(x.kills,1000000000)&&small(x.waves,1000000000)&&small(x.souls,1000000000)):a==b);
+  }
+  function hardNormalSettle(uid,a,b) {
+   let rp=hardNormalPath(uid);let run=get(hardPath(uid)).data.row;let z=run.directReward;let x=a.gear.stats;let y=b.gear.stats;
+   let count=z.souls>0||z.total>0||run.get('kills',0)>0;
+   return !exists(rp)&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&
+    (count?(a.diff(b).affectedKeys().hasOnly(['souls','gear','hardRewardSeq','present'])&&a.souls==b.souls+z.souls&&a.hardRewardSeq==b.get('hardRewardSeq',0)+1&&small(a.hardRewardSeq,1000000000)&&
+     a.present.toSet()==b.present.toSet().union(['souls','hardRewardSeq'].toSet())&&a.gear.diff(b.gear).affectedKeys().hasOnly(['stats','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['stats'].toSet())&&
+     x.diff(y).affectedKeys().hasOnly(['runs','kills','waves','souls'])&&x.runs==y.get('runs',0)+1&&x.kills==y.get('kills',0)+run.get('kills',0)&&x.waves==y.get('waves',0)+run.completed&&x.souls==y.get('souls',0)+z.souls&&
+     small(x.runs,1000000000)&&small(x.kills,1000000000)&&small(x.waves,1000000000)&&small(x.souls,1000000000)):a==b);
+  }
+  function hardNormalGrant(uid,a,b) {
+   let rp=hardNormalPath(uid);let before=get(rp).data.row.result;let z=getAfter(rp).data.row.result;
+   return getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&campaignChestGrant(a,b,z.last.it,z.last.src,z.loot[before.next]);
+  }
+  function moneyReward(r) { return r is map && r.keys().hasOnly(['souls','steel','crystal','essence','hero','medals','items']) &&
+   small(r.get('souls',0),1000000) && small(r.get('steel',0),1000000) &&
+   small(r.get('crystal',0),1000000) && small(r.get('essence',0),10000) && small(r.get('medals',0),10000) &&
+   (!('hero' in r)||r.hero in ['gunner','fighter','mechanic']); }
+  function mailCredit(uid,a,b) {
+   let id=proof(uid).request; let m=get(path(uid,'hd3d_mail',id)).data.row;
+   let after=getAfter(path(uid,'hd3d_mail',id)).data;
+   let rw=m.reward==null?{}:m.reward;
+   return !m.claimed && !m.revoked && moneyReward(rw) && after.row.claimed && after.row.server_applied &&
+    after.commitRevision==request.resource.data.commitRevision &&
+    a.diff(b).affectedKeys().hasOnly(['souls','mat']) &&
+    a.souls==b.souls+rw.get('souls',0) && a.mat.steel==b.mat.steel+rw.get('steel',0) &&
+    a.mat.crystal==b.mat.crystal+rw.get('crystal',0) && a.mat.get('essence',0)==b.mat.get('essence',0)+rw.get('essence',0);
+  }
+  function mailBudgetPath(uid,id,i,part) { return path(uid,'hd3d_growth_investments',uid+'~mailbudget~'+id+'~'+string(i)+'~'+part); }
+  function mailItemGrant(uid,a,b) {
+   let p=proof(uid);let rp=mailItemPath(uid,p.request,p.pos);let z=getAfter(rp).data.row.result;let it=z.it;
+   let c={'body':'','src':'chest','id':'c'+it.id,'it':it,'souls':[4,6,10,16,30][it.g]};let y={'steel':[2,4,8,12,20][it.g],'crystal':[0,0,1,3,8][it.g]};
+   return getAfter(mailBudgetPath(uid,p.request,p.pos,'steel')).data.commitRevision==request.resource.data.commitRevision&&getAfter(mailBudgetPath(uid,p.request,p.pos,'crystal')).data.commitRevision==request.resource.data.commitRevision&&(p.pos==0||mailItemPaid(uid,p.request,p.pos-1))&&!exists(rp)&&getAfter(rp).data.commitRevision==request.resource.data.commitRevision&&a.diff(b).affectedKeys().hasOnly(['gear','mat'])&&
+    !(it.id in b.gear.bagIds)&&!(it.id in b.gear.storedIds)&&!(it.id in b.gear.chestItemIds)&&
+    (b.gear.chests.size()<200?(a.mat==b.mat&&a.gear.diff(b.gear).affectedKeys().hasOnly(['chests','chestItemIds','present'])&&a.gear.present.toSet()==b.gear.present.toSet().union(['chests'].toSet())&&a.gear.chests==b.gear.chests.concat([c])&&a.gear.chestItemIds==b.gear.chestItemIds.concat([it.id])&&z.entry=={'it':it,'src':'chest','auto':false,'chest':c.id}):
+     (a.gear==b.gear&&a.mat.diff(b.mat).affectedKeys().hasOnly(['steel','crystal'])&&a.mat.steel==b.mat.steel+y.steel&&a.mat.crystal==b.mat.crystal+y.crystal&&z.entry=={'it':it,'src':'chest','auto':true,'y':y}));
+  }
+  function progressUpdate(d) {let memoProof=proof(uid); let a=d.row.authority;let b=resource.data.row.authority;let op=memoProof.op;return id==uid&&d.row.diff(resource.data.row).affectedKeys().hasOnly(['saveJson','updated_at','authority','cosmetic','merged'])&&d.row.merged is bool&&str(d.row.saveJson,65535)&&str(d.row.updated_at,32)&&d.row.updated_at>resource.data.row.updated_at&&(d.row.cosmetic==resource.data.row.cosmetic||cosmetics(d.row.cosmetic))&&small(a.souls,1000000000)&&small(a.mat.steel,1000000000)&&small(a.mat.crystal,1000000000)&&small(a.mat.get('essence',0),1000000000)&&(op.matches('gear_.*')?gearChange(uid,a,b):op=='hard_finalize'?hardFinalSave(uid,a,b):op=='challenge_settle'?challengeSettle(uid,a,b):op=='challenge_loot'?challengeGrant(uid,a,b):op=='normal_settle'?normalSettle(uid,a,b):op=='normal_loot'?normalLoot(uid,a,b):op=='mail_item'?mailItemGrant(uid,a,b):op=='claim_mail'?mailCredit(uid,a,b):op=='economy_perm'?(hero(memoProof.hero)&&memoProof.stat in ['hp','atk']&&train(uid,a,b)):op=='hard_settle'?hardNormalSettle(uid,a,b):op=='hard_loot'?hardNormalGrant(uid,a,b):a==b); }
+  function updateRow(d) { return updateBase(uid,d)&&progressUpdate(d); }
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((bootBase(uid,'hd3d_progress',id,request.resource.data)))));
+   allow update: if ((((updateRow(request.resource.data)))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_sequences/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function active(uid) { return get(path(uid,'hd3d_sequences','_activation')).data.row.enabled == true &&
+    !exists(path(uid,'hd3d_bans',uid)); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function noticeAdmin() {
+   let uid=request.auth.uid;let role=path(uid,'hd3d_admins',uid);
+   // UID-scoped role is provisioned by a trusted importer, never by email.
+   // Preserve the existing owner's additional case-insensitive email binding.
+   return active(uid)&&exists(role)&&(!get(role).data.row.get('owner',false)||
+    request.auth.token.email.lower()=='owner@example.invalid');
+  }
+  function amAuditPath(uid,id) {return /databases/$(database)/documents/hd3d_live_mail_audit/$(uid+'~'+string(id));}
+  function amLinked(uid,id) {let a=getAfter(amAuditPath(uid,id)).data;return !exists(amAuditPath(uid,id))&&a.actor==request.auth.uid&&a.target==uid&&a.mail==id&&a.at==request.time;}
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function coPath(uid,rid) {return /databases/$(database)/documents/hd3d_live_order_requests/$(uid+'~'+rid);}
+  function co(uid) {return getAfter(coPath(uid,proof(uid).request)).data;}
+  function coLink(uid) {let p=proof(uid);let r=co(uid);return owner(uid)&&demo()&&p.op=='order_create'&&!exists(coPath(uid,p.request))&&r.uid==uid&&r.request==p.request&&r.item==p.token&&r.at==request.time;}
+  function aaPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_actions/$(actor+'~'+id);}
+  function aa(uid) {let p=proof(uid);return getAfter(aaPath(p.token,p.request)).data;}
+  function aaLink(uid) {let p=proof(uid);let d=aa(uid);return request.auth!=null&&demo()&&p.op=='admin_action'&&p.token==request.auth.uid&&!exists(aaPath(p.token,p.request))&&d.actor==p.token&&d.request==p.request&&d.target==uid&&d.at==request.time;}
+  function spDay() { return int((request.time.toMillis() + 32400000) / 86400000); }
+  function aaBase(uid,d) {return base(d,uid)&&fence(uid,d)&&aaLink(uid);}
+  function xp(x) {
+   return x is map && x.size()==6 && x.keys().hasOnly(['warrior','archer','mage','gunner','mechanic','fighter']) &&
+    x.warrior is int&&x.warrior>=0&&x.warrior<=51940 && x.archer is int&&x.archer>=0&&x.archer<=51940 &&
+    x.mage is int&&x.mage>=0&&x.mage<=51940 && x.gunner is int&&x.gunner>=0&&x.gunner<=51940 &&
+    x.mechanic is int&&x.mechanic>=0&&x.mechanic<=51940 && x.fighter is int&&x.fighter>=0&&x.fighter<=51940;
+  }
+  function wallet(r,uid) {
+   let keys=r.keys();
+   return keys.hasAll(['user_id','version','rev','earned','granted','spent','balance','xp','first','legacyAdv','migrated']) &&
+    keys.hasOnly(['user_id','version','rev','earned','granted','spent','balance','xp','first','legacyAdv','migrated','migration','created_at','trees','hard']) &&
+    r.user_id==uid && r.version==1 && r.migrated==true && xp(r.xp) &&
+    small(r.rev,1000000000)&&small(r.earned,1000000000)&&small(r.granted,1000000000)&&
+    small(r.spent,311640)&&small(r.balance,1000000000) &&
+    r.spent==r.xp.warrior+r.xp.archer+r.xp.mage+r.xp.gunner+r.xp.mechanic+r.xp.fighter &&
+    r.balance==r.earned+r.granted-r.spent &&
+    r.first is list && r.first.size()<=90 && r.legacyAdv is list && r.legacyAdv.size()<=6;
+  }
+  function cosmetics(c) {
+   let a=c.get('settings',{}).get('audio',{});
+   return c is map && c.keys().hasOnly(['hero','nick','settings']) &&
+    (!('hero' in c)||c.hero in ['mage','archer','warrior','gunner','fighter','mechanic']) &&
+    (!('nick' in c)||str(c.nick,12)) && c.get('settings',{}) is map && c.get('settings',{}).keys().hasOnly(['audio']) &&
+    a is map && a.keys().hasOnly(['bgm','sfx','bgmOn','sfxOn']) &&
+    a.get('bgm',0) is number && a.get('bgm',0)>=0 && a.get('bgm',0)<=1 &&
+    a.get('sfx',0) is number && a.get('sfx',0)>=0 && a.get('sfx',0)<=1 &&
+    a.get('bgmOn',true) is bool && a.get('sfxOn',true) is bool;
+  }
+  function authority(a) { return a is map && a.keys().hasAll(['souls','mat','heroLv','st','adv','hq','starRw','starsTotal','sealed','present','gear','research','barLv','xch','hardRewardSeq','bestWave']) &&
+    a.keys().hasOnly(['souls','mat','heroLv','st','adv','hq','starRw','starsTotal','sealed','present','gear','research','barLv','xch','hardRewardSeq','bestWave']) && small(a.souls,1000000000) &&
+   a.mat is map && a.mat.keys().hasOnly(['steel','crystal','essence']) &&
+   small(a.mat.steel,1000000000) && small(a.mat.crystal,1000000000) && small(a.mat.get('essence',0),1000000000) &&
+    a.gear is map && a.present is list && a.present.toSet().hasOnly(['souls','mat','heroLv','st','adv','hq','starRw','research','barLv','xch','hardRewardSeq','bestWave']) && a.present.size()<=12 && small(a.hardRewardSeq,1000000000) && small(a.bestWave,1000000000) && a.research is map && small(a.barLv,10) && a.xch is map && a.hq is map && small(a.starRw,36) && small(a.starsTotal,180) && a.heroLv is map && a.st is map && a.adv is map && str(a.sealed,65535); }
+  function progress(r,uid) {
+   return r.keys().hasAll(['user_id','saveJson','merged','created_at','updated_at','authority','cosmetic']) &&
+    r.keys().hasOnly(['user_id','saveJson','merged','created_at','updated_at','authority','cosmetic']) &&
+    r.user_id==uid && cosmetics(r.cosmetic) && authority(r.authority) && str(r.saveJson,65535) && r.merged is bool &&
+    str(r.created_at,32) && str(r.updated_at,32);
+  }
+  function profile(r,uid) {
+   return r.keys().hasAll(['id','nickname','created_at','updated_at']) &&
+    r.keys().hasOnly(['id','nickname','created_at','updated_at']) && r.id==uid &&
+    str(r.nickname,12)&&r.nickname.size()>0 && str(r.created_at,32)&&str(r.updated_at,32);
+  }
+  function userRow(r,uid,id) { return id==uid&&r.keys().hasAll(['id','email','created_at','last_sign_in_at'])&&
+   r.keys().hasOnly(['id','email','created_at','last_sign_in_at'])&&r.id==uid&&r.email==request.auth.token.email&&
+   str(r.email,320)&&str(r.created_at,32)&&str(r.last_sign_in_at,32); }
+  function catalog(stage) { return get(/databases/$(database)/documents/hd3d_live_catalog/$(stage)).data; }
+  function chPath(uid) {return path(uid,'hd3d_growth_investments',uid+'~challenge~'+proof(uid).token);}
+  function bootstrap(uid,t,id,d) {
+   let template=catalog('_bootstrap'); let r=d.row;
+   // Fresh namespace: never consult/import legacy records, even for the same UID.
+   // A live account still cannot reset its existing activation or economic state.
+   let newAccount=!exists(path(uid,'hd3d_sequences','_activation'));
+   return newAccount && d.commitRevision==0 &&
+    getAfter(path(uid,'hd3d_sequences','_activation')).data.row=={'id':'_activation','schema':1,'enabled':true,'spireVersion':1} &&
+    getAfter(path(uid,'hd3d_sequences','_revision')).data.row=={'id':'_revision','value':0} &&
+    getAfter(path(uid,'hd3d_progress',uid)).data.row.authority==template.authority &&
+    getAfter(path(uid,'hd3d_growth_wallet',uid)).data.row.diff(template.wallet).affectedKeys().hasOnly(['user_id']) &&
+    ((t=='hd3d_progress'&&id==uid&&progress(r,uid)&&r.authority==template.authority&&r.saveJson==template.saveJson&&r.merged&&r.created_at==r.updated_at) ||
+     (t=='hd3d_growth_wallet'&&id==uid&&wallet(r,uid)&&r.diff(template.wallet).affectedKeys().hasOnly(['user_id'])) ||
+     (t=='hd3d_profiles'&&id==uid&&profile(r,uid)&&r.created_at==r.updated_at) ||
+     (t=='hd3d_users'&&userRow(r,uid,id)&&r.created_at==r.last_sign_in_at) ||
+     (t=='hd3d_sequences'&&r=={'id':id,'value':0}&&id in ['_revision','hd3d_orders','hd3d_mail','hd3d_admin_log','hd3d_broadcasts','hd3d_notices','hd3d_dungeon_runs','hd3d_dungeon_buys','hd3d_spire_runs','order-pending-hero_gunner','order-pending-hero_mechanic','order-pending-hero_fighter']) ||
+     (t=='hd3d_sequences'&&id=='_activation'&&r=={'id':'_activation','schema':1,'enabled':true,'spireVersion':1}));
+  }
+  function bootBase(uid,t,id,d) { return owner(uid)&&demo()&&base(d,uid)&&d.commitRevision==0&&bootstrap(uid,t,id,d); }
+  function chDropPath(uid,id) {return path(uid,'hd3d_growth_investments',uid+'~challenge-drop~'+proof(uid).token+'~'+id);}
+  function spPath(uid) { return path(uid,'hd3d_spire_runs',proof(uid).request); }
+  function dgPath(uid) { return path(uid,'hd3d_dungeon_runs',proof(uid).request); }
+  function sequenceRow(r,id) { return id!='_activation'&&r.keys().hasAll(['id','value'])&&
+   r.keys().hasOnly(['id','value','proof'])&&(id=='_revision'||!('proof' in r))&&r.id==id&&small(r.value,9007199254740991); }
+  function validProof(p) { return p.keys().hasAll(['op','request','token','hero','level','stat']) &&
+   p.keys().hasOnly(['op','request','token','hero','level','stat','branch','preset','tier','choice','slot','pay','pos','kills','source']) && str(p.op,40) && str(p.request,80) &&
+   str(p.token,80) && str(p.hero,20) && small(p.level,p.op in ['spire_start','spire_ping','spire_finish']?100000:p.op.matches('challenge_.*')?10000:50) && p.stat in ['','hp','atk'] &&
+   (!('source' in p)||str(p.source,64))&&(!('kills' in p)||small(p.kills,p.op.matches('challenge_.*')?1000000000:1000000))&&(!('pos' in p)||small(p.pos,p.op.matches('challenge_.*')?3999:299))&&(!('slot' in p)||p.slot in ['','weapon','armor','acc'])&&(!('pay' in p)||p.pay in ['','steel','souls'])&&
+   (!('branch' in p)||str(p.branch,16)) && (!('preset' in p)||p.preset in [0,1]) &&
+   (!('tier' in p)||p.tier==null||p.tier in [15,20,30,40,50]) && (!('choice' in p)||str(p.choice,32)); }
+  function chChain(uid,z,body) {let prior=get(chDropPath(uid,z.prev)).data.row;return prior.body==body&&prior.result.total==z.total&&prior.result.index==z.index-1&&prior.result.next==z.drop.id;}
+  function challengeDropLink(uid,p,revision) {
+   let dp=chDropPath(uid,p.choice);let doc=getAfter(dp);let r=doc.data.row;let z=r.result;let run=get(path(uid,'hd3d_growth_runs',uid+'~'+p.token)).data.row;
+   return !exists(dp)&&doc.data.commitRevision==revision&&r.body==p.source&&r.body.matches('^[a-f0-9]{64}$')&&
+    z.keys().hasAll(['action','token','index','total','drop','prev','next'])&&z.keys().hasOnly(['action','token','index','total','drop','prev','next'])&&z.action=='challenge_drop'&&z.token==p.token&&z.index==p.pos&&
+    small(z.index,1999)&&small(z.total,2000)&&z.total>z.index&&z.total<=int((run.completed+1) / 5)&&
+    str(z.prev,16)&&str(z.next,16)&&(z.index==0?z.prev=='':chChain(uid,z,r.body))&&(z.index==z.total-1?z.next=='':z.next.matches('^[A-Za-z0-9_-]{1,16}$'));
+  }
+  function chDropsReady(uid,r) {let z=r.result;let last=get(chDropPath(uid,z.lastDrop)).data.row;let first=get(chDropPath(uid,z.dropNext)).data.row;return last.body==r.body&&last.result.index==z.drops-1&&last.result.total==z.drops&&last.result.next==''&&first.body==r.body&&first.result.index==0&&first.result.total==z.drops;}
+  function challengeSettleLink(uid,revision) {
+   let h=getAfter(chPath(uid));let r=h.data.row;let z=r.result;
+   return !exists(chPath(uid))&&h.data.commitRevision==revision&&
+    (z.drops==0?(z.dropNext==''&&z.lastDrop==''):chDropsReady(uid,r));
+  }
+  function spCount(uid,d,old) {
+   let p=proof(uid);let run=getAfter(spPath(uid));
+   return p.op=='spire_start'&&d.row.id=='spire-'+string(spDay())&&d.row.value==old+1&&d.row.value<=30&&
+    !exists(spPath(uid))&&run.data.row.status=='active'&&run.data.commitRevision==d.commitRevision;
+  }
+  function newSequence(uid,d) {
+   let p=proof(uid);
+   return (p.op=='spire_start'&&d.row.id=='spire-'+string(spDay())&&spCount(uid,d,0))||
+    (p.op=='spire_claim_week'&&d.row.id=='hd3d_mail'&&d.row.value==1)||
+    (p.op in ['spire_start','spire_ping','spire_finish']&&d.row.id in ['hd3d_spire_runs','hd3d_mail']&&d.row.value==1)||
+    (p.op=='dungeon_start'&&d.row.id=='dungeon-'+string(int((request.time.toMillis() + 32400000) / 86400000))&&
+      getAfter(dgPath(uid)).data.row.id==d.row.value&&getAfter(dgPath(uid)).data.commitRevision==d.commitRevision) ||
+    ((d.row.id=='hd3d_mail'&&p.op in ['dungeon_boss_drop','growth_progress']||d.row.id in ['hd3d_dungeon_runs','hd3d_mail','hd3d_dungeon_buys']&&p.op in ['dungeon_start','dungeon_finish','dungeon_buy'])&&d.row.value==1);
+  }
+  function nextSequence(uid,d,old) {
+   return d.row.id=='_revision'?(active(uid)&&d.row.value==old.row.value+1&&validProof(d.row.proof)&&(d.row.proof.op!='challenge_drop'||challengeDropLink(uid,d.row.proof,d.commitRevision))&&(d.row.proof.op!='challenge_settle'||challengeSettleLink(uid,d.commitRevision))):
+    (proof(uid).op=='spire_start'&&d.row.id=='spire-'+string(spDay())&&spCount(uid,d,old.row.value))||
+    (proof(uid).op=='spire_claim_week'&&d.row.id=='hd3d_mail'&&d.row.value==old.row.value+1)||
+    (proof(uid).op in ['spire_start','spire_ping','spire_finish']&&d.row.id in ['hd3d_spire_runs','hd3d_mail']&&d.row.value==old.row.value+1)||
+    ((d.row.id=='hd3d_mail'&&proof(uid).op in ['dungeon_boss_drop','growth_progress']||d.row.id in ['hd3d_dungeon_runs','hd3d_mail','hd3d_dungeon_buys']&&proof(uid).op in ['dungeon_start','dungeon_finish','dungeon_buy'])&&d.row.value==old.row.value+1);
+  }
+  function amSequence(uid,d,old) {return base(d,uid)&&d.commitRevision==old.get('commitRevision',0)&&d.row=={'id':'hd3d_mail','value':old.row.value+1}&&amLinked(uid,d.row.value);}
+  function coSequence(uid,d,id) {let r=co(uid);return d.row.id==id&&base(d,uid)&&fence(uid,d)&&coLink(uid)&&
+    (d.row.id=='_revision'?active(uid)&&d.row=={'id':'_revision','value':d.commitRevision,'proof':{'op':'order_create','request':r.request,'token':r.item,'hero':'','level':0,'stat':''}}:
+     d.row.id in ['hd3d_orders','order-pending-'+r.item]&&d.row=={'id':d.row.id,'value':r.order}&&
+     (id!='hd3d_orders'||!exists(path(uid,'hd3d_sequences',id))||r.order>get(path(uid,'hd3d_sequences',id)).data.row.value));}
+  function aaRevision(uid,d,old) {return aaBase(uid,d)&&d.row.keys().hasOnly(['id','value','proof'])&&d.row.id=='_revision'&&validProof(d.row.proof)&&d.row.value==old.row.value+1&&d.row.value==d.commitRevision;}
+  function aaSeq(uid,d,old) {return aaBase(uid,d)&&aa(uid).action in ['admin_approve','admin_reject','admin_refund']&&d.row=={'id':'hd3d_mail','value':old.row.value+1}&&d.row.value==aa(uid).mail;}
+  function valid_14(d) { return sequenceRow(d.row,id); }
+  function createRow_9(d) { return proof(uid).op=='order_create'?id=='hd3d_orders'&&coSequence(uid,d,id):writeBase(uid,d)&&valid_14(d)&&(newSequence(uid,d)); }
+  function updateAction(d) {let op=id=='_revision'?d.row.proof.op:proof(uid).op;return op=='admin_action'?(id=='_revision'?aaRevision(uid,d,resource.data):id=='hd3d_mail'&&aaSeq(uid,d,resource.data)):op=='order_create'?coSequence(uid,d,id):updateBase(uid,d)&&valid_14(d)&&nextSequence(uid,d,resource.data);}
+  function updateRow_10(d) {return id=='hd3d_mail'&&d.commitRevision==resource.data.get('commitRevision',0)?request.auth!=null&&demo()&&amSequence(uid,d,resource.data):updateAction(d);}
+   allow get: if ((((id=='hd3d_mail')&&(request.auth!=null&&demo()&&noticeAdmin())||(id=='_revision')&&(request.auth!=null&&demo()&&noticeAdmin())||(id=='_activation')&&(request.auth!=null&&demo()&&noticeAdmin()))));
+   allow list: if (false);
+   allow create: if ((((createRow_9(request.resource.data))||(bootBase(uid,'hd3d_sequences',id,request.resource.data)))));
+   allow update: if ((((updateRow_10(request.resource.data)))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_spire_best/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function aaPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_actions/$(actor+'~'+id);}
+  function aa(uid) {let p=proof(uid);return getAfter(aaPath(p.token,p.request)).data;}
+  function aaLink(uid) {let p=proof(uid);let d=aa(uid);return request.auth!=null&&demo()&&p.op=='admin_action'&&p.token==request.auth.uid&&!exists(aaPath(p.token,p.request))&&d.actor==p.token&&d.request==p.request&&d.target==uid&&d.at==request.time;}
+  function spBestPath(uid) { return path(uid,'hd3d_spire_best',uid); }
+  function rankPath(uid,kind,wk) { return /databases/$(database)/documents/hd3d_live_ranks/$(kind+'~'+wk+'~'+uid); }
+  function aaBase(uid,d) {return base(d,uid)&&fence(uid,d)&&aaLink(uid);}
+  function spPath(uid) { return path(uid,'hd3d_spire_runs',proof(uid).request); }
+  function spOldBest(uid) { return exists(spBestPath(uid))?get(spBestPath(uid)).data.row:{'user_id':uid,'best_floor':0,'best_at':null,'cleared_bosses':0,'updated_at':''}; }
+  function linkedRank(uid,kind,wk,d) { let r=getAfter(rankPath(uid,kind,wk)).data;return r.revision==d.commitRevision&&r.floor==d.row.best_floor&&r.at==d.row.best_at; }
+  function spBest(uid,d,b) {
+   let r=getAfter(spPath(uid)).data.row;let a=d.row;let n=r.top_floor>b.best_floor;let wp=path(uid,'hd3d_spire_weeks',uid+'~'+r.week);
+   return proof(uid).op in ['spire_ping','spire_finish']&&getAfter(spPath(uid)).data.commitRevision==d.commitRevision&&r.status in ['active','done']&&
+    a.keys().hasOnly(['user_id','best_floor','best_at','cleared_bosses','updated_at'])&&a.user_id==uid&&a.best_floor==(n?r.top_floor:b.best_floor)&&
+    (n?a.best_at==request.time:a.best_at==b.best_at)&&a.cleared_bosses==(r.top_floor>=b.cleared_bosses+5?int(r.top_floor / 5)*5:b.cleared_bosses)&&str(a.updated_at,32)&&
+    (a.best_floor==0||!(a.best_at is timestamp)||linkedRank(uid,'all','all',d))&&
+     (r.top_floor<r.from_floor||(exists(wp)&&get(wp).data.row.best_floor>=r.top_floor)||(getAfter(wp).data.row.best_floor==r.top_floor&&getAfter(wp).data.commitRevision==d.commitRevision));
+  }
+  function aaResetBest(uid,d,old) {return aaBase(uid,d)&&aa(uid).action=='admin_spire_reset'&&d.row.best_floor==0&&d.row.best_at==null&&str(d.row.updated_at,32)&&d.row.diff(old.row).affectedKeys().hasOnly(['best_floor','best_at','updated_at']);}
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((id==uid&&writeBase(uid,request.resource.data)&&spBest(uid,request.resource.data,spOldBest(uid))))));
+   allow update: if ((((id==uid&&aaResetBest(uid,request.resource.data,resource.data))||(id==uid&&writeBase(uid,request.resource.data)&&spBest(uid,request.resource.data,spOldBest(uid))))));
+   allow delete: if (false);
+  }
+
+  match /hd3d_live/{uid}/hd3d_spire_runs/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function base(d,uid) {
+   let keys=d.keys();
+   return keys.hasAll(['owner','version','row','commitRevision']) &&
+    keys.hasOnly(['owner','version','row','commitRevision','issuedAt','pingAt','closedAt']) &&
+    d.owner == uid && d.version == 1 && d.row is map && small(d.commitRevision,1000000000) &&
+    (!('issuedAt' in d)||d.issuedAt is timestamp) &&
+    (!('pingAt' in d)||d.pingAt==null||d.pingAt is timestamp) &&
+    (!('closedAt' in d)||d.closedAt==null||d.closedAt is timestamp);
+  }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function fence(uid,d) {let revisionPath=path(uid,'hd3d_sequences','_revision');
+   // The mandatory revision update checks activation/ban once for this atomic batch.
+   // Without that update, the before+1/after fence cannot pass for any row.
+   return d.commitRevision == getAfter(revisionPath).data.row.value &&
+    d.commitRevision == get(revisionPath).data.row.value+1;
+  }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function writeBase(uid,d) { return owner(uid)&&demo()&&base(d,uid)&&fence(uid,d); }
+  function updateBase(uid,d) { return writeBase(uid,d)&&resource.data.owner==uid&&resource.data.version==d.version; }
+  function aaPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_actions/$(actor+'~'+id);}
+  function aa(uid) {let p=proof(uid);return getAfter(aaPath(p.token,p.request)).data;}
+  function aaLink(uid) {let p=proof(uid);let d=aa(uid);return request.auth!=null&&demo()&&p.op=='admin_action'&&p.token==request.auth.uid&&!exists(aaPath(p.token,p.request))&&d.actor==p.token&&d.request==p.request&&d.target==uid&&d.at==request.time;}
+  function spDay() { return int((request.time.toMillis() + 32400000) / 86400000); }
+  function dateText(t) { return string(t.year())+'-'+(t.month()<10?'0':'')+string(t.month())+'-'+(t.day()<10?'0':'')+string(t.day()); }
+  function resetPath(uid) {return /databases/$(database)/documents/hd3d_live_spire_resets/$(uid);}
+  function spBestPath(uid) { return path(uid,'hd3d_spire_best',uid); }
+  function aaBase(uid,d) {return base(d,uid)&&fence(uid,d)&&aaLink(uid);}
+  function spPath(uid) { return path(uid,'hd3d_spire_runs',proof(uid).request); }
+  function spOldBest(uid) { return exists(spBestPath(uid))?get(spBestPath(uid)).data.row:{'user_id':uid,'best_floor':0,'best_at':null,'cleared_bosses':0,'updated_at':''}; }
+  function spRun(r,uid,id) {
+   return r.keys().hasAll(['id','user_id','token','day','week','from_floor','top_floor','growth','status','started_at','last_ping_at','last_ping_floor','finished_at','capped','summary','created_at'])&&
+    r.keys().hasOnly(['id','user_id','token','day','week','from_floor','top_floor','growth','status','started_at','last_ping_at','last_ping_floor','finished_at','capped','summary','created_at','finish_receipt'])&&
+    r.user_id==uid&&small(r.id,9007199254740991)&&r.id>0&&string(r.id)==id&&r.token.matches('^[0-9a-f-]{36}$')&&
+    r.day.matches('^\\d{4}-\\d{2}-\\d{2}$')&&r.week.matches('^\\d{4}-\\d{2}-\\d{2}$')&&small(r.from_floor,100000)&&r.from_floor>0&&small(r.top_floor,100030)&&
+    r.growth is bool&&r.status in ['active','done','abandoned']&&r.capped is bool&&str(r.started_at,32)&&str(r.created_at,32);
+  }
+  function spEntryPath(uid) { return path(uid,'hd3d_growth_investments',uid+'~spstart~'+proof(uid).source); }
+  function spNew(uid,d) {
+   let r=d.row;let b=spOldBest(uid);let count=path(uid,'hd3d_sequences','spire-'+string(spDay()));
+    return get(path(uid,'hd3d_sequences','_activation')).data.row.get('spireVersion',0)==1&&proof(uid).op=='spire_start'&&proof(uid).request==string(r.id)&&proof(uid).token==r.token&&d.issuedAt==request.time&&d.pingAt==null&&
+     !exists(spEntryPath(uid))&&getAfter(spEntryPath(uid)).data.commitRevision==d.commitRevision&&getAfter(spEntryPath(uid)).data.row.result.token==r.token&&
+    r.day==dateText(timestamp.value(spDay()*86400000))&&r.week==dateText(timestamp.value((spDay()-(spDay()+3)%7)*86400000))&&
+    (r.from_floor==1||(r.from_floor%5==1&&r.from_floor-1<=b.best_floor))&&r.top_floor==r.from_floor-1&&r.status=='active'&&
+    r.last_ping_at==null&&r.last_ping_floor==null&&r.finished_at==null&&!r.capped&&r.summary==null&&!('finish_receipt' in r)&&
+    getAfter(count).data.commitRevision==d.commitRevision&&getAfter(count).data.row.value==(exists(count)?get(count).data.row.value:0)+1&&getAfter(count).data.row.value<=30&&
+    getAfter(path(uid,'hd3d_sequences','hd3d_spire_runs')).data.commitRevision==d.commitRevision&&getAfter(path(uid,'hd3d_sequences','hd3d_spire_runs')).data.row.value==r.id;
+  }
+  function spSeconds(from,top) { return top<from?0:25*(top-from+1)+15*(int(top / 5)-int((from-1) / 5)); }
+  function spStep(uid,d,old) {let memoProof=proof(uid);
+   let a=d.row;let b=old.row;let ping=memoProof.op=='spire_ping';let last=b.last_ping_floor==null?b.from_floor-1:b.last_ping_floor;
+   return (!exists(resetPath(uid))||old.issuedAt>get(resetPath(uid)).data.at)&&memoProof.op in ['spire_ping','spire_finish']&&memoProof.request==string(b.id)&&memoProof.token==b.token&&b.status=='active'&&d.issuedAt==old.issuedAt&&
+    a.diff(b).affectedKeys().hasOnly(['top_floor','status','last_ping_at','last_ping_floor','finished_at','capped','summary','finish_receipt'])&&
+    a.top_floor>=b.top_floor&&a.top_floor>=b.from_floor-1&&a.top_floor<=b.from_floor+29&&request.time<=d.issuedAt+duration.value(10800,'s')&&
+    request.time>=d.issuedAt+duration.value(spSeconds(b.from_floor,a.top_floor),'s')&&
+    (ping?(a.status=='active'&&a.finished_at==b.finished_at&&a.capped==b.capped&&a.summary==b.summary&&!('finish_receipt' in a)&&
+      (memoProof.level<=last?(b.growth&&memoProof.level>=b.from_floor&&a==b&&d.pingAt==old.pingAt):
+       (a.top_floor==memoProof.level&&a.last_ping_floor==a.top_floor&&(b.growth||a.top_floor%5==0)&&str(a.last_ping_at,32)&&d.pingAt==request.time&&
+        request.time>=(old.pingAt==null?old.issuedAt:old.pingAt)+duration.value(125*int((a.top_floor-last) / 5),'s')))):
+     (a.status=='done'&&str(a.finished_at,32)&&a.last_ping_at==b.last_ping_at&&a.last_ping_floor==b.last_ping_floor&&d.pingAt==old.pingAt&&
+      (!b.growth||(a.finish_receipt.ok&&a.finish_receipt.top==a.top_floor&&a.finish_receipt.from==a.from_floor))))&&
+    getAfter(spBestPath(uid)).data.commitRevision==d.commitRevision;
+  }
+  function spAbandon(uid,d,old) {let memoProof=proof(uid);
+   return old.row.status=='active'&&d.row.status=='abandoned'&&d.issuedAt==old.issuedAt&&d.pingAt==old.pingAt&&
+    d.row.diff(old.row).affectedKeys().hasOnly(['status','finished_at'])&&str(d.row.finished_at,32)&&
+    (memoProof.op=='spire_start'?(memoProof.request!=string(old.row.id)&&getAfter(spPath(uid)).data.row.status=='active'&&getAfter(spPath(uid)).data.commitRevision==d.commitRevision):
+     (memoProof.op in ['spire_ping','spire_finish']&&memoProof.request==string(old.row.id)&&request.time>d.issuedAt+duration.value(10800,'s')));
+  }
+  function aaResetRun(uid,d,old) {return aaBase(uid,d)&&aa(uid).action=='admin_spire_reset'&&old.row.status=='active'&&d.row.status=='abandoned'&&d.issuedAt==old.issuedAt&&d.pingAt==old.pingAt&&d.row.diff(old.row).affectedKeys().hasOnly(['status','finished_at'])&&str(d.row.finished_at,32);}
+   allow get: if (false);
+   allow list: if (false);
+   allow create: if ((((writeBase(uid,request.resource.data)&&spRun(request.resource.data.row,uid,id)&&spNew(uid,request.resource.data)))));
+   allow update: if ((((aaResetRun(uid,request.resource.data,resource.data))||(updateBase(uid,request.resource.data)&&spRun(request.resource.data.row,uid,id)&&(request.resource.data.row.status=='abandoned'?spAbandon(uid,request.resource.data,resource.data):spStep(uid,request.resource.data,resource.data))))));
+   allow delete: if (false);
+  }
+
+  match /{collection}/{id} {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function active(uid) { return get(path(uid,'hd3d_sequences','_activation')).data.row.enabled == true &&
+    !exists(path(uid,'hd3d_bans',uid)); }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function noticeAdmin() {
+   let uid=request.auth.uid;let role=path(uid,'hd3d_admins',uid);
+   // UID-scoped role is provisioned by a trusted importer, never by email.
+   // Preserve the existing owner's additional case-insensitive email binding.
+   return active(uid)&&exists(role)&&(!get(role).data.row.get('owner',false)||
+    request.auth.token.email.lower()=='owner@example.invalid');
+  }
+  function validNoticeRow(r,id) {
+   return r.keys().hasAll(['id','title','body','active','starts_at','ends_at','created_by','created_at','updated_at'])&&
+    r.keys().hasOnly(['id','title','body','active','starts_at','ends_at','created_by','created_at','updated_at'])&&
+    small(r.id,9007199254740991)&&r.id>0&&string(r.id)==id&&str(r.title,80)&&r.title.size()>0&&str(r.body,2000)&&
+    r.active is bool&&(r.starts_at==null||str(r.starts_at,32))&&(r.ends_at==null||str(r.ends_at,32))&&
+    str(r.created_by,128)&&str(r.created_at,32)&&str(r.updated_at,32);
+  }
+  function noticeAuditPath(actor,rid) { return /databases/$(database)/documents/hd3d_live_notice_audit/$(actor+'~'+rid); }
+  function validNotice(d,id) {
+   return d.keys().hasAll(['row','revision','actor','lastRequest','startsAt','endsAt','createdAt','updatedAt'])&&
+    d.keys().hasOnly(['row','revision','actor','lastRequest','startsAt','endsAt','createdAt','updatedAt'])&&
+    validNoticeRow(d.row,id)&&small(d.revision,1000000000)&&d.revision>0&&d.actor==request.auth.uid&&
+    d.lastRequest is string&&d.lastRequest.matches('^[A-Za-z0-9_-]{8,64}$')&&
+    d.startsAt is timestamp&&d.endsAt is timestamp&&d.endsAt>d.startsAt&&d.createdAt is timestamp&&
+    d.createdAt<=request.time&&d.updatedAt==request.time;
+  }
+  function linkedNoticeAudit(d) {
+   let p=noticeAuditPath(d.actor,d.lastRequest);let a=getAfter(p).data;
+   return !exists(p)&&a.actor==d.actor&&a.request==d.lastRequest&&a.notice==d.row.id&&
+    a.revision==d.revision&&a.row==d.row&&a.at==request.time;
+  }
+  function createNotice(d) { return validNotice(d,id)&&d.revision==1&&d.createdAt==request.time&&d.row.created_by==request.auth.uid&&linkedNoticeAudit(d)&&getAfter(noticeAuditPath(d.actor,d.lastRequest)).data.action=='admin_notice_save'; }
+  function updateNotice(d) { return validNotice(d,id)&&d.revision==resource.data.revision+1&&
+    d.createdAt==resource.data.createdAt&&d.row.created_by==resource.data.row.created_by&&
+    d.row.created_at==resource.data.row.created_at&&linkedNoticeAudit(d)&&
+    (getAfter(noticeAuditPath(d.actor,d.lastRequest)).data.action=='admin_notice_save'||d.row.diff(resource.data.row).affectedKeys().hasOnly(['active','updated_at'])); }
+  function validAudit(d) { return d.keys().hasAll(['actor','request','notice','body','row','revision','action','at'])&&
+    d.keys().hasOnly(['actor','request','notice','body','row','revision','action','at'])&&
+    d.actor==request.auth.uid&&str(d.request,64)&&d.request.matches('^[A-Za-z0-9_-]{8,64}$')&&id==d.actor+'~'+d.request&&
+    small(d.notice,9007199254740991)&&d.notice>0&&str(d.body,4096)&&validNoticeRow(d.row,string(d.notice))&&
+    d.action in ['admin_notice_save','admin_notice_active']&&small(d.revision,1000000000)&&d.revision>0&&d.at==request.time; }
+  function linkedAudit(d) { let n=getAfter(/databases/$(database)/documents/hd3d_live_notices/$(string(d.notice))).data;
+    return n.row==d.row&&n.revision==d.revision&&n.actor==d.actor&&n.lastRequest==d.request&&n.updatedAt==request.time; }
+  function amItem(x) { return x is map&&x.keys().hasAll(['k','s','g'])&&x.keys().hasOnly(['k','s','h','g','c','set'])&&x.k=='gear'&&x.s in ['weapon','armor','acc']&&small(x.g,4)&&
+   (x.s=='weapon'?x.h in ['warrior','archer','mage','gunner','mechanic','fighter']:!('h' in x))&&(!('c' in x)||(small(x.c,10)&&x.c>=1))&&(!('set' in x)||(x.set=='morvia'&&x.g==3&&!('c' in x)&&(x.s!='weapon'||x.h!='mechanic'))); }
+  function amItemAt(xs,i) {return xs.size()<=i||amItem(xs[i]);}
+  function valid(d) {return d.keys().hasAll(['actor','request','chunk','items'])&&d.keys().hasOnly(['actor','request','chunk','items'])&&d.actor==request.auth.uid&&d.request.matches('^[A-Za-z0-9_-]{8,64}$')&&small(d.chunk,2)&&id==d.actor+'~'+d.request+'~'+string(d.chunk)&&d.items is list&&d.items.size()>=1&&d.items.size()<=4&&amItemAt(d.items,0)&&amItemAt(d.items,1)&&amItemAt(d.items,2)&&amItemAt(d.items,3);}
+  function mail(r,uid) {
+   return r.keys().hasAll(['id','user_id','title','body','reward','claimed','claimed_at','revoked','order_id','broadcast_id','created_at']) &&
+    r.keys().hasOnly(['id','user_id','title','body','reward','claimed','claimed_at','revoked','order_id','broadcast_id','created_at','server_applied']) &&
+    r.user_id==uid&&small(r.id,9007199254740991)&&r.id>0&&str(r.title,100)&&str(r.body,1000)&&
+    r.claimed is bool&&r.revoked is bool&&str(r.created_at,32)&&
+    (r.reward==null || r.reward is map);
+  }
+  function amItems(xs) {return xs is list&&xs.size()>=1&&xs.size()<=10;}
+  function amReward(r) {return r==null||(r is map&&r.keys().hasOnly(['souls','steel','crystal','hero','essence','items','medals'])&&small(r.get('souls',0),1000000)&&small(r.get('steel',0),1000000)&&small(r.get('crystal',0),1000000)&&small(r.get('essence',0),10000)&&small(r.get('medals',0),10000)&&(!('hero' in r)||r.hero in ['gunner','mechanic','fighter'])&&(!('items' in r)||amItems(r.items)));}
+  function bcPath(id) {return /databases/$(database)/documents/hd3d_live_broadcast_jobs/$(id);}
+  function bcDelivery(job,index) {return /databases/$(database)/documents/hd3d_live_broadcast_deliveries/$(job+'~'+string(index));}
+  function bcLinked(a) {
+   let b=a.broadcast;let j=get(bcPath(b.job)).data;let p=bcDelivery(b.job,b.index);let d=getAfter(p).data;
+   return b.keys().hasOnly(['job','index','bid','uid'])&&b.job==j.actor+'~'+j.request&&j.actor==a.actor&&b.bid==j.bid&&small(b.index,4999)&&b.index<j.targets.size()&&j.targets[b.index]==a.target&&b.uid==a.target&&
+    a.row.broadcast_id==j.bid&&a.row.title==j.title&&a.row.body==j.body&&a.row.reward==j.reward&&!exists(p)&&d=={'job':b.job,'index':b.index,'target':a.target,'actor':a.actor,'request':a.request,'mail':a.mail,'at':request.time};
+  }
+  function amRequestPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_requests/$(actor+'~'+id);}
+  function amAudit(d,id) {
+   let seq=path(d.target,'hd3d_sequences','hd3d_mail');let req=amRequestPath(d.actor,d.request);let r=d.row;
+   return d.keys().hasAll(['actor','request','target','mail','action','signature','email','row','at'])&&d.keys().hasOnly(['actor','request','target','mail','action','signature','email','row','at','broadcast'])&&
+    d.actor==request.auth.uid&&d.request.matches('^[A-Za-z0-9_-]{8,64}$')&&d.target.matches('^[A-Za-z0-9_-]{1,128}$')&&small(d.mail,9007199254740991)&&id==d.target+'~'+string(d.mail)&&d.action=='admin_send_mail'&&str(d.signature,8192)&&str(d.email,254)&&get(path(d.target,'hd3d_users',d.target)).data.row.email==d.email&&
+    mail(r,d.target)&&r.title.size()>0&&r.title.size()<=60&&amReward(r.reward)&&r.id==d.mail&&!r.claimed&&!r.revoked&&r.claimed_at==null&&r.order_id==null&&('broadcast' in d?bcLinked(d):r.broadcast_id==null)&&!('server_applied' in r)&&d.at==request.time&&
+    getAfter(seq).data.row.value==d.mail&&get(seq).data.row.value+1==d.mail&&getAfter(path(d.target,'hd3d_mail',string(d.mail))).data.row==r&&
+    !exists(req)&&getAfter(req).data=={'actor':d.actor,'request':d.request,'target':d.target,'mail':d.mail,'signature':d.signature,'at':request.time};
+  }
+  function amAuditPath(uid,id) {return /databases/$(database)/documents/hd3d_live_mail_audit/$(uid+'~'+string(id));}
+  function amLinked(uid,id) {let a=getAfter(amAuditPath(uid,id)).data;return !exists(amAuditPath(uid,id))&&a.actor==request.auth.uid&&a.target==uid&&a.mail==id&&a.at==request.time;}
+  function amSpecPath(actor,id,n) {return /databases/$(database)/documents/hd3d_live_mail_specs/$(actor+'~'+id+'~'+string(n));}
+  function amPrepared(a) {let xs=a.row.reward==null?[]:a.row.reward.get('items',[]);return xs.size()==0||xs==get(amSpecPath(a.actor,a.request,0)).data.items.concat(xs.size()>4?get(amSpecPath(a.actor,a.request,1)).data.items:[]).concat(xs.size()>8?get(amSpecPath(a.actor,a.request,2)).data.items:[]);}
+  function linked(d) {let a=getAfter(amAuditPath(d.target,d.mail)).data;return d.keys().hasAll(['actor','request','target','mail','signature','at'])&&d.keys().hasOnly(['actor','request','target','mail','signature','at'])&&d.actor==request.auth.uid&&id==d.actor+'~'+d.request&&amLinked(d.target,d.mail)&&a.request==d.request&&a.signature==d.signature&&amPrepared(a)&&d.at==request.time;}
+  function moderationPath(actor,id) {return /databases/$(database)/documents/hd3d_live_moderation/$(actor+'~'+id);}
+  function linkedModeration(uid,d) {let a=getAfter(moderationPath(request.auth.uid,d.lastRequest)).data;return !exists(moderationPath(request.auth.uid,d.lastRequest))&&a.target==uid&&a.revision==d.revision&&a.at==request.time&&a.action==(d.banned?'admin_ban':'admin_unban')&&
+   (d.banned?(getAfter(path(uid,'hd3d_bans',uid)).data.row.reason==a.reason&&getAfter(path(uid,'hd3d_bans',uid)).data.row.banned_by==a.actor):!existsAfter(path(uid,'hd3d_bans',uid)));}
+  function validBlock(d,uid) {return d.keys().hasAll(['uid','banned','revision','lastRequest','updatedAt'])&&d.keys().hasOnly(['uid','banned','revision','lastRequest','updatedAt'])&&d.uid==uid&&d.banned is bool&&small(d.revision,1000000000)&&d.revision>0&&d.lastRequest.matches('^[A-Za-z0-9_-]{8,64}$')&&d.updatedAt==request.time;}
+  function blockPath(uid) {return /databases/$(database)/documents/hd3d_live_rank_blocks/$(uid);}
+  function validModeration(d,id) {
+   return d.keys().hasAll(['actor','request','target','action','reason','body','revision','at'])&&d.keys().hasOnly(['actor','request','target','action','reason','body','revision','at'])&&d.actor==request.auth.uid&&d.request.matches('^[A-Za-z0-9_-]{8,64}$')&&id==d.actor+'~'+d.request&&d.target.matches('^[A-Za-z0-9_-]{1,128}$')&&d.target!=d.actor&&d.action in ['admin_ban','admin_unban']&&str(d.reason,200)&&d.reason.size()>=1&&str(d.body,1024)&&small(d.revision,1000000000)&&d.at==request.time&&exists(path(d.target,'hd3d_users',d.target))&&
+    (d.action!='admin_ban'||!exists(path(d.target,'hd3d_admins',d.target)));
+  }
+  function auditBlock(d) {let b=getAfter(blockPath(d.target)).data;return b.lastRequest==d.request&&b.revision==d.revision&&b.banned==(d.action=='admin_ban')&&b.updatedAt==request.time;}
+  function indexEntry(d) { return d=={'uid':id}&&owner(id)&&demo()&&active(id)&&getAfter(path(id,'hd3d_users',id)).data.row.id==id; }
+  function bcControl() {return /databases/$(database)/documents/hd3d_live_broadcast_control/main;}
+  function valid_2(d) {let c=getAfter(bcControl()).data;return d.keys().hasAll(['actor','request','bid','title','body','reward','targets','signature','at'])&&d.keys().hasOnly(['actor','request','bid','title','body','reward','targets','signature','at'])&&d.actor==request.auth.uid&&d.request.matches('^[A-Za-z0-9_-]{8,48}$')&&id==d.actor+'~'+d.request&&small(d.bid,9007199254740991)&&d.bid>0&&str(d.title,60)&&d.title.size()>0&&str(d.body,1000)&&amReward(d.reward)&&d.targets is list&&d.targets.size()<=5000&&d.targets.toSet().size()==d.targets.size()&&str(d.signature,8192)&&d.at==request.time&&c.job==id&&c.bid==d.bid&&c.at==request.time;}
+  function valid_3(d) {let p=bcPath(d.job);let j=getAfter(p).data;return id=='main'&&d.keys().hasAll(['bid','job','at'])&&d.keys().hasOnly(['bid','job','at'])&&!exists(p)&&d.at==request.time&&j.bid==d.bid&&j.actor==request.auth.uid&&j.at==request.time;}
+  function linked_2(d) {let a=getAfter(amAuditPath(d.target,d.mail)).data;return id==d.job+'~'+string(d.index)&&amLinked(d.target,d.mail)&&a.request==d.request&&bcLinked(a);}
+  function coPath(uid,rid) {return /databases/$(database)/documents/hd3d_live_order_requests/$(uid+'~'+rid);}
+  function co(uid) {return getAfter(coPath(uid,proof(uid).request)).data;}
+  function coLink(uid) {let p=proof(uid);let r=co(uid);return owner(uid)&&demo()&&p.op=='order_create'&&!exists(coPath(uid,p.request))&&r.uid==uid&&r.request==p.request&&r.item==p.token&&r.at==request.time;}
+  function aaItem(s) {return s in ['hero_gunner','hero_mechanic','hero_fighter'];}
+  function coReceipt(d,id) {
+   let uid=request.auth.uid;let counter=/databases/$(database)/documents/hd3d_live_order_counter/main;
+   let prof=path(uid,'hd3d_profiles',uid);
+   return d.keys().hasAll(['uid','request','item','order','row','at'])&&d.keys().hasOnly(['uid','request','item','order','row','at'])&&d.uid==uid&&
+    d.request.matches('^[A-Za-z0-9_-]{8,64}$')&&id==uid+'~'+d.request&&aaItem(d.item)&&small(d.order,9007199254740991)&&d.order>0&&d.at==request.time&&
+    d.order==get(counter).data.value+1&&getAfter(counter).data.value==d.order&&
+    d.row=={'id':d.order,'user_id':uid,'email':request.auth.token.email,'nickname':exists(prof)?get(prof).data.row.nickname:'용사','item':d.item,'status':'pending','decided_at':null,'refunded_at':null,'note':null,'refund_note':null,'created_at':request.time}&&
+    !exists(path(uid,'hd3d_orders',string(d.order)))&&getAfter(path(uid,'hd3d_orders',string(d.order))).data.row==d.row&&coLink(uid);
+  }
+  function aaPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_actions/$(actor+'~'+id);}
+  function aa(uid) {let p=proof(uid);return getAfter(aaPath(p.token,p.request)).data;}
+  function aaLink(uid) {let p=proof(uid);let d=aa(uid);return request.auth!=null&&demo()&&p.op=='admin_action'&&p.token==request.auth.uid&&!exists(aaPath(p.token,p.request))&&d.actor==p.token&&d.request==p.request&&d.target==uid&&d.at==request.time;}
+  function spDay() { return int((request.time.toMillis() + 32400000) / 86400000); }
+  function dateText(t) { return string(t.year())+'-'+(t.month()<10?'0':'')+string(t.month())+'-'+(t.day()<10?'0':'')+string(t.day()); }
+  function resetPath(uid) {return /databases/$(database)/documents/hd3d_live_spire_resets/$(uid);}
+  function resetWeek() {return dateText(timestamp.value((spDay()-(spDay()+3)%7)*86400000));}
+  function aaOrder(d) {
+   let old=get(path(d.target,'hd3d_orders',string(d.order))).data.row;let next=getAfter(path(d.target,'hd3d_orders',string(d.order))).data.row;
+   return d.order>0&&old.item==d.item&&old.user_id==d.target&&
+    (d.action=='admin_refund'?old.status=='approved'&&next.status=='refunded'&&!existsAfter(path(d.target,'hd3d_owned',d.target+'~'+d.item)):old.status=='pending'&&next.status==(d.action=='admin_approve'?'approved':'rejected'))&&
+    d.mail==get(path(d.target,'hd3d_sequences','hd3d_mail')).data.row.value+1&&getAfter(path(d.target,'hd3d_mail',string(d.mail))).data.row.order_id==d.order;
+  }
+  function aaResetAudit(a) {return a.week==resetWeek()&&getAfter(resetPath(a.target)).data=={'uid':a.target,'actor':a.actor,'request':a.request,'revision':a.revision,'week':a.week,'at':request.time};}
+  function aaPrimary(d) {
+   let owned=path(d.target,'hd3d_owned',d.target+'~'+d.item);let role=path(d.target,'hd3d_admins',d.target);
+   return d.action=='admin_spire_reset'?aaResetAudit(d):d.action=='admin_grant_hero'?!exists(owned)&&getAfter(owned).data.row.item==d.item:
+    d.action=='admin_revoke_hero'?exists(owned)&&!existsAfter(owned):
+    d.action=='owner_add_admin'?!exists(role)&&getAfter(role).data.row.owner==false&&!exists(path(d.target,'hd3d_bans',d.target)):
+    d.action=='owner_remove_admin'?exists(role)&&!get(role).data.row.owner&&!existsAfter(role):aaOrder(d);
+  }
+  function aaAudit(d,id) {
+   return d.keys().hasAll(['actor','request','target','action','signature','revision','item','order','mail','reason','email','result','detail','logAction','at'])&&d.keys().hasOnly(['actor','request','target','action','signature','revision','item','order','mail','reason','email','result','detail','logAction','at','week'])&&
+    d.actor==request.auth.uid&&d.request.matches('^[A-Za-z0-9_-]{8,64}$')&&id==d.actor+'~'+d.request&&d.target.matches('^[A-Za-z0-9_-]{1,128}$')&&
+    d.action in ['admin_spire_reset','admin_approve','admin_reject','admin_refund','admin_grant_hero','admin_revoke_hero','owner_add_admin','owner_remove_admin']&&str(d.signature,2048)&&str(d.reason,200)&&str(d.email,254)&&str(d.logAction,32)&&d.result is map&&d.result.ok==true&&d.at==request.time&&
+    get(path(d.target,'hd3d_sequences','_activation')).data.row.enabled==true&&exists(path(d.target,'hd3d_users',d.target))&&
+    getAfter(path(d.target,'hd3d_sequences','_revision')).data.row.value==d.revision&&proof(d.target).op=='admin_action'&&proof(d.target).token==d.actor&&proof(d.target).request==d.request&&
+    (d.action in ['owner_add_admin','owner_remove_admin']?get(path(d.actor,'hd3d_admins',d.actor)).data.row.owner==true&&get(path(d.target,'hd3d_users',d.target)).data.row.email==d.email:d.action=='admin_spire_reset'?d.item==''&&d.order==0&&d.mail==0:aaItem(d.item))&&
+    (!(d.action in ['admin_spire_reset','admin_refund','admin_grant_hero','admin_revoke_hero'])||d.reason.size()>0)&&aaPrimary(d);
+  }
+  function spBestPath(uid) { return path(uid,'hd3d_spire_best',uid); }
+  function rankPath(uid,kind,wk) { return /databases/$(database)/documents/hd3d_live_ranks/$(kind+'~'+wk+'~'+uid); }
+  function aaResetState(a) {
+   let b=spBestPath(a.target);let w=path(a.target,'hd3d_spire_weeks',a.target+'~'+a.week);
+   return (!exists(b)||getAfter(b).data.row.best_floor==0&&getAfter(b).data.row.best_at==null)&&!existsAfter(w)&&
+    !existsAfter(rankPath(a.target,'all','all'))&&!existsAfter(rankPath(a.target,'week',a.week))&&
+    a.result=={'ok':true,'prev':exists(b)?get(b).data.row.best_floor:0,'week_prev':exists(w)?get(w).data.row.best_floor:0};
+  }
+  function valid_4(d) {return aaLink(id)&&aa(id).action=='admin_spire_reset'&&aaResetState(aa(id))&&d=={'uid':id,'actor':request.auth.uid,'request':proof(id).request,'revision':getAfter(path(id,'hd3d_sequences','_revision')).data.row.value,'week':resetWeek(),'at':request.time};}
+   allow get: if request.auth!=null&&((collection=='hd3d_live_accounts'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_admin_actions'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_admin_requests'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_broadcast_control'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_broadcast_deliveries'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_broadcast_jobs'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_catalog'&&((request.auth!=null&&demo())))||(collection=='hd3d_live_legacy_audit'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_mail_audit'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_mail_specs'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_moderation'&&((noticeAdmin())))||(collection=='hd3d_live_notice_audit'&&((request.auth!=null&&demo()&&noticeAdmin())))||(collection=='hd3d_live_notices'&&((request.auth!=null&&demo()&&active(request.auth.uid)&&
+    (noticeAdmin()||(resource.data.row.active&&resource.data.startsAt<=request.time)))))||(collection=='hd3d_live_order_counter'&&((id=='main')&&(request.auth!=null&&demo()&&active(request.auth.uid))))||(collection=='hd3d_live_order_requests'&&((request.auth!=null&&demo()&&active(request.auth.uid)&&id.matches('^'+request.auth.uid+'~[A-Za-z0-9_-]{8,64}$'))))||(collection=='hd3d_live_rank_blocks'&&((request.auth!=null&&demo())))||(collection=='hd3d_live_spire_resets'&&((request.auth!=null&&demo()&&(owner(id)||noticeAdmin())))));
+   allow list: if request.auth!=null&&((collection=='hd3d_live_accounts'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_admin_actions'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_broadcast_deliveries'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_broadcast_jobs'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_catalog'&&((request.auth!=null&&demo())))||(collection=='hd3d_live_legacy_audit'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_mail_audit'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_moderation'&&((noticeAdmin())))||(collection=='hd3d_live_notice_audit'&&((request.auth!=null&&demo()&&noticeAdmin()&&request.query.limit<=100)))||(collection=='hd3d_live_notices'&&((request.auth!=null&&demo()&&active(request.auth.uid)&&request.query.limit<=50&&
+    (noticeAdmin()||(resource.data.row.active&&resource.data.startsAt<=request.time)))))||(collection=='hd3d_live_rank_blocks'&&((request.auth!=null&&demo()))));
+   allow create: if request.auth!=null&&(collection.matches('^(hd3d_live_accounts|hd3d_live_admin_actions|hd3d_live_admin_requests|hd3d_live_broadcast_control|hd3d_live_broadcast_deliveries|hd3d_live_broadcast_jobs|hd3d_live_catalog|hd3d_live_mail_audit|hd3d_live_mail_specs|hd3d_live_moderation|hd3d_live_notice_audit|hd3d_live_notices|hd3d_live_order_requests|hd3d_live_rank_blocks|hd3d_live_spire_resets)$')&&((collection=='hd3d_live_accounts'&&((indexEntry(request.resource.data))))||(collection=='hd3d_live_admin_actions'&&((request.auth!=null&&demo()&&noticeAdmin()&&aaAudit(request.resource.data,id))))||(collection=='hd3d_live_admin_requests'&&((request.auth!=null&&demo()&&linked(request.resource.data))))||(collection=='hd3d_live_broadcast_control'&&((request.auth!=null&&demo()&&noticeAdmin()&&valid_3(request.resource.data))))||(collection=='hd3d_live_broadcast_deliveries'&&((request.auth!=null&&demo()&&linked_2(request.resource.data))))||(collection=='hd3d_live_broadcast_jobs'&&((request.auth!=null&&demo()&&noticeAdmin()&&valid_2(request.resource.data))))||(collection=='hd3d_live_catalog'&&((false)))||(collection=='hd3d_live_mail_audit'&&((request.auth!=null&&demo()&&noticeAdmin()&&amAudit(request.resource.data,id))))||(collection=='hd3d_live_mail_specs'&&((request.auth!=null&&demo()&&noticeAdmin()&&valid(request.resource.data))))||(collection=='hd3d_live_moderation'&&((noticeAdmin()&&validModeration(request.resource.data,id)&&auditBlock(request.resource.data))))||(collection=='hd3d_live_notice_audit'&&((request.auth!=null&&demo()&&noticeAdmin()&&validAudit(request.resource.data)&&linkedAudit(request.resource.data))))||(collection=='hd3d_live_notices'&&((request.auth!=null&&demo()&&noticeAdmin()&&createNotice(request.resource.data))))||(collection=='hd3d_live_order_requests'&&((request.auth!=null&&demo()&&coReceipt(request.resource.data,id))))||(collection=='hd3d_live_rank_blocks'&&((noticeAdmin()&&validBlock(request.resource.data,id)&&request.resource.data.revision==1&&linkedModeration(id,request.resource.data))))||(collection=='hd3d_live_spire_resets'&&((valid_4(request.resource.data))))));
+   allow update: if request.auth!=null&&(collection.matches('^(hd3d_live_accounts|hd3d_live_broadcast_control|hd3d_live_catalog|hd3d_live_notices|hd3d_live_order_counter|hd3d_live_rank_blocks|hd3d_live_spire_resets)$')&&((collection=='hd3d_live_accounts'&&((indexEntry(request.resource.data))))||(collection=='hd3d_live_broadcast_control'&&((request.auth!=null&&demo()&&noticeAdmin()&&valid_3(request.resource.data)&&request.resource.data.bid>resource.data.bid&&request.time>=resource.data.at+duration.value(30,'s'))))||(collection=='hd3d_live_catalog'&&((false)))||(collection=='hd3d_live_notices'&&((request.auth!=null&&demo()&&noticeAdmin()&&updateNotice(request.resource.data))))||(collection=='hd3d_live_order_counter'&&((id=='main')&&(request.auth!=null&&demo()&&coLink(request.auth.uid)&&request.resource.data.keys().hasOnly(['value'])&&
+    small(request.resource.data.value,9007199254740991)&&request.resource.data.value==resource.data.value+1&&request.resource.data.value==co(request.auth.uid).order)))||(collection=='hd3d_live_rank_blocks'&&((noticeAdmin()&&validBlock(request.resource.data,id)&&resource.data.uid==id&&request.resource.data.revision==resource.data.revision+1&&linkedModeration(id,request.resource.data))))||(collection=='hd3d_live_spire_resets'&&((valid_4(request.resource.data))))));
+   allow delete: if request.auth!=null&&(collection.matches('^(hd3d_live_catalog)$')&&((collection=='hd3d_live_catalog'&&((false)))));
+  }
+
+  match /hd3d_live_ranks/{id} {
+  function demo() { return request.auth.token.aud == 'demo-hd3d-direct'; }
+  function small(n,max) { return n is int && n >= 0 && n <= max; }
+  function str(s,max) { return s is string && s.size() <= max; }
+  function path(uid,t,id) { return /databases/$(database)/documents/hd3d_live/$(uid)/$(t)/$(id); }
+  function proof(uid) { return getAfter(path(uid,'hd3d_sequences','_revision')).data.row.proof; }
+  function validRank(d,id) {
+   return d.keys().hasAll(['uid','kind','week','nick','floor','at','excluded','revision'])&&d.keys().hasOnly(['uid','kind','week','nick','floor','at','excluded','revision'])&&
+    d.uid==request.auth.uid&&d.kind in ['all','week']&&(d.kind=='all'?d.week==null:str(d.week,10))&&
+    id==d.kind+'~'+(d.kind=='all'?'all':d.week)+'~'+d.uid&&str(d.nick,12)&&small(d.floor,100000)&&d.floor>0&&d.at is timestamp&&d.at<=request.time&&d.excluded==false&&small(d.revision,1000000000);
+  }
+  function rankScore(d) {
+   let p=path(d.uid,d.kind=='all'?'hd3d_spire_best':'hd3d_spire_weeks',d.kind=='all'?d.uid:d.uid+'~'+d.week);let score=getAfter(p).data;let pp=path(d.uid,'hd3d_profiles',d.uid);
+   return proof(d.uid).op in ['spire_ping','spire_finish']&&score.commitRevision==d.revision&&score.row.best_floor==d.floor&&score.row.best_at==d.at&&
+    d.revision==getAfter(path(d.uid,'hd3d_sequences','_revision')).data.row.value&&d.revision==get(path(d.uid,'hd3d_sequences','_revision')).data.row.value+1&&
+    d.nick==(exists(pp)?get(pp).data.row.nickname:'용사');
+  }
+  function aaPath(actor,id) {return /databases/$(database)/documents/hd3d_live_admin_actions/$(actor+'~'+id);}
+  function aa(uid) {let p=proof(uid);return getAfter(aaPath(p.token,p.request)).data;}
+  function aaLink(uid) {let p=proof(uid);let d=aa(uid);return request.auth!=null&&demo()&&p.op=='admin_action'&&p.token==request.auth.uid&&!exists(aaPath(p.token,p.request))&&d.actor==p.token&&d.request==p.request&&d.target==uid&&d.at==request.time;}
+   allow get: if ((((request.auth!=null&&demo()))));
+   allow list: if ((((request.auth!=null&&demo()))));
+   allow create: if ((((request.auth!=null&&demo()&&validRank(request.resource.data,id)&&rankScore(request.resource.data)))));
+   allow update: if ((((request.auth!=null&&demo()&&validRank(request.resource.data,id)&&resource.data.uid==request.resource.data.uid&&resource.data.kind==request.resource.data.kind&&resource.data.week==request.resource.data.week&&rankScore(request.resource.data)))));
+   allow delete: if ((((aaLink(resource.data.uid)&&aa(resource.data.uid).action=='admin_spire_reset'&&(id=='all~all~'+resource.data.uid||id=='week~'+aa(resource.data.uid).week+'~'+resource.data.uid)))));
+  }
+  match /{document=**} { allow read, write: if false; }
+ }
+}

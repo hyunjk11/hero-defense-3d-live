@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Game records are accessed only by the server's restricted datastore identity.
+    // Firebase ID tokens identify players at the game API; they grant no direct DB access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

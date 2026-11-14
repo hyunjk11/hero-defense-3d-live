@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><title>H5 isolated normal-time UI QA</title>
+<button id="prepare">Open isolated H5 town</button><pre id="status">RAM QA only. Prepared progression; ordinary real-time battle and settlement.</pre>
+<script type="module">
+document.querySelector('#prepare').onclick=async()=>{
+ document.querySelector('#prepare').disabled=true;
+ const r=await fetch('/__scenario',{method:'POST',body:JSON.stringify({device:'h5-normal-ui',profile:'advanced-mage-10',strategy:'intercept',seed:54321,hardThrough:'hard-4-4'})}).then(r=>r.json());
+ if(!r.ok){document.querySelector('#status').textContent=JSON.stringify(r);return;}
+ location.href='/?qa=h5-normal-ui&town=1';
+};
+</script>

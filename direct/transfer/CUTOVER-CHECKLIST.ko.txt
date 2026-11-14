@@ -1,0 +1,134 @@
+Hero Defense — 실제 전환 전 확인 목록 (아직 실행/활성화하지 않음)
+
+대상은 소스에 확인된 Firebase 프로젝트 hero-defense-3d-independent,
+Firestore (default)다. Native/Standard라는 기존 조사 기록을 사용했으며
+이번에 실서비스 edition/IAM/데이터/Rules를 재조회하지 않았다.
+호스팅 목적지와 새 URL은 미선정이다. 기존
+https://hyunjk11.github.io/hero-defense-3d/?stag 및 main/Pages는 보호한다.
+
+현재 안전한 준비 완료
+- 전체 DB를 한 서버 readTime에 고정하여 재귀 export하는 REST 어댑터.
+  누락된 부모 아래 하위 컬렉션, 페이지 순회, 0건 목록, 전체 문서 readback.
+- 파일 기반 사전 검사와 불변 job, 건수/경로/중복/시각/sequence/참조 검사.
+  모르는 스키마, 없는 권위 저장, 보상 미정산, 숫자 ID 충돌은 중단한다.
+- 조건부 data import, commit 전 durable journal, 응답 유실 readback,
+  같은 job 재개, 별도 activation, 최신 상태 reverse 계획.
+- 이전 실제 demo Auth QA: A 로그인·귀환·재접속, A→B→A 저장 분리,
+  양방향 타 계정 읽기403. 현재 게임/Rules 바이트가 그대로여서 유효하다.
+
+이 도구가 다루는 정확한 데이터 범위
+읽기: 위 (default)의 전체 document tree를 재귀 조회한다. 일부 컬렉션만
+질의한 결과를 전체 export로 취급하지 않는다. import 원본은 다음 22개
+legacy 루트만 지원하며 모두 건수(비어 있으면0)를 기록한다.
+hd3d_profiles, hd3d_progress, hd3d_admins, hd3d_owned, hd3d_orders,
+hd3d_mail, hd3d_bans, hd3d_admin_log, hd3d_broadcasts, hd3d_notices,
+hd3d_dungeon_wallet, hd3d_dungeon_runs, hd3d_dungeon_buys,
+hd3d_spire_runs, hd3d_spire_best, hd3d_spire_weeks, hd3d_users,
+hd3d_growth_wallet, hd3d_growth_receipts, hd3d_growth_investments,
+hd3d_growth_runs, hd3d_sequences.
+그 밖의 컬렉션/중첩 legacy 구조는 무시하지 않고 검토 대상으로 중단한다.
+8종 숫자 테이블의 sequence는 해당 테이블이 비어도 필요하다.
+계정 UID는 이 Firestore 계정 자료의 합집합이다. Firebase Auth 사용자
+목록 자체를 export하거나 Auth에만 있는 계정을 증명하는 도구가 아니다.
+이전 시 Auth 계정/비밀번호는 같은 Firebase 프로젝트에 그대로 둔다.
+
+data 단계 쓰기: legacy 22루트는 그대로 두고 같은 DB의
+hd3d_direct/{uid}/{계정별 기존 테이블 또는 hd3d_sequences}/{id},
+hd3d_direct_accounts, hd3d_direct_ranks, hd3d_direct_rank_blocks,
+hd3d_direct_notices, hd3d_direct_legacy_audit,
+hd3d_direct_legacy_broadcasts, hd3d_direct_catalog,
+hd3d_direct_order_counter를 계획에 명시된 문서만 생성한다.
+주문 관련 세부 생성물도 job의 정확한 path/write 목록으로 검토한다.
+activation은 별도인 각 uid의 hd3d_direct/{uid}/hd3d_sequences/_activation.
+최종 쓰기 범위는 서명되지 않은 요약 문장이 아니라 실제 job 파일의
+전체 path/건수/hash와 실행 직전 readback을 대조해야 한다.
+계정당/전역 서비스의 새 영수증·감사·우편·주문·랭킹 자료는 reverse 때
+전체 inventory에서 함께 검증하며 알 수 없는 종류는 보존하고 중단한다.
+
+실제 전환 전에 사용자/운영자가 확인할 사항
+
+1. 유지보수와 데이터 읽기 승인
+   확인: 위 프로젝트/(default), 모든 계정 및 전역 자료의 읽기/export를
+   허용할지, 비공개 백업 위치·접근자·보관 기간, 읽기 예산, 중단 시간을 정한다.
+   데이터 영향: 읽기는 DB를 바꾸지 않지만 세이브·이메일·우편·관리자료의
+   사본이 생긴다. Git/보고서에 넣지 않는다. Windows ACL/암호화 보관을
+   사람이 준비해야 하며 이 도구의 mode0600만으로 보호됐다고 하지 않는다.
+   자격: 승인된 단기 IAM 토큰을 stdin으로만 공급. 발급/탐색/저장은 도구가
+   하지 않는다. end-user ID토큰이나 demo owner 토큰으로 운영 이관하지 않는다.
+   별도 비운영 실제 Firestore에서 공식 RFC3339 readTime/IAM 경로 확인이
+   아직 필요하다. 에뮬레이터 성공만으로 운영 호환을 확정하지 않는다.
+
+2. 기존 쓰기 중지와 pending 정리 승인
+   확인: 해당 프로젝트에 쓰는 기존 Worker, 관리자, 모든 클라이언트와
+   진행 중 요청을 어떻게 정상적으로 중지할지, 책임자와 fenceId를 정한다.
+   기존 URL을 자동 변경하거나 기존 Worker를 자동 삭제하는 기능은 없다.
+   데이터 영향: 유지보수 중 출정/구매/저장이 중단된다. 중단 전 pending
+   전투·보상·우편·장비 작업을 정리하고 완료를 확인해야 한다.
+   브라우저 journal은 서버 export로 열람할 수 없다. 오프라인 기기/옛
+   origin의 journal도 확인하거나 별도 복구 계획을 마련해야 한다.
+   'writersStopped=true/pendingClientJournals=0' 파일은 운영자의 확인문일
+   뿐 중지를 강제하거나 불명 정산을 해결하는 보안 장치가 아니다.
+
+3. 최종 고정 export 및 무변경 계획 검사
+   읽기: 전체22루트 및 다른 컬렉션 존재를 탐색하는 전체 DB snapshot.
+   쓰기: 로컬 보호 백업/plan/journal 파일만. DB 쓰기 없음.
+   모든 계정/전역 건수, 0건 컬렉션, sequence, 소유권, 참조, UID,
+   활성 전투·미완료 영수증, 계정 누락, 원본 hash를 검토한다.
+   profile-only/권위 세이브 없음/알 수 없는 스키마는 자동 보충하지 않는다.
+   스냅샷 readTime은 API의 마이크로초 정밀도/최근1시간 조건을 따른다.
+   PITR이 켜져 있으면 7일 이내 분 단위도 API가 허용하지만 이 도구는
+   PITR을 켜거나 오래된 시간으로 임의 재시도하지 않는다.
+   export 중 만료/400/예산 초과면 부분 결과를 complete로 저장하지 않는다.
+   최신 읽기로 fallback하지 않고 새 export의 처음부터 다시 검토한다.
+   보관된 offline snapshot은 분석 자료로 계속 유효하나 현재 DB를
+   대신하지 않는다. 온라인 apply는 새 pinned snapshot + CAS를 다시 요구한다.
+
+4. Rules/인덱스와 비활성 data import의 별도 승인
+   확인: 같은 프로젝트/(default)의 정확한 Rules/index 산출물 및 읽기/쓰기
+   권한 변화. 본인 소유 범위만 열고 관리자/권한/카탈로그는 보호한다.
+   기존 Worker의 IAM 쓰기는 Rules만 바꿔서는 차단되지 않는다.
+   데이터 영향: 승인된 신규 direct 경로 생성. 이때 activation은 없음.
+   백업과 legacy를 유지한다. exists:false/updateTime CAS가 충돌하면 중단.
+   매 commit 후 전체 readback, 건수/세이브/도감/자산/참조/hash를 대조한다.
+   응답 불명 시 같은 job/journal로 읽어 결과부터 판단하며 재지급하지 않는다.
+   이 단계 실패: legacy를 덮어쓰거나 부분 direct를 임의 삭제하지 않고
+   job 재개 또는 검토된 복구를 수행한다. 아직 게임 전환하지 않는다.
+
+5. 목적지/도메인과 마지막 activation의 별도 승인
+   확인: 사용할 호스팅과 정확한 URL(아직 미선정), 해당 origin의 Auth 허용
+   도메인, 실제 로그인/저장 시험 범위. 기존 ?stag 교체는 별도 결정이다.
+   조건: 정확한 jobHash/dataHash/fenceId, Rules/Auth/origin 검증,
+   writer 중지 유지, 모든 journal 해소. 실제 미검증을 true로 기입하지 않는다.
+   쓰기: 계정 activation을 마지막 별도 commit으로 생성한 뒤 검수된 클라이언트
+   directActivation을 변경/게시한다. 현재는 pending-rules-and-data 유지.
+   400계정을 넘으면 부분 activation을 하지 않고 중단한다. 전역 gate는
+   별도 설계/검토 대상이며 이를 우회해 batch 활성화하지 않는다.
+   이용자 영향: 선택한 새 클라이언트의 저장 경로가 바뀐다. 정상 전투/보상,
+   재접속/계정 분리 확인 후에만 일반 쓰기를 재개한다.
+
+6. rollback 판단과 승인
+   활성화 전: legacy가 변하지 않았는지 확인한 후 복구 경로를 선택한다.
+   활성화 후: direct 쓰기 중지→pending 해결→activation 비활성화 별도 승인
+   →최신 전체 백업→reverse-input/계획 검토→CAS 역이관→전체 readback
+   →검증된 옛 클라이언트/writer 복구 순서다. 이전 덤프 복원만 하면 새 진행이
+   사라지므로 자동 실행하지 않는다.
+   역이관 쓰기 범위: 최신 자료를 22 legacy루트로 복원하되 변경/삭제는
+   계획된 문서의 updateTime 조건부로 수행. direct 전체 원본은 보존한다.
+   숫자 ID 충돌은 자동 재번호/덮어쓰기하지 않는다. 명시적1:1 매핑은
+   새로 생성되고 정산 완료된 재화/영웅 우편에 한정한다. 장비 우편/불투명
+   seed/임의 ID 충돌은 별도 검토 전 중단한다. sequence와 모든 참조를 검사한다.
+
+진행을 막는 실제 운영 확인 항목
+- 운영 읽기/백업, writer 중지/pending 처리, 권한/Rules, 데이터 쓰기,
+  목적지/도메인, 마지막 activation/게시의 각 범위는 이번에 실행 승인받지 않았다.
+- 현재 실계정 수/현재 스키마/활성 전투/저장량/비용/IAM/Rules/도메인 미조회.
+- 최초 로딩 지연 원인 미해결, 역사적 회귀4건(awaken/growth/hard/hard2) 유지.
+- 클라이언트 추첨과 전투 결과 신고의 신뢰성은 서버 정산보다 약하다.
+  이번 도구 검증이 이를 해결하거나 운영 보안 수준을 보장하지 않는다.
+- 현재 데이터 import의 이전 동일 fixture 측정은 HTTP1089→561이다.
+  전체 반복 시험 합계/HTTP 호출수/Firestore 청구비용은 서로 다른 값이다.
+  이번 metadata 검증은 새 네트워크 읽기를 추가하지 않는다.
+
+공식 readTime 계약 (2026-11-11 확인):
+https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents/list
+https://firebase.google.com/docs/firestore/reference/rest/v1/projects.databases.documents/listCollectionIds

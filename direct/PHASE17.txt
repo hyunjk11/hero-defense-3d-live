@@ -1,0 +1,32 @@
+Phase 17 local review checkpoint — NOT RELEASE READY
+
+Preserved phase16: 1027 files. No live Firebase/Rules/Auth/billing/GitHub/Sites or
+installed/formal game copy changes. Direct client remains demo/loopback only.
+
+Added administrator send_mail using existing API/reward schema. Up to10 item
+specs are prevalidated in immutable groups of4 (no assets), then mail + sequence
++ private audit + request receipt commit atomically. Mandatory fresh audit checks
+current admin/activation/ban/owner-email; linked records cannot detach or replay.
+Failed reads/writes keep the durable
+request and read its receipt before any repeat. Account switches discard results.
+Existing admin log action mail_send and reverse-export audit history are kept.
+
+Added offline operator preparation and REAL LOCAL DEMO HTTP executor for global
+import, closed-week grants, and reverse migration. Default dry-run, exact source/
+job hashes, full inventory and CAS, data before activation, partial resume and
+uncertain-commit readback. Production endpoint/credentials unsupported by design.
+Weekly sealing requires ALL direct activations disabled, no unfinished rewards,
+complete private inventory and an operator-confirmed external writer/journal fence.
+It is manual trusted finalization, not a scheduler or client-authoritative ranking.
+
+Final Node120/120. Rules23/24 commands: security50/51 with1 explicit blocked Auth
+case (not invoked and not a pass). Admin mail13/13; operator actual local3/3;
+phase16 challenge10/10, synthetic Account/HG recovery integration, global3/3,
+legacy timestamp3/3. No new real browser/normal-time gameplay or production test.
+
+Remaining: paid-order approve/reject/refund, direct ownership grant/revoke,
+broadcast, owner add/remove admin and tower reset mutations remain unsupported;
+manual weekly jobs do not provide automatic production scheduling. Live complete
+export, IAM, cross-service exclusive writer fence, production execution adapter,
+cutover/rollback, browser/Auth validation and independent review remain required.
+No client RNG/claimed-combat trust limitation or HTTP/write-cost issue is solved.

@@ -1,0 +1,9 @@
+{
+  "functions": [{
+    "source": "cloud-functions",
+    "codebase": "hero-defense-api",
+    "runtime": "nodejs22",
+    "ignore": ["node_modules", ".git", "*-debug.log", ".env*", "test", "*.test.mjs"],
+    "predeploy": ["node scripts/stage-functions.mjs"]
+  }]
+}

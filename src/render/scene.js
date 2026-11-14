@@ -1,0 +1,65 @@
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { $, rnd } from '../core/util.js';
+import { G } from '../core/state.js';
+import { STAGE, DUNGEON } from '../core/grid.js'; // DUNGEON: 던전 원정 = 폐허 테마(회색 석판 · 유령불 횃불)
+import { Q } from './quality.js';
+
+// ================= 렌더러/씬 =================
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// 픽셀 비율 상한: 고품질 1.75 (태블릿 1.5), 성능 모드 1.25 (src/render/quality.js)
+renderer.setPixelRatio(Q.pixelRatio()); renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
+// 챕터별 조명·하늘·블룸 (THEMES[테마]). 설원(2장): 거의 흰 눈이 강한 햇빛·노출·블룸에서 하얗게 날아가 판이 안 보였음 → 노출·조명 낮추고 블룸은 진짜 발광체만 (LIGHT 는 main.js updLighting 에서 곱함)
+// 화산(3장): 어두운 현무암 + 용암 발광 → 블룸 문턱을 조금 올려 용암 가장 뜨거운 곳만 은은하게 번지게 (하얗게 날아가지 않게), 햇빛은 붉고 약하게
+const THEMES = {
+  default: { sun: 1, hemi: 1, bloomTh: .95, exposure: 1.12, sunH: .1, fog: [80, 170], day: [0x3d9cff, 0xd6efff, 0xcfeaff], night: [0x05071c, 0x2c1d55, 0x1a1438] },
+  snow: { sun: .8, hemi: .78, bloomTh: 1.35, exposure: .9, sunH: .1, fog: [95, 200], day: [0x5a8ac8, 0xb4c6da, 0xa8bcd2], night: [0x05071c, 0x2c1d55, 0x1a1438] },
+  volcano: { sun: .78, hemi: .82, bloomTh: 1.05, exposure: 1.05, sunH: .055, fog: [85, 190], day: [0x2a1410, 0x8a4228, 0x4a2a20], night: [0x0c0606, 0x3a160c, 0x24100a], hemiC: [0xffd8c0, 0x5a2a1a], bloomK: .85, nightK: .55 },
+  // 폐허(4장): 해 질 녘 보랏빛 하늘 + 회색 석판. 유령불(보라/청록) 횃불이 블룸 문턱을 살짝 넘음. 밤에도 70%만 어두워짐(판이 너무 어둡지 않게), 안개는 판 바깥에만
+  ruins: { sun: .9, hemi: .95, bloomTh: 1.0, exposure: 1.06, sunH: .08, fog: [82, 185], day: [0x3a3060, 0x9a88b8, 0x6c6088], night: [0x07061a, 0x281c48, 0x1a1430], hemiC: [0xe8e0ff, 0x3a4a3a], bloomK: .9, nightK: .7 }, // 밤(웨이브)에도 용암 빛으로 판이 보이게: 조명은 55%만 어두워짐
+};
+for (const [id, colors] of Object.entries({ 5: [0x47624c, 0xa1b281, 0x667653], 6: [0x8fb4cd, 0xe7ca91, 0xbf9e69], 7: [0x365d84, 0x91b7c7, 0x6c91a7], 8: [0x645a50, 0xc4ae92, 0x9c8773], 9: [0x392b68, 0x9b88bf, 0x73628d], 10: [0x71474b, 0xd8aa91, 0xa87b72] })) THEMES['ch' + id] = { ...THEMES.ruins, day: colors, nightK: .6 };
+const THEME_KEY = STAGE && STAGE.ch >= 5 ? 'ch' + STAGE.ch : STAGE ? ({ 2: 'snow', 3: 'volcano', 4: 'ruins' })[STAGE.ch] || 'default' : DUNGEON ? 'ruins' : 'default', TH = THEMES[THEME_KEY];
+const SNOW = THEME_KEY === 'snow', VOLCANO = THEME_KEY === 'volcano', RUINS = THEME_KEY === 'ruins', LIGHT = { sun: TH.sun, hemi: TH.hemi, bloomTh: TH.bloomTh, sunH: TH.sunH, bloomK: TH.bloomK || 1, nightK: TH.nightK ?? 1 };
+renderer.toneMappingExposure = TH.exposure;
+$('app').appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(TH.day[2], TH.fog[0], TH.fog[1]); // 설원·화산 안개는 판 바깥 가장자리에만
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, .5, 600);
+const cam = { theta: .22, phi: .9, r: 58, target: new THREE.Vector3(0, 0, 1) };
+function updateCam() {
+  const t = cam.target, sx = G.shake > 0 ? rnd(-1, 1) * G.shake : 0, sy = G.shake > 0 ? rnd(-1, 1) * G.shake : 0;
+  camera.position.set(t.x + cam.r * Math.sin(cam.phi) * Math.sin(cam.theta) + sx, t.y + cam.r * Math.cos(cam.phi) + sy, t.z + cam.r * Math.sin(cam.phi) * Math.cos(cam.theta));
+  camera.lookAt(t.x + sx * .3, t.y, t.z);
+}
+const C3 = a => ({ top: new THREE.Color(a[0]), bot: new THREE.Color(a[1]), fog: new THREE.Color(a[2]) });
+const DAY = C3(TH.day), NIGHT = C3(TH.night);
+const skyU = { top: { value: DAY.top.clone() }, bot: { value: DAY.bot.clone() } };
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.ShaderMaterial({
+  uniforms: skyU, side: THREE.BackSide, depthWrite: false, fog: false,
+  vertexShader: 'varying vec3 vP; void main(){ vP = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*viewMatrix*vec4(vP,1.); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = clamp(normalize(vP).y*1.8+.08,0.,1.); gl_FragColor = vec4(mix(bot,top,h),1.); }',
+})));
+const hemi = new THREE.HemisphereLight(TH.hemiC ? TH.hemiC[0] : 0xe6f4ff, TH.hemiC ? TH.hemiC[1] : 0x5a4a3a, 1.35); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2d8, 2.6); sun.position.set(-22, 42, 26); sun.castShadow = true;
+sun.shadow.mapSize.set(Q.shadowSize(), Q.shadowSize()); Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 30, bottom: -30, near: 5, far: 120 }); sun.shadow.bias = -.0005; sun.shadow.normalBias = .03; scene.add(sun);
+const moon = new THREE.DirectionalLight(0x7a8aff, 0); moon.position.set(20, 30, -20); scene.add(moon);
+// 후처리(블룸) 경로는 기본 렌더 타깃에 MSAA가 없어 antialias:true가 무시됨 → 잔 돌길 모서리가 카메라 이동 시 지글지글 끓어 보임. 멀티샘플 타깃으로 해결
+// (소프트웨어 렌더러(SwiftShader 등)에서는 너무 느려 끔, ?msaa=1/0 으로 강제)
+const _soft = (() => { try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return /swiftshader|llvmpipe|software/i.test(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''); } catch (e) { return false; } })();
+const _qm = new URLSearchParams(location.search).get('msaa'), MSAA = _qm ? (_qm === '1' ? 4 : 0) : _soft ? 0 : Math.min(4, renderer.capabilities.maxSamples || 0);
+const _pr = renderer.getPixelRatio(), _rt = new THREE.WebGLRenderTarget(innerWidth * _pr, innerHeight * _pr, { type: THREE.HalfFloatType, samples: MSAA });
+const composer = new EffectComposer(renderer, _rt); composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .35, .45, LIGHT.bloomTh); // NaN/Inf 방어: 한 픽셀이라도 NaN이면 블룸 블러가 그것을 화면 전체로 번져 검은 화면이 됨(보스 처치 후 검은 화면 버그). 블룸 입력에서 비정상 값을 0으로
+bloom.materialHighPassFilter.fragmentShader = bloom.materialHighPassFilter.fragmentShader.replace('vec4 texel = texture2D( tDiffuse, vUv );',
+  'vec4 texel = texture2D( tDiffuse, vUv ); if ( !all( lessThan( abs( texel ), vec4( 6.0e4 ) ) ) ) texel = vec4( 0.0 );'); bloom.materialHighPassFilter.needsUpdate = true;
+composer.addPass(bloom); composer.addPass(new OutputPass());
+// 품질 전환(설정 또는 FPS 자동): 픽셀 비율·그림자 맵 크기를 즉시 반영 (몬스터 외곽선/그림자는 monsters/lod.js)
+Q.onChange(() => { renderer.setPixelRatio(Q.pixelRatio()); composer.setPixelRatio(renderer.getPixelRatio()); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  const n = Q.shadowSize(); if (sun.shadow.mapSize.x !== n) { sun.shadow.mapSize.set(n, n); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+
+export { renderer, scene, camera, cam, updateCam, DAY, NIGHT, skyU, hemi, sun, moon, composer, bloom, LIGHT, SNOW, VOLCANO, RUINS, THEME_KEY };

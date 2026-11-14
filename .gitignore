@@ -1,0 +1,25 @@
+tests/last.json
+__pycache__/
+tests/monsters_last.json
+tests/stress_last.json
+tests/logs/
+tests/stress_last_*.json
+
+# Local-only credentials, QA outputs and review artifacts
+.env
+.env.*
+!.env.example
+node_modules/
+.firebase/
+firebase-debug.log*
+*-debug.log
+*.log
+*.pem
+*.p12
+*.key
+service-account*.json
+application_default_credentials.json
+credentials.db
+review-dist/
+dist/
+*.zip

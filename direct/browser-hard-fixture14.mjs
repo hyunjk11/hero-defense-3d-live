@@ -1,0 +1,15 @@
+import fs from 'node:fs/promises';
+import {rest,get} from './emulator-harness.mjs';
+import {directDocument,DEMO_PROJECT} from '../src/account/direct-store.js';
+import {authoritativeSave} from '../src/account/direct-authority.js';
+import {STAGES} from '../src/data/stages.js';
+import {totalXP} from '../src/data/hero-growth.js';
+const uid=process.argv[2];if(!/^[A-Za-z0-9]{20,40}$/.test(uid||''))throw Error('Explicit demo UID required');
+const p=await get(uid,'progress'),g=await get(uid,'growth_wallet'),s=authoritativeSave(p.cosmetic,p.authority);
+if(!s.nick?.startsWith('phase14-')||s.souls!==0||s.stats.runs!==0)throw Error('Only unused phase14 synthetic account');
+await fs.writeFile('../direct-firestore-evidence-22/browser-fixture-before.json',JSON.stringify({uid,save:s,growth:g},null,2));
+s.souls=1000;s.st=Object.fromEntries(Object.keys(STAGES).map(id=>[id,3]));s.heroLv.mage={hp:15,atk:15};s.heroLv.warrior={hp:15,atk:15};s.adv={mage:{b:'frost'},warrior:{b:'paladin'}};
+g.xp.mage=totalXP(45);g.xp.warrior=totalXP(45);g.spent=g.xp.mage+g.xp.warrior;g.granted=g.spent+1000;g.balance=1000;g.hard={version:1,st:{'hard-1-1':3}};
+await rest(':commit',{writes:[{update:directDocument(DEMO_PROJECT,uid,'hd3d_progress',uid,{user_id:uid,data:s,merged:true,created_at:p.created_at,updated_at:p.updated_at})},{update:directDocument(DEMO_PROJECT,uid,'hd3d_growth_wallet',uid,g)}]});
+await fs.writeFile('../direct-firestore-evidence-22/browser-fixture-after.json',JSON.stringify({uid,syntheticLocalOnly:true,notEarnedThroughPlay:true,save:s,growth:g},null,2));
+console.log(JSON.stringify({uid,syntheticLocalOnly:true,mageLevel:45,warriorLevel:45,hard:'1-1 repeat'}));

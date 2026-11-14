@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {createFirebaseClient} from '../src/account/firebase-client.js';
+const projectId='demo-hd3d-direct';
+const config={storageMode:'firestore-direct-prototype',firebase:{projectId},firestoreEmulator:'http://127.0.0.1:9198',authEmulator:'http://127.0.0.1:9199',apiUrl:'https://forbidden.invalid/api/game',authStorageKey:'isolated-test'};
+let network=0,directCalls=0,sdkCalls=0;
+const sdk={getApps(){sdkCalls++;return [];},initializeApp:()=>({}),getAuth:()=>auth,connectAuthEmulator:(a,url)=>a.emulatorConfig={url},setPersistence:async()=>{},browserLocalPersistence:{}};
+const u={uid:'demo-only',getIdToken:async()=>{throw Error('Worker ID token path must not run');}},auth={currentUser:u,authStateReady:async()=>{}};
+const client=await createFirebaseClient(config,{sdk,fetch:async()=>{network++;throw Error('Forbidden network');},directFactory:()=>async(op,user)=>{directCalls++;assert.equal(user,u);if(op.name==='fail')throw Error('Direct request failure');return {data:{ok:true},status:200};}});
+assert((await client.rpc('works')).data.ok);
+assert.equal((await client.rpc('fail')).error.message,'Direct request failure');
+assert.equal(directCalls,2);assert.equal(network,0);
+const calls=sdkCalls;
+for(const storageMode of ['firestore-direkt','unknown'])await assert.rejects(createFirebaseClient({...config,storageMode},{sdk,fetch:async()=>{network++;}}),e=>e.code==='STORAGE_MODE_UNSUPPORTED');
+assert.equal(sdkCalls,calls);assert.equal(network,0);
+await assert.rejects(createFirebaseClient({...config,firebase:{projectId:'unreviewed-production'}},{sdk}),e=>e.code==='DIRECT_NOT_RELEASED');
+assert.equal(network,0);
+console.log('PASS direct success/failure and invalid/unreleased profile never fall back to Sites; production gate retained');

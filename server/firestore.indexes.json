@@ -1,0 +1,95 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "hd3d_bans",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_mail",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_owned",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_admins",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_orders",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_notices",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_profiles",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_progress",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_admin_log",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_broadcasts",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_spire_best",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_spire_runs",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_spire_weeks",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_dungeon_buys",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_dungeon_runs",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_dungeon_wallet",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_users",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "hd3d_sequences",
+      "fieldPath": "payload",
+      "indexes": []
+    }
+  ]
+}

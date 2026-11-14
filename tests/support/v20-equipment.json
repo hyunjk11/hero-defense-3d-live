@@ -1,0 +1,999 @@
+{
+  "LSK": {
+    "multishot": {
+      "h": "archer",
+      "type": "proc",
+      "n": "멀티샷",
+      "chance": 0.25,
+      "icd": 1.2,
+      "mul": 0.6,
+      "d": "공격 시 25% 확률로 화살 5발을 부채꼴로 발사 (각 60% 피해)"
+    },
+    "pierce": {
+      "h": "archer",
+      "type": "active",
+      "n": "관통샷",
+      "cd": 8,
+      "mul": 3,
+      "d": "[E] 황금 화살을 충전해 일직선 위의 모든 적을 꿰뚫음 (300% 피해) · 재사용 8초"
+    },
+    "frostorb": {
+      "h": "mage",
+      "type": "proc",
+      "n": "프로즌 오브",
+      "chance": 0.15,
+      "icd": 3,
+      "mul": 0.35,
+      "d": "공격 시 15% 확률로 느리게 나아가는 얼음 구체 소환 — 주변 적 피해·50% 둔화, 끝에서 폭발해 빙결"
+    },
+    "meteorstorm": {
+      "h": "mage",
+      "type": "active",
+      "n": "메테오 스톰",
+      "cd": 12,
+      "mul": 4,
+      "d": "[E] 목표 지역에 거대한 운석 6개를 쏟아부음 (각 400% 피해) · 재사용 12초"
+    },
+    "boomerang": {
+      "h": "warrior",
+      "type": "proc",
+      "n": "회선대검",
+      "chance": 0.2,
+      "icd": 2,
+      "mul": 0.9,
+      "d": "공격 시 20% 확률로 대검을 회전시켜 던짐 — 갈 때와 돌아올 때 모두 타격 (각 90% 피해)"
+    },
+    "quake": {
+      "h": "warrior",
+      "type": "active",
+      "n": "천지파열무",
+      "cd": 14,
+      "mul": 4,
+      "d": "[E] 도약해 땅을 내리쳐 충격파 — 주변 적 400% 피해 + 0.8초 공중에 띄움(기절) · 재사용 14초"
+    },
+    "ricochet": {
+      "h": "gunner",
+      "type": "proc",
+      "n": "도탄 난사",
+      "chance": 0.22,
+      "icd": 0.8,
+      "mul": 0.7,
+      "d": "공격 시 22% 확률로 탄환이 주변 적 최대 4명에게 차례로 튕김 (각 70% 피해)"
+    },
+    "rosebarrage": {
+      "h": "gunner",
+      "type": "active",
+      "n": "장미 탄막",
+      "cd": 11,
+      "mul": 1.5,
+      "d": "[E] 목표 방향 부채꼴로 장미 탄환 3연속 일제 사격(각 150% 피해·3명 관통) → 끝에서 장미 폭발 (300% 피해) · 재사용 11초"
+    },
+    "overdrill": {
+      "h": "mechanic",
+      "type": "proc",
+      "n": "과부하 드릴",
+      "chance": 0.2,
+      "icd": 1.6,
+      "mul": 0.45,
+      "d": "공격 시 20% 확률로 드릴이 과열 — 앞쪽 부채꼴을 6번 연속 갈아버림 (각 45% 피해) + 40% 둔화"
+    },
+    "gigahammer": {
+      "h": "mechanic",
+      "type": "active",
+      "n": "기가 해머 낙하",
+      "cd": 13,
+      "mul": 4,
+      "d": "[E] 목표 지점에 거대한 해머를 떨어뜨림 — 주변 적 400% 피해 · 밀쳐내기 · 1초 기절 · 재사용 13초"
+    },
+    "pawstorm": {
+      "h": "fighter",
+      "type": "proc",
+      "n": "냥냥 난타",
+      "chance": 0.2,
+      "icd": 1.5,
+      "mul": 0.45,
+      "hits": 6,
+      "d": "기본 공격 적중 시 20% 확률로 6연타 (각 45%) — 근접: 전방 지상 부채꼴 / 장풍: 적중 방향으로 발 기탄 6발(비행 포함·발당 1명·사거리 10). 장풍 1회당 판정 1회 · 내부 쿨타임 1.5초"
+    },
+    "tigerdash": {
+      "h": "fighter",
+      "type": "active",
+      "n": "맹호 돌진",
+      "cd": 10,
+      "mul": 3,
+      "d": "[E] 목표 방향으로 질풍처럼 돌진하며 지나가는 모든 적에게 300% 피해 + 밀쳐내기 · 재사용 10초"
+    }
+  },
+  "LPOOL": {
+    "archer": [
+      "multishot",
+      "pierce"
+    ],
+    "mage": [
+      "frostorb",
+      "meteorstorm"
+    ],
+    "warrior": [
+      "boomerang",
+      "quake"
+    ],
+    "gunner": [
+      "ricochet",
+      "rosebarrage"
+    ],
+    "mechanic": [
+      "overdrill",
+      "gigahammer"
+    ],
+    "fighter": [
+      "pawstorm",
+      "tigerdash"
+    ]
+  },
+  "drops": [
+    {
+      "hero": "archer",
+      "ch": null,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "critD",
+            22
+          ],
+          [
+            "rng",
+            6
+          ]
+        ],
+        "h": "archer",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "세계수의 활 이그드라",
+        "u": "pierce"
+      },
+      "seed": 110225632
+    },
+    {
+      "hero": "archer",
+      "ch": 1,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "spd",
+            10
+          ]
+        ],
+        "h": "archer",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "숲의 숨결 그린윈드",
+        "u": "pierce",
+        "c": 1
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "archer",
+      "ch": 8,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "archer",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "성문을 꿰뚫는 궁 발리스타",
+        "u": "pierce",
+        "c": 8
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "archer",
+      "ch": 9,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "archer",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "경계를 꿰는 궁 파라독스",
+        "u": "pierce",
+        "c": 9
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "archer",
+      "ch": 10,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "archer",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "붉은 새벽의 궁 아우로라",
+        "u": "pierce",
+        "c": 10
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mage",
+      "ch": null,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "critD",
+            22
+          ],
+          [
+            "rng",
+            6
+          ]
+        ],
+        "h": "mage",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "대현자의 지팡이 아르카나",
+        "u": "meteorstorm"
+      },
+      "seed": 110225632
+    },
+    {
+      "hero": "mage",
+      "ch": 1,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "spd",
+            10
+          ]
+        ],
+        "h": "mage",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "세계수 가지 엘더브랜치",
+        "u": "meteorstorm",
+        "c": 1
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mage",
+      "ch": 8,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "mage",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "영구기관의 홀 퍼페튬",
+        "u": "meteorstorm",
+        "c": 8
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mage",
+      "ch": 9,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "mage",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "공허를 닫는 홀 실렌티움",
+        "u": "meteorstorm",
+        "c": 9
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mage",
+      "ch": 10,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "mage",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "태초의 불꽃 이그니스",
+        "u": "meteorstorm",
+        "c": 10
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "warrior",
+      "ch": null,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "critD",
+            22
+          ],
+          [
+            "rng",
+            6
+          ]
+        ],
+        "h": "warrior",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "성검 엑스칼리온",
+        "u": "quake"
+      },
+      "seed": 110225632
+    },
+    {
+      "hero": "warrior",
+      "ch": 1,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "spd",
+            10
+          ]
+        ],
+        "h": "warrior",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "숲의 수호검 베르단트",
+        "u": "quake",
+        "c": 1
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "warrior",
+      "ch": 8,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "warrior",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "강철을 찢는 검 기가브레이커",
+        "u": "quake",
+        "c": 8
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "warrior",
+      "ch": 9,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "warrior",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "끝을 가르는 검 테르미누스",
+        "u": "quake",
+        "c": 9
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "warrior",
+      "ch": 10,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "warrior",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "붉은 왕의 검 레갈리스",
+        "u": "quake",
+        "c": 10
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "gunner",
+      "ch": null,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "critD",
+            22
+          ],
+          [
+            "rng",
+            6
+          ]
+        ],
+        "h": "gunner",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "장미여왕의 쌍권총 로제아",
+        "u": "rosebarrage"
+      },
+      "seed": 110225632
+    },
+    {
+      "hero": "gunner",
+      "ch": 1,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "spd",
+            10
+          ]
+        ],
+        "h": "gunner",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "숲의 장미 와일드로즈",
+        "u": "rosebarrage",
+        "c": 1
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "gunner",
+      "ch": 8,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "gunner",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "요새의 쌍포 오버드라이브",
+        "u": "rosebarrage",
+        "c": 8
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "gunner",
+      "ch": 9,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "gunner",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "경계의 쌍성 제미니",
+        "u": "rosebarrage",
+        "c": 9
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "gunner",
+      "ch": 10,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "gunner",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "새벽을 알리는 쌍포 솔라리스",
+        "u": "rosebarrage",
+        "c": 10
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mechanic",
+      "ch": null,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "critD",
+            22
+          ],
+          [
+            "rng",
+            6
+          ]
+        ],
+        "h": "mechanic",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "버들의 개조암 그린기어",
+        "u": "gigahammer"
+      },
+      "seed": 110225632
+    },
+    {
+      "hero": "mechanic",
+      "ch": 1,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "spd",
+            10
+          ]
+        ],
+        "h": "mechanic",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "숲의 굴착기 루트브레이커",
+        "u": "gigahammer",
+        "c": 1
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mechanic",
+      "ch": 8,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "mechanic",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "초중장 압쇄기 헤파이스토스",
+        "u": "gigahammer",
+        "c": 8
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mechanic",
+      "ch": 9,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "mechanic",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "차원 봉쇄기 앵커",
+        "u": "gigahammer",
+        "c": 9
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "mechanic",
+      "ch": 10,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "mechanic",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "용심장 파쇄기 발칸",
+        "u": "gigahammer",
+        "c": 10
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "fighter",
+      "ch": null,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "critD",
+            22
+          ],
+          [
+            "rng",
+            6
+          ]
+        ],
+        "h": "fighter",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "서윤의 냥냥 너클 캣츠포",
+        "u": "tigerdash"
+      },
+      "seed": 110225632
+    },
+    {
+      "hero": "fighter",
+      "ch": 1,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "spd",
+            10
+          ]
+        ],
+        "h": "fighter",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "숲의 맹묘 와일드캣",
+        "u": "tigerdash",
+        "c": 1
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "fighter",
+      "ch": 8,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "fighter",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "철문 분쇄권 타이탄",
+        "u": "tigerdash",
+        "c": 8
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "fighter",
+      "ch": 9,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "fighter",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "허공 분쇄권 네메시스",
+        "u": "tigerdash",
+        "c": 9
+      },
+      "seed": 1613448261
+    },
+    {
+      "hero": "fighter",
+      "ch": 10,
+      "item": {
+        "id": "931ezr0",
+        "s": "weapon",
+        "g": 4,
+        "e": 0,
+        "sub": [
+          [
+            "hp",
+            14
+          ],
+          [
+            "rng",
+            7
+          ]
+        ],
+        "h": "fighter",
+        "m": [
+          "atk",
+          25
+        ],
+        "n": "홍염 용아권 아르카온",
+        "u": "tigerdash",
+        "c": 10
+      },
+      "seed": 1613448261
+    }
+  ]
+}

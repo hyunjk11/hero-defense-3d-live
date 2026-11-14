@@ -1,0 +1,45 @@
+export async function verifySwamp() {
+  if (!['8773','8785'].includes(location.port) || !location.search.includes('test=1')) throw Error('Disposable QA only');
+  if (G.gear?.Acc.A.mode !== 'guest') throw Error('Guest QA only');
+  const S = await import('/src/monsters/swamp.js');
+  const A = await import('/src/monsters/abilities.js');
+  const M = await import('/src/monsters/enemy.js');
+  const checks = [], ok = (name, value) => { if (!value) throw Error(name); checks.push(name); };
+  G.manual = true; G.Snd.cfg.bgmOn = G.Snd.cfg.sfxOn = false; G.Snd.apply();
+  const clear = () => { A.clearAbilities(); for (const e of [...G.enemies]) M.removeEnemy(e); };
+  const spawn = (type,x=0,z=4) => M.spawnEnemy(type,1,{x,z,tile:G.toTile(x,z)});
+  const h = G.hero; h.dead=0; h.g.position.set(0,0,0);
+  clear(); const toad = spawn('swamp_spitter'); toad.swampCd=0;
+  const hp=h.hp; S.swampTick(toad,.05);
+  ok('spit telegraphs fixed ground position',toad.swampCast?.targets[0].distanceTo(h.g.position)<.01);
+  h.g.position.x=8; S.swampTick(toad,1.4); S.updateSwamp(.65);
+  ok('projectile lands after warning',S.swampEffects().pools===1);
+  S.updateSwamp(1); ok('moving out avoids poison',h.hp===hp);
+  h.g.position.set(0,0,0); S.updateSwamp(.5); ok('standing in poison damages hero',h.hp<hp);
+  S.updateSwamp(4); ok('pool expires',S.swampEffects().pools===0);
+  clear(); const friend=spawn('swamp_runner',1,4); friend.hp=friend.max*.4;
+  const healer=spawn('swamp_mender'); healer.swampCd=0; S.swampTick(healer,.05);
+  ok('wounded ally triggers healing channel',healer.swampCast?.kind==='mend');
+  M.hurt(healer,healer.max*.11); S.swampTick(healer,.05);
+  ok('focused damage interrupts healing',!healer.swampCast&&friend.hp===friend.max*.4);
+  healer.swampCd=0; S.swampTick(healer,.05); S.swampTick(healer,1.9);
+  ok('completed channel restores configured health',Math.abs(friend.hp-friend.max*(.4+healer.E.swamp.heal))<.001);
+  clear(); const bossHealer=spawn('swamp_mender'), healedBoss=spawn('swamp_guardian',1,4); healedBoss.hp=healedBoss.max*.5;
+  bossHealer.swampCd=0; S.swampTick(bossHealer,.05); S.swampTick(bossHealer,1.9);
+  ok('boss healing uses the reduced coefficient',Math.abs(healedBoss.hp-healedBoss.max*(.5+.08*.35))<.001);
+  clear(); const beetle=spawn('swamp_beetle'); M.hurt(beetle,beetle.max*.31);
+  ok('armor breaks and shell disappears',beetle.cracked&&beetle.armor===beetle.E.ab.crack.after&&beetle.m.iceParts.every(p=>!p.visible));
+  clear(); const boss=spawn('boss_swamp'); boss.hp=boss.max*.49; S.swampTick(boss,.05);
+  ok('half health starts boss phase warning',boss.swampCast?.kind==='rupture');
+  S.swampTick(boss,1.9); boss.m.anim(boss,.05);
+  ok('boss phase exposes heart and spawns three larvae',boss.swampRuptured&&boss.armor===.05&&G.enemies.filter(e=>e.type==='swamp_larva').length===3);
+  S.swampTick(boss,.05); ok('phase transition runs only once',G.enemies.length===4);
+  clear(); const dying=spawn('swamp_spitter'); dying.swampCd=0; S.swampTick(dying,.05); M.hurt(dying,9999);
+  ok('killing caster removes warning',!dying.swampCast&&S.swampEffects().casting===0);
+  clear(); const moth=spawn('swamp_moth'); G.sim(.2);
+  ok('moth updates without invalid wing transforms',moth.m.wings.length===2&&moth.m.wings.every(w=>Number.isFinite(w.rotation.z)));
+  clear(); for(let i=0;i<20;i++){const e=spawn('swamp_spitter');e.swampCd=0;S.swampTick(e,.05);S.swampTick(e,1.4);S.updateSwamp(.7);clear();}
+  ok('repeated cleanup removes all attacks',Object.values(S.swampEffects()).every(n=>n===0));
+  ok('audio remains muted',!G.Snd.cfg.bgmOn&&!G.Snd.cfg.sfxOn);
+  return {checks,stats:G.stats,effects:S.swampEffects()};
+}

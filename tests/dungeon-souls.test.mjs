@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import { empty, clean, applyMail } from '../src/account/progress.js';
+import { dungeonDay, guestDungeonLeft, startGuestDungeon, finishGuestDungeon } from '../src/account/dungeon-local.js';
+import { settleDungeon } from '../src/dungeon/rewards.js';
+const before = Date.parse('2026-10-26T14:59:59Z'), after = before + 1000;
+const token = '11111111-1111-4111-8111-111111111111', next = '22222222-2222-4222-8222-222222222222';
+assert.equal(dungeonDay(before),'2026-10-26'); assert.equal(dungeonDay(after),'2026-10-27');
+let save = empty(); save.souls=55;
+const entry = startGuestDungeon(save,token,before); assert.equal(entry.ok,true); save=clean(entry.save);
+assert.equal(guestDungeonLeft(save,before),0); assert.equal(startGuestDungeon(save,next,before).reason,'daily_limit');
+assert.equal(guestDungeonLeft(save,after),1);
+assert.equal(finishGuestDungeon(save,next,5,true).ok,false);
+const partial=finishGuestDungeon(save,token,3,false); assert.equal(partial.souls,700); assert.equal(partial.save.souls,755);
+const retry=finishGuestDungeon(clean(partial.save),token,5,true); assert.equal(retry.souls,700); assert.equal(retry.save.souls,755); assert.equal(retry.already,true);
+save=clean(startGuestDungeon(retry.save,next,after).save);
+assert.equal(finishGuestDungeon(save,token,5,true).ok,false);
+const full=finishGuestDungeon(save,next,5,true); assert.equal(full.souls,2000); assert.equal(full.save.souls,2755);
+assert.equal(guestDungeonLeft(clean(full.save),after),0);
+assert.equal(finishGuestDungeon(entry.save,token,0,false).souls,0);
+assert.equal(finishGuestDungeon(entry.save,token,5,false).souls,1700);
+// Settlement uses the server amount (including partial/time-capped results), never the UI prediction.
+let local=empty(), claims=0, flushes=0;
+const api={finish: async()=>({ok:true,souls:700,mail:101,floors:3,win:false,medals:6,total:6,capped:true}),
+  claim:async id=>{claims++;[local]=applyMail(local,id,{souls:700});return {ok:true};},flush:async()=>{flushes++;}};
+const r=await settleDungeon({mode:'ranked',token},5,true,api);
+assert.equal(r.souls,700); assert.equal(local.souls,700); assert.equal(r.claimed,true);
+await settleDungeon({mode:'ranked',token},5,true,api); assert.equal(local.souls,700); assert.equal(flushes,2);
+const pending=await settleDungeon({mode:'ranked',token},5,true,{...api,claim:async()=>({ok:false})});
+assert.equal(pending.mail,101);assert.equal(pending.claimed,false); assert.equal(local.souls,700);
+const rejected=await settleDungeon({mode:'ranked',token},5,true,{...api,finish:async()=>({ok:false,msg:'offline'})});assert.equal(rejected.ok,false);assert.equal(claims,2);
+const practice=await settleDungeon({mode:'practice'},5,true,{});assert.equal(practice.souls,0);
+const guest=await settleDungeon({mode:'local',token},5,true,{finishLocal:(t,f,w)=>finishGuestDungeon(entry.save,t,f,w)});assert.equal(guest.souls,2000);
+console.log('PASS daily KST boundaries, guest save roundtrip, partial/clear, duplicate settlement, authoritative amount and mail recovery');
