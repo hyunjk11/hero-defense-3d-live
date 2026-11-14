@@ -51,8 +51,9 @@ function renderInv() {
   document.querySelectorAll('#invPanel .itile[data-id]').forEach(b => { b.onclick = () => { ui.invSel = b.dataset.id; Snd.play('select'); renderInv(); };
     b.onpointerenter = e => { if (e.pointerType !== 'mouse') return; const it = S().inv.find(x => x.id === b.dataset.id); if (!it) return; const c = S().inv.find(x => x.id === (S().eq[h] || {})[it.s]); showTip(b, card(it, c && c.id !== it.id ? c : null)); }; b.onpointerleave = e => { if (e.pointerType === 'mouse') hideTip(); }; });
   document.querySelectorAll('#invFilt .ftab').forEach(b => b.onclick = () => { ui.invF = b.dataset.f; Snd.play('ui'); renderInv(); });
-  if ($('invEq')) $('invEq').onclick = async () => { try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'equip',p_item:sel.id,p_hero:h}]);if(!r.ok)throw Error('장착할 수 없습니다.');}else Acc.update(d => E.equip(d, h, sel.id)[0]);}catch(e){showTip($('invEq'),esc(e.message));return;} Snd.play('upgrade'); hooks.cheer(); hooks.onChange(); };
-  if ($('invUneq')) $('invUneq').onclick = async () => { try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'unequip',p_hero:h,p_slot:sel.s}]);if(!r.ok)throw Error('해제할 장비가 없습니다.');}else Acc.update(d => E.unequip(d, h, sel.s));}catch(e){showTip($('invUneq'),esc(e.message));return;} Snd.play('ui'); hooks.onChange(); };
+  if ($('invEq')) $('invEq').onclick = async () => { const button=$('invEq'),epoch=Acc.sessionId();if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'equip',p_item:sel.id,p_hero:h}]);if(!r.ok)throw Error('장착할 수 없습니다.');}else Acc.update(d => E.equip(d, h, sel.id)[0]);}catch(e){if(epoch===Acc.sessionId()&&button.isConnected)showTip(button,esc(e.message));return;}finally{button.removeAttribute('aria-busy');button.disabled=false;}if(epoch!==Acc.sessionId())return; Snd.play('upgrade'); hooks.cheer(); hooks.onChange(); };
+  if ($('invUneq')) $('invUneq').onclick = async () => { const button=$('invUneq'),epoch=Acc.sessionId();if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'unequip',p_hero:h,p_slot:sel.s}]);if(!r.ok)throw Error('해제할 장비가 없습니다.');}else Acc.update(d => E.unequip(d, h, sel.s));}catch(e){if(epoch===Acc.sessionId()&&button.isConnected)showTip(button,esc(e.message));return;}finally{button.removeAttribute('aria-busy');button.disabled=false;}if(epoch!==Acc.sessionId())return; Snd.play('ui'); hooks.onChange(); };
+  if(Acc.serverSaveState()?.busy)for(const id of ['invEq','invUneq']){const b=$(id);if(b){b.disabled=true;b.setAttribute('aria-busy','true');}}
 }
 // U-10 (2026-10-23): 오른쪽에 자리가 없으면 왼쪽, 양쪽 다 없으면 화면 안으로 · 아래로 넘치면 위로 올림 (높이는 CSS max-height 로 화면 안)
 export function showTip(el, html) { const t = $('itemTip'); t.innerHTML = html; t.classList.remove('hidden'); const r = el.getBoundingClientRect(), M = 8, W = t.offsetWidth || 230, H = t.offsetHeight;
@@ -93,6 +94,7 @@ function renderSmith() {
     body.querySelectorAll('#disGrid .itile').forEach(b => { b.onclick = () => { const id = b.dataset.id; ui.dis.has(id) ? ui.dis.delete(id) : ui.dis.add(id); Snd.play('select'); renderSmith(); }; tipBind(b); });
     body.querySelectorAll('.disBulk .ftab').forEach(b => b.onclick = () => { Snd.play('ui'); if (b.dataset.g === 'x') ui.dis.clear(); else list.filter(x => b.dataset.le != null ? x.g <= +b.dataset.le : x.g === +b.dataset.g).forEach(x => ui.dis.add(x.id)); renderSmith(); });
     $('disGo').onclick = () => doDismantle();
+    if(ui.busy){$('disGo').disabled=true;$('disGo').setAttribute('aria-busy','true');body.querySelectorAll('#disGrid .itile.pick').forEach(b=>b.classList.add('disPending'));}
   } else if (ui.smTab === 'rr') {
     if(directGearEnabled()&&!ui.rrCand){const pending=pendingReroll();if(pending&&s.inv.some(it=>it.id===pending.id)){ui.rrSel=pending.id;ui.rrCand=pending;}} // 🎲 옵션 재설정 (강철만, docs/STEEL_2026-10-24.md): 굴리면 강철 소모 → 새 옵션을 보고 적용/유지 선택
     const list = sorted(s.inv.filter(E.canReroll), s); if (!list.some(x => x.id === ui.rrSel)) { ui.rrSel = list[0]?.id || null; ui.rrCand = null; } const it = s.inv.find(x => x.id === ui.rrSel);
@@ -170,15 +172,30 @@ async function doDismantle() {
   const s = S(), ids = [...ui.dis], hi = ids.map(id => s.inv.find(x => x.id === id)).filter(x => x && x.g >= 3);
   if (hi.length && !(await askConfirm({ title: '고급 장비 분해', icon: '⚒', body: `영웅/전설 등급 장비 ${hi.length}개가 포함되어 있어요.\n정말 분해할까요?`, ok: '분해', tone: 'danger' }))) {if(finishSmith(job))renderSmith();return;}
   if(!smithCurrent(job)){finishSmith(job);return;}
-  document.querySelectorAll('#disGrid .itile.pick').forEach(b => b.classList.add('melt'));
+  document.querySelectorAll('#disGrid .itile.pick').forEach(b => b.classList.add('disPending'));
+  const removalFx=captureDismantleFx(ids);
   Snd.play('breakRock'); Snd.play('coins', { delay: .2 });
   smithLater(job,async () => { let got,error;
-    try {if(!smithCurrent(job))return;if(directGearEnabled()){const rs=await runDirectGear(ids.map(id=>({p_action:'dismantle',p_item:id})));got=rs.reduce((a,r)=>({steel:a.steel+(r.yield?.steel||0),crystal:a.crystal+(r.yield?.crystal||0)}),{steel:0,crystal:0});}else Acc.update(d => { const r = E.dismantle(d, ids); got = r[1]; return r[0]; });ui.dis.clear();}
+    try {if(!smithCurrent(job))return;if(directGearEnabled()){const rs=await runDirectGear(ids.map(id=>({p_action:'dismantle',p_item:id})));got=rs.reduce((a,r)=>({steel:a.steel+(r.yield?.steel||0),crystal:a.crystal+(r.yield?.crystal||0)}),{steel:0,crystal:0});}else Acc.update(d => { const r = E.dismantle(d, ids); got = r[1]; return r[0]; });if(smithCurrent(job))dismantleFx(removalFx);ui.dis.clear();}
     catch(e){error=e;}
     finally {if(finishSmith(job))renderSmith();}
     if(!smithOwner(job))return;if(error){alertMsg(error.message);return;}hooks.onChange(true);const f = document.querySelector('.disFoot div'); if (f) f.innerHTML = `<span class="gotPop">+ 강철 ${got.steel} · 마력석 ${got.crystal} 획득!</span>`;
-  },0); // Start the guarded transaction immediately; its wait already shows the melt state.
+  },0); // Start immediately; pending feedback does not pretend the item was removed.
   } catch(e) {if(finishSmith(job))renderSmith();if(smithOwner(job))alertMsg(e.message);}
+}
+// Animate only confirmed removals; the next UI is not held behind animation.
+function captureDismantleFx(ids){
+  if(typeof document.body?.appendChild!=='function'||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return [];
+  return [...document.querySelectorAll('#disGrid .itile')].filter(tile=>ids.includes(tile.dataset.id)&&tile.getBoundingClientRect).map(tile=>({id:tile.dataset.id,fx:tile.cloneNode(true),rect:tile.getBoundingClientRect()}));
+}
+function dismantleFx(tiles){
+  const remaining=new Set(S().inv.map(it=>it.id));
+  tiles.forEach(({id,fx,rect:r})=>{
+    if(remaining.has(id)||!r.width||!r.height)return;
+    fx.removeAttribute('id');fx.removeAttribute('data-id');fx.tabIndex=-1;fx.setAttribute('aria-hidden','true');fx.classList.remove('disPending');fx.classList.add('disGone');
+    Object.assign(fx.style,{position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',margin:'0',pointerEvents:'none',zIndex:'200'});
+    document.body.appendChild(fx);fx.addEventListener('animationend',()=>fx.remove(),{once:true});setTimeout(()=>fx.remove(),500);
+  });
 }
 async function doCraft(rk) {
   if(directGearEnabled()){await directCraft(rk);return;}

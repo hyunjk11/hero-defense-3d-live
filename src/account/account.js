@@ -192,10 +192,21 @@ async function onRetry(uid, epoch) {
   if (ownsSession(uid, epoch)) await loadCloud();
 }
 export async function reloadAuthoritative(){const uid=A.user?.id,epoch=sessionEpoch;if(!uid)return false;await loadCloud();return ownsSession(uid,epoch)&&ready()&&A.sync==='saved';}
-async function loadCloud() {
+// A committed economy response can hydrate the identical reconciliation path
+// without two follow-up reads. Only the current guarded job may consume it.
+export async function acceptEconomySnapshot(snapshot,job){
+ const row=snapshot?.progress,profile=snapshot?.profile;
+ if(!job||serverSaveJob!==job||!ownsSession(job.uid,job.epoch)||!ready()||dirty(job.uid)||ls.get(pendingKey(job.uid))||
+  !row||row.user_id!==job.uid||row.merged!==true||!row.data||typeof row.updated_at!=='string'||!Number.isFinite(Date.parse(row.updated_at))||
+  profile!=null&&profile.id!==job.uid)return false;
+ const base=ls.get(tsKey(job.uid));if(base&&(!Number.isFinite(Date.parse(base))||Date.parse(row.updated_at)<Date.parse(base)))return false;
+ await loadCloud({progress:{data:row,error:null},profile:{data:profile||null,error:null}});
+ return ownsSession(job.uid,job.epoch)&&ready()&&A.sync==='saved';
+}
+async function loadCloud(snapshot) {
   if (!A.user) return; const uid = A.user.id, epoch = sessionEpoch;
   try {
-    const [progress, pr] = await Promise.all([
+    const [progress, pr] = snapshot?[snapshot.progress,snapshot.profile]:await Promise.all([
       A.sb.from(T.progress).select('data, merged, updated_at').eq('user_id', uid).maybeSingle(),
       A.sb.from(T.profiles).select('nickname').eq('id', uid).maybeSingle(),
     ]);

@@ -27,10 +27,10 @@ export class FirestoreStore{
       const cleanup=async()=>{if(token&&!committed&&!cleanupAttempted){cleanupAttempted=true;this.timing.count('transaction_rollback');await this.request('POST',`${ROOT}:rollback`,{transaction:token});}};
       try{
         let initial=[];
-        if(readOnly&&documents.length){
-          this.timing.count('read_only_transaction');
+        if(documents.length){
+          this.timing.count(readOnly?'read_only_transaction':'prefetched_write_transaction');
           const names=documents.map(([table,id])=>documentName(table,id,this.root));
-          initial=await this.request('POST',`${ROOT}:batchGet`,{documents:names,newTransaction:{readOnly:{}}});
+          initial=await this.request('POST',`${ROOT}:batchGet`,{documents:names,newTransaction:readOnly?{readOnly:{}}:{readWrite:{}}});
           initial=Array.isArray(initial)?initial:[initial];token=initial.find(x=>x.transaction)?.transaction;
           if(typeof token!=='string'||!token)throw new Error('Read snapshot token missing');
           const received=new Set(initial.map(x=>x.found?.name||x.missing).filter(Boolean));

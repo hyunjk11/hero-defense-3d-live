@@ -7,17 +7,19 @@ const rollKey=uid=>CLOUD.storagePrefix+'_direct_roll_'+uid;
 const read=uid=>{try{return JSON.parse(ls.get(key(uid))||'null');}catch{return null;}};
 const pendingError=()=>Object.assign(new Error(Acc.SAVE_WAIT_MESSAGE),{code:'server_save_pending'});
 let active=null;
+const batchActions=new Set(['open','dismantle','store','take','equip','unequip','research','bar','expand','exchange']);
+let batchUnsupported=false;
 export const directGearEnabled=()=>!!Acc.A.user&&!!Acc.A.sb?.atomicGear;
 export const pendingGear=()=>Acc.A.user?read(Acc.A.user.id):null;
 export function pendingReroll(){try{return Acc.A.user?JSON.parse(ls.get(rollKey(Acc.A.user.id))||'null'):null;}catch{return null;}}
 export function keepReroll(){if(Acc.A.user){durableSet(rollKey(Acc.A.user.id),'null');ls.del(rollKey(Acc.A.user.id));}}
-// One durable batch, ordered single-entry transactions. Each receipt is replayed
+// One durable journal, ordered operations in a server batch when supported. Each receipt is replayed
 // only by its original ID; interruption never recreates already opened chests.
 export async function runDirectGear(commands) {
  if(!directGearEnabled()||!Acc.ready())throw pendingError();
  const uid=Acc.A.user.id,epoch=Acc.sessionId(),current=()=>Acc.A.user?.id===uid&&Acc.sessionId()===epoch;
  if(active?.uid===uid&&active.epoch===epoch)throw pendingError();
- let journal=read(uid),job,confirmed=false,marked=false;
+ let journal=read(uid),job,confirmed=false,marked=false,snapshot;
  if(!journal&&(!Array.isArray(commands)||!commands.length||commands.length>200))throw Error('Invalid gear batch');
  const token=journal?.token||'gear:'+crypto.randomUUID(),pending=Acc.serverSaveState();
  if(pending&&pending.token!==token)throw pendingError();
@@ -35,6 +37,18 @@ export async function runDirectGear(commands) {
   }
   if(!current()||!Acc.markServerSave(job))throw pendingError();marked=true;
   while(journal.index<journal.commands.length){
+   const rest=journal.commands.slice(journal.index);
+   if(Acc.A.sb.serverEconomy&&!batchUnsupported&&rest.every(c=>batchActions.has(c.p_action))){
+    const {data,error}=await Acc.A.sb.rpc('hd3d_gear_batch',{commands:rest});
+    if(!current())throw pendingError();
+    // Explicit unsupported-operation is the only safe fallback. Never replay
+    // new IDs or fall through after a timeout/unknown commit.
+    if(error?.code==='PGRST202'){batchUnsupported=true;continue;}
+    if(error)throw Object.assign(new Error(error.message||Acc.SAVE_WAIT_MESSAGE),{code:error.code,status:error.status});
+    if(!data?.ok||!Array.isArray(data.results)||data.results.length!==rest.length||data.results.some(r=>typeof r?.ok!=='boolean'))throw pendingError();
+    journal.results.push(...data.results);journal.index=journal.commands.length;durableSet(key(uid),JSON.stringify(journal));snapshot=data.snapshot;
+    break;
+   }
    const {checkpoint,...command}=journal.commands[journal.index];
    if(command.p_action==='run_return'){
     const HG=await import('./hero-growth.js');
@@ -49,7 +63,7 @@ export async function runDirectGear(commands) {
    if(data.ok&&command.p_action==='reroll_apply')keepReroll();
    journal.results.push(data);journal.index++;durableSet(key(uid),JSON.stringify(journal));
   }
-  if(!await Acc.reloadAuthoritative()||!current())throw pendingError();
+  if(!(snapshot&&await Acc.acceptEconomySnapshot(snapshot,job))&&!await Acc.reloadAuthoritative()||!current())throw pendingError();
   durableSet(key(uid),'null');ls.del(key(uid));confirmed=true;
   return journal.results;
  }finally{

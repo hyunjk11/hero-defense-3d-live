@@ -10,6 +10,7 @@ import {directDungeonBuy} from '../src/account/direct-dungeon-shop.js';
 import {directSpireStart} from '../src/account/direct-spire-start.js';
 import {settleNormal} from './normal-economy.mjs';
 import {assertItemIdentity,assertRewardIdentity,balanceLimits} from './economy-invariants.mjs';
+import {gearBatch} from './gear-batch.mjs';
 const cosmetics=new Set(['hero','settings','nick','growth']);
 export const economicState=s=>Object.fromEntries(Object.entries(P.clean(s)).filter(([k])=>!cosmetics.has(k)));
 const stamp=(now,old)=>new Date(Math.max(now,(Date.parse(old)||0)+1)).toISOString();
@@ -89,6 +90,7 @@ export async function runEconomyOperation(rawStore,user,op,options={}){
  if(op?.kind==='query'&&op.table==='hd3d_progress'&&op.action!=='select')return saveProgress(store,user,op,options);
  if(op?.kind==='rpc'){
   const name=op.name?.replace(/^hd3d_/,''),a=op.args||{};
+  if(name==='gear_batch')return gearBatch(rawStore,economyStore,user,a,options);
   if(name==='gear_action'){
    if(a.p_action==='run_return')return settleNormal(store,user,'normal_settle',{p_token:a.p_item,p_wave:a.p_wave,p_kills:a.p_kills,p_stars:0,p_drops:[],p_bossKills:[]},options);
    try{return await directGear(economyStore(rawStore,{rejectBalanceTruncation:true}),user,a,options);}
