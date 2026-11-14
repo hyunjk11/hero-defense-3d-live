@@ -1,5 +1,7 @@
 import { FOCUS_MAX } from '../data/hero-growth.js';
 import { renderBossDebuffs } from './boss-debuffs.js';
+import { renderHeroEffects } from './hero-effects.js';
+import { healK } from '../data/spire.js';
 import { eDescription } from '../data/hero-e.js';
 import { $ } from '../core/util.js';
 import { UPS } from '../data/heroes.js';
@@ -19,8 +21,18 @@ function showNote(list, ms = 7000) { const n = $('note'); n.innerHTML = list.map
 function setPhaseUI() { const ph = $('phase'); ph.textContent = G.phase === 'wave' ? '전투 중 (밤)' : '건설 단계 (낮)'; ph.classList.toggle('night', G.phase === 'wave'); $('startWave').disabled = G.phase !== 'build'; refreshWavePrev(); }
 function setBar(f, t, r) { const w = Math.max(0, Math.min(1, r)) * 100 + '%', a = $(f), b = $(t); if (a.style.width !== w) { a.style.width = w; b.style.width = w; } }
 function updBossBar() { let b = null; for (const e of G.enemies) if (e.E.boss && !e.dead && e.dying === undefined && (!b || e.max > b.max)) b = e; // 여러 보스면 가장 강한(챕터) 보스
-  $('bossHud').classList.toggle('hidden', !b); renderBossDebuffs($('bossDebuffs'), b); if (!b) return; setBar('bossFill', 'bossTr', b.hp / b.max); const nm = $('bossName'); if (nm.textContent !== b.E.n) nm.textContent = b.E.n; }
+  $('bossHud').classList.toggle('hidden', !b); renderBossDebuffs($('bossDebuffs'), b, G.t, {
+    floor:G.spire&&G.dungeon?G.dg?.floors?.[G.dg.floor]:null,
+    attackScale:b&&G.spire&&G.dungeon&&G.spireAtkK?G.spireAtkK(b):1
+  }); if (!b) return; setBar('bossFill', 'bossTr', b.hp / b.max); const nm = $('bossName'); if (nm.textContent !== b.E.n) nm.textContent = b.E.n; }
 function refreshHud() {
+  const controlled=G.hero; // withHero temporarily changes the module binding during party simulation.
+  renderHeroEffects($('heroEffects'), ['build','wave'].includes(G.phase)?controlled:null, {
+    now:G.t, focus:G.focus, growthEnabled:G.growthEnabled, dungeon:G.dungeon, dungeonDamage:G.dgDmg,
+    dungeonMods:G.dungeon&&G.dgM&&controlled?G.dgM(controlled):null,
+    damageScale:G.dungeon&&G.spireDmgK&&controlled?G.spireDmgK(controlled):1,
+    healScale:G.dungeon&&G.spire?healK(G.dg?.floors?.[G.dg.floor]):1
+  });
   $('gold').textContent = Math.floor(G.gold); $('wave').textContent = G.wave; setBar('coreBar', 'coreTr', G.coreHp / G.coreMax); if (G.coreHb) G.coreHb.set(G.coreHp / G.coreMax); $('coreTxt').textContent = `${Math.max(0, G.coreHp)}/${G.coreMax}`;
   refreshWavePrev(); $('enemyCnt').textContent = `적 ${G.enemies.filter(e => !e.dead).length + (G.spawnQ ? G.spawnQ.length : 0)}`;
   document.querySelectorAll('.up').forEach(b => { const k = b.dataset.up, c = upCost(k); b.classList.toggle('hidden', k === 'focus' ? !G.growthEnabled || !!G.dungeon : !!G.growthEnabled && k !== 'bar'); if (k === 'focus') { const n = G.focus || 0; b.textContent = `전투 집중 ${n}/${FOCUS_MAX} · ${n >= FOCUS_MAX ? 'MAX' : c + 'G'}`; b.title = '단계당 공격 +4% · 공속 +2% · 스킬 계수 +4% · 쿨 ×0.98 (회복 없음)'; b.disabled = n >= FOCUS_MAX || G.gold < c || G.paused || G.navigating || !['build', 'wave'].includes(G.phase); return; } const h = `<span class="row"><span>${UPS[k].n} Lv.${G.ups[k]}</span><small>${c}G</small></span>${k === 'bar' ? '' : `<span class="desc">${UPS[k].d}</span>`}`; if (b._h !== h) { b._h = h; b.innerHTML = h; if (k === 'bar') b.setAttribute('aria-label', `${UPS[k].n} Lv.${G.ups[k]}, ${c}골드, ${UPS[k].d}`); }
