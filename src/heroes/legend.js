@@ -1,3 +1,4 @@
+import {legendFeedback} from '../render/legend-feedback.js';
 import { skillAllowed } from '../data/hard-party.js';
 import { castAdvanceE } from './advance-e.js';
 import { treeESkill, treeCooldown, treeSkillUsed } from '../data/skill-tree.js';
@@ -70,6 +71,7 @@ function impactProc(t, s, attack) {
     emit(P, e.g.position.x, e.g.position.y + 1.3, e.g.position.z, 12, s.color, 4, .35);
   }
   if (targets.length) { ringFx(t.g.position, s.radius || .8, s.color, .25); Snd.play('zap', { pos: t.g.position, vol: .35, rate: 1.5 }); }
+  if(s.h!=='mechanic')legendFeedback(hero,t,s,targets,FX);
 }
 // 멀티샷: 황금 화살 5발 부채꼴
 function multishot(t, s) {

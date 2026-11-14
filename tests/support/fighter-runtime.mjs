@@ -13,19 +13,19 @@ export function fixture(branch) {
   const G={t:0,phase:'wave',timers:[],enemies:[],fxs:[],legendForce:true,stats:{},mK:0};
   const hero={cls:'fighter',g:new THREE.Group(),face:0,dead:0,cd:0,atkT:0,licd:0,lcd:0,lsk:'pawstorm',path:[],C:{atkSpd:1,rate:2.08},hp:760,max:760,adv:branch?ADV.fighter[branch]:null,ch:{root:new THREE.Group(),acts:{PalmS:{},PunchCombo:{}}}};
   G.hero=G.curHero=hero;
-  const state=vm.createContext({window:{G},QS:{has:()=>false}});
+  const state=vm.createContext({legendFeedback:()=>{},window:{G},QS:{has:()=>false}});
   // Keep the actual owner/timer wrappers without the application's global object.
   vm.runInContext('const G=window.G;'+read('core/state.js').slice(read('core/state.js').indexOf('const later =')).replace(/export \{.*;/,'' )+'\nthis.api={later,runTimer,heroFx,asSkill};',state);
-  const toon=vm.createContext({THREE,scene,mergeVertices:g=>g});
+  const toon=vm.createContext({legendFeedback:()=>{},THREE,scene,mergeVertices:g=>g});
   vm.runInContext(strip(read('render/toon.js'))+'\nthis.api={toon,disposeOwned};',toon);
-  const env=vm.createContext({THREE,G,scene,camera:new THREE.PerspectiveCamera(),...F,...state.api,...toon.api,hero,Q:{},P:{},PB:{},
+  const env=vm.createContext({legendFeedback:()=>{},THREE,G,scene,camera:new THREE.PerspectiveCamera(),...F,...state.api,...toon.api,hero,Q:{},P:{},PB:{},
     stat:{dmg:()=>100,range:()=>2.6,rate:()=>2.08,skillMul:()=>1},
     play:(_ch,name)=>{animations.push(name);return true;},groundY:()=>0,passAt:()=>true,
     banner:no,emit:no,debris:no,ringFx:no,knock:no,Snd:{play:no,whoosh:no},
     hurt0:(e,d,_c,_big,src)=>{if(e.dead)return;const loss=d*(1-(e.E.armor||0));e.hp-=loss;hits.push({e,d:loss,kind:src?.kind,skill:G.mK});if(e.hp<=0)e.dead=true;},
     legendProc:(...a)=>legend.legendProc(...a)});
   vm.runInContext(strip(read('heroes/fighter.js'))+'\nthis.api={fighterInit,fighterTick,updFtFx,ftStop,pawstorm,swing,orb,wave,FX,pawCanProc:typeof pawCanProc === "function" ? pawCanProc : undefined};',env);
-  const legend=vm.createContext({G,LSK,hero,...state.api,QS:{get:()=>null},mulberry32:()=>()=>{random.draws++;return random.value;},addEventListener:no,
+  const legend=vm.createContext({legendFeedback:()=>{},G,LSK,hero,...state.api,QS:{get:()=>null},mulberry32:()=>()=>{random.draws++;return random.value;},addEventListener:no,
     pawstorm:env.api.pawstorm,pawCanProc:env.api.pawCanProc,ricochet:no,rosebarrage:no,overdrill:no,gigahammer:no,tigerdash:no});
   // Only the actual dispatch path is needed, not the other heroes' visuals.
   const s=read('heroes/legend.js');

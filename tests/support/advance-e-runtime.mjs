@@ -11,7 +11,7 @@ const strip=s=>s.replace(/^import .*;.*$/gm,'').replace(/\bexport (?=(?:const|fu
 const cueContext=vm.createContext({THREE});
 vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/skill-cues.js',import.meta.url),'utf8'))+';this.create=createSkillCues;',cueContext);
 export const createSkillCues=cueContext.create;
-export function fixture(cls='mage',branch='flame',level=50,advanceSource=null) {
+export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,legendSource=null) {
   const no=()=>{},G={t:0,phase:'wave',enemies:[],fxs:[],legendForce:true},scene=new THREE.Scene(),hits=[],casts=[],timers=[];
   const hero={cls,C:{level},eq:{},lsk:null,adv:{k:branch},max:1000,hp:600,atkT:0,licd:0,lcd:0,dead:0,face:0,g:new THREE.Group(),ch:{acts:{}},path:[]};
   scene.add(hero.g);G.hero=hero;G.heroes=[hero];G.tiles=[];G.screen='game';const FX=[];
@@ -28,9 +28,11 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null) {
   const cats=vm.createContext({THREE});vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/cat-spirit.js',import.meta.url),'utf8'))+';this.api={createCatSpirit,animateCatSpirit};',cats);
   const adv=vm.createContext({createSkillCues,THREE,G,hero,scene,catFlight,stepCatFlight,...cats.api,disposeOwned:toon.dispose,groundY:()=>0,hurt:env.hurt0,grantEShield,stat:env.stat,play:env.play,Snd:env.Snd,banner:no,knock:(e,x,z,d)=>{e.knock=d;}});
   vm.runInContext(strip(advanceSource??fs.readFileSync(new URL('../../src/heroes/advance-e.js',import.meta.url),'utf8'))+';this.cast=castAdvanceE;this.cues=typeof skillCues===\'undefined\'?null:skillCues;',adv);env.castAdvanceE=adv.cast;
+  const lf=vm.createContext({createSkillCues,scene,G,groundY:()=>0,Snd:env.Snd});
+  vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/legend-feedback.js',import.meta.url),'utf8'))+';this.feedback=legendFeedback;this.pool=pool;',lf);env.legendFeedback=lf.feedback;
   const path=new URL('../../src/heroes/legend.js',import.meta.url);
-  vm.runInContext(strip(fs.readFileSync(path,'utf8'))+'\nthis.api={legendProc,legendActive,legendCd,castLegend,updLegend,updLegendHero,updLeap};',env);
+  vm.runInContext(strip(legendSource??fs.readFileSync(path,'utf8'))+'\nthis.api={legendProc,legendActive,legendCd,castLegend,updLegend,updLegendHero,updLeap};',env);
   const target=(x=0,z=2,extra={})=>{const e={id:G.enemies.length,g:new THREE.Group(),E:{armor:0,...extra},hp:10000,max:10000,stunT:0,slowT:0,dead:false};e.g.position.set(x,0,z);G.enemies.push(e);return e;};
   const tick=(seconds,dt=.01)=>{for(let i=0;i<Math.ceil(seconds/dt);i++){G.t+=dt;for(let j=timers.length-1;j>=0;j--){timers[j].time-=dt;if(timers[j].time<=0){const t=timers.splice(j,1)[0];t.f();}}env.api.updLegend(dt);if(hero.leap)env.api.updLeap(dt);}};
-  return {cues:adv.cues,G,hero,scene,hits,env,casts,timers,FX,api:env.api,target,tick,THREE};
+  return {legendCues:lf.pool,cues:adv.cues,G,hero,scene,hits,env,casts,timers,FX,api:env.api,target,tick,THREE};
 }

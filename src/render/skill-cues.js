@@ -19,9 +19,9 @@ export function createSkillCues(scene, capacity = 24) {
       const [r,l,b] = s.meshes;
       scene.add(s.group); s.group.visible = true; s.group.position.set(p.x,p.y,p.z); s.group.rotation.y = angle;
       s.material.color.setHex(color); s.material.opacity = kind === 'aim' ? .28 : .65;
-      r.visible = kind !== 'aim'; l.visible = kind === 'aim'; b.visible = kind === 'impact' || kind === 'aim';
+      r.visible = !['aim','link','slash'].includes(kind); l.visible = ['aim','link','slash'].includes(kind); b.visible = kind === 'impact' || kind === 'aim';
       r.scale.setScalar(size*.5); b.position.set(0,0,kind === 'aim' ? length : 0); b.scale.setScalar(kind === 'aim' ? .16 : size*.5);
-      l.position.set(0,0,length/2); l.scale.set(.055,Math.max(.01,length),1);
+      l.position.set(0,0,kind==='slash'?0:length/2); l.scale.set(kind==='slash'?.12:.055,kind==='slash'?size*1.8:Math.max(.01,length),1);
       return true;
     },
     update(owner, dt) {
