@@ -7,7 +7,7 @@ function render(save,hard=false){
  const source=fs.readFileSync(process.argv[2]||new URL('../src/ui/result.js',import.meta.url),'utf8').replace(/^import .*;[^\r\n]*\r?\n/gm,'').replace(/\bexport /g,'');
  const nodes=new Map(),$=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',textContent:'',classList:{remove(){}}});return nodes.get(id);};
  let current=structuredClone(save),writes=0,loot=[];const callbacks=[];const G={xpRun:{repeat:true,target:'gunner',token:'cap-run-001'},growthEnabled:true,completedWaves:10,wave:10,coreHp:30,coreMax:30,stats:{kills:{mage:11}},hero:{cls:'mage'}};
- const Acc={load:()=>structuredClone(current),update:fn=>{writes++;current=fn(current);},flush:()=>Promise.resolve(true)};
+ const Acc={A:{user:null},sessionId:()=>1,load:()=>structuredClone(current),update:fn=>{writes++;current=fn(current);},flush:()=>Promise.resolve(true)};
  const HG={HG:{rewardXP:{},hardRewards:{}},checkpoint:()=>Promise.resolve(true),onGrowth:fn=>callbacks.push(fn)};
  const progress={...P,applyRun:(s,args)=>{const r=P.applyRun(s,args,seeded('capacity-normal'));loot=r[2];return r;},applyStage:(...args)=>{const r=P.applyStage(...args);loot=[...loot,...(r[1]?.loot||[])];return r;}};
  new Function('directGearEnabled','targetLabel','Snd','$','go','G','HG','Acc','P','E','ST','STAGE','sessionStorage','setTimeout','document',source)(()=>false,targetLabel,{play(){},setMusic(){}},$,()=>{},G,HG,Acc,progress,E,ST,ST.getStage(hard?'hard-1-1':'1-1'),{setItem(){}},()=>{}, {getElementById:id=>$(id)});

@@ -39,10 +39,17 @@ function normalClearActions(pending){
 }
 function renderNormalClear({got=0,loot=[],info={souls:0,unlocked:[]},stars,pending=false,hard=false}){
   Snd.setMusic('none'); Snd.play('victory', { force: true, exact: true });
-  const el = $('stageClear'); el.innerHTML = `<div class="scBox"><div class="scT">${hard?'하드 클리어!':'스테이지 클리어!'}</div><div class="scS">${STAGE.no} · ${STAGE.n}</div><div class="scStars">${[0, 1, 2].map(i => `<i class="${i < stars ? 'on' : ''}">★</i>`).join('')}</div>
+  const el = $('stageClear'); el.innerHTML = `<div class="scBox"><div class="scT">${hard?'하드 클리어!':'스테이지 클리어!'}</div><div class="scS">${STAGE.no} · ${STAGE.n}</div><div class="scStars">${[0, 1, 2].map(i => `<i class="${i < stars ? 'on' : ''}" style="animation-delay:${(350 + i * 350) / 1000}s">★</i>`).join('')}</div>
     <div class="scConds">${ST.STAR_D.map((d, i) => `<div class="${i < stars ? 'got' : ''}">${i < stars ? '✓' : '·'} ${d}</div>`).join('')}</div>
     <div class="scRw" id="directReward" role="status" aria-live="polite">${hard?'<span id="runXP">보상 저장 중…</span>':pending?'저장 중…':normalClearReward({got,loot,info})}</div><div class="scBtns"><button class="gbtn" id="scRetry" title="같은 스테이지 다시">↻ 재도전</button><button class="gbtn" id="scNext">▶ 다음 스테이지</button><button class="gbtn main" id="scTown">🏡 마을로 귀환</button></div></div>`;
   el.classList.remove('hidden');normalClearActions(pending);
+  // Schedule once when the card mounts. Save acknowledgements/retries only update rewards.
+  const card=el.firstElementChild,run=G.xpRun,session=Acc.sessionId(),uid=Acc.A.user?.id;
+  [0,1,2].forEach(i=>{if(i>=stars)return;setTimeout(()=>{
+    if(el.firstElementChild!==card||el.classList.contains('hidden')||G.phase!=='over'
+      ||G.xpRun!==run||Acc.sessionId()!==session||Acc.A.user?.id!==uid)return;
+    Snd.play('coin',{force:true,rate:1+i*.2});
+  },400+i*350);});
   if (G.endStatsShow) G.endStatsShow('clear');
   refreshRunXP();
 }

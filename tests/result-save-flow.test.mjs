@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../src/ui/result.js',import.meta.url),'utf8').replace(/^import .*;[^\r\n]*\r?\n/gm,'').replace(/\bexport /g,'');
-function fixture(hard=false){
- const nodes=new Map();let builds=0,stats=0,calls=0,resolve,reject,depart=[],navigation=0,session=1;
- const $=id=>{if(!nodes.has(id)){let html='';const n={disabled:false,hidden:false,textContent:'',onclick:null,classList:{remove(){}},get innerHTML(){return html},set innerHTML(v){html=v;if(id==='stageClear'){builds++;for(const key of ['scTown','scRetry','scNext','directReward'])nodes.delete(key);}}};nodes.set(id,n);}return nodes.get(id);};
+function fixture(hard=false,starCount=3){
+ const nodes=new Map();let builds=0,stats=0,calls=0,resolve,reject,depart=[],navigation=0,session=1;const timers=[];
+ const $=id=>{if(!nodes.has(id)){let html='';const n={disabled:false,hidden:false,textContent:'',onclick:null,firstElementChild:null,classList:{remove(){},contains(){return false}},get innerHTML(){return html},set innerHTML(v){html=v;if(id==='stageClear'){n.firstElementChild={};builds++;for(const key of ['scTown','scRetry','scNext','directReward'])nodes.delete(key);}}};nodes.set(id,n);}return nodes.get(id);};
  const G={runSaved:false,xpRun:{token:'run-a'},phase:'battle',wave:10,completedWaves:10,coreHp:30,coreMax:30,growthEnabled:true,stats:{kills:{mage:100}},endStatsShow:()=>stats++};
  const A={user:{id:'a'},sb:{serverEconomy:true}};const sounds=[],saved=[];
  let growthCallback;const growth={rewardXP:hard?{}:{'run-a':60},hardRewards:{}};
- const ctx=vm.createContext({G,$,document:{getElementById:$},Acc:{A,sessionId:()=>session,load:()=>({st:G.runSaved?{'1-1':3}:{}}),SAVE_WAIT_MESSAGE:'retry'},HG:{HG:growth,onGrowth:fn=>growthCallback=fn,checkpoint:()=>Promise.resolve(true)},Snd:{setMusic(){},play:n=>sounds.push(n)},STAGE:{id:hard?'hard-1-1':'1-1',hard,no:'1-1',n:'Forest',waves:10},ST:{starsFor:()=>3,STAR_D:['clear','hp50','hp100'],nextStage:s=>s.st['1-1']?(hard?'hard-1-2':'1-2'):null,STAGES:{'1-2':{n:'Next'}},HARD_STAGES:{'hard-1-2':{n:'Hard next'}},stageNo:n=>n},E:{STAT:{}},P:{},targetLabel:()=>'',directGearEnabled:()=>true,runDirectNormal:()=>{calls++;return new Promise((a,b)=>{resolve=a;reject=b;});},sessionStorage:{setItem:(...args)=>saved.push(args)},go:()=>navigation++,setTimeout:fn=>fn(),alert(){}});
+ const ctx=vm.createContext({G,$,document:{getElementById:$},Acc:{A,sessionId:()=>session,load:()=>({st:G.runSaved?{'1-1':3}:{}}),SAVE_WAIT_MESSAGE:'retry'},HG:{HG:growth,onGrowth:fn=>growthCallback=fn,checkpoint:()=>Promise.resolve(true)},Snd:{setMusic(){},play:(n,o)=>sounds.push(n)},STAGE:{id:hard?'hard-1-1':'1-1',hard,no:'1-1',n:'Forest',waves:10},ST:{starsFor:()=>starCount,STAR_D:['clear','hp50','hp100'],nextStage:s=>s.st['1-1']?(hard?'hard-1-2':'1-2'):null,STAGES:{'1-2':{n:'Next'}},HARD_STAGES:{'hard-1-2':{n:'Hard next'}},stageNo:n=>n},E:{STAT:{}},P:{},targetLabel:()=>'',directGearEnabled:()=>true,runDirectNormal:()=>{calls++;return new Promise((a,b)=>{resolve=a;reject=b;});},sessionStorage:{setItem:(...args)=>saved.push(args)},go:()=>navigation++,setTimeout:(fn,ms)=>timers.push({fn,ms}),alert(){}});
  vm.runInContext(source,ctx);ctx.initResult({departStage:id=>depart.push(id)});
- return {ctx,G,A,$,growth,notify:()=>growthCallback(),state:()=>({builds,stats,calls,sounds,saved,depart,navigation}),settle:()=>resolve({ok:true,souls:99,loot:[{chest:true}],unlocked:['1-2']}),fail:()=>reject(Error('network unavailable')),switchAccount(){A.user={id:'b'};session++;}};
+ return {ctx,G,A,$,growth,timers,flushTimers(){for(const t of timers.splice(0))t.fn();},notify:()=>growthCallback(),state:()=>({builds,stats,calls,sounds,saved,depart,navigation}),settle:()=>resolve({ok:true,souls:99,loot:[{chest:true}],unlocked:['1-2']}),fail:()=>reject(Error('network unavailable')),switchAccount(){A.user={id:'b'};session++;}};
 }
 const f=fixture(),job=f.ctx.directReturn('clear'),card=f.$('stageClear').innerHTML,button=f.$('scTown');
 assert.equal(f.state().builds,1);assert.equal(f.state().stats,1);assert.equal((card.match(/<i class="on"/g)||[]).length,3);assert.ok(button.disabled);assert.ok(f.$('scRetry').disabled);assert.ok(f.$('scNext').hidden);assert.doesNotMatch(card,/영혼석 <b>\+/);
@@ -27,8 +27,24 @@ console.log('PASS confirmed retreat retains existing automatic town navigation')
 const h=fixture(true);h.G.onStageClear();const hardCard=h.$('stageClear').innerHTML,hardButton=h.$('scTown');assert.equal((hardCard.match(/<i class="on"/g)||[]).length,3);assert.match(hardCard,/scConds/);assert.match(hardCard,/보상 저장 중/);assert.equal(h.state().builds,1);
 h.growth.rewardXP['run-a']=400;h.growth.hardRewards['run-a']={souls:320,chests:4,steel:0,crystal:0};h.notify();h.notify();h.G.onStageClear();assert.equal(h.state().builds,1);assert.equal(h.state().stats,1);assert.deepEqual(h.state().sounds,['victory']);assert.equal(h.$('scTown'),hardButton);assert.match(h.$('runXP').textContent,/400\n영혼석 \+320 · 상자 4개/);h.$('scNext').onclick();assert.deepEqual(h.state().depart,['hard-1-2']);
 console.log('PASS hard uses the same three-star/conditions/card and updates only confirmed reward without replay');
-const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');assert.match(css,/prefers-reduced-motion:reduce/);assert.doesNotMatch(css,/animation:starIn/);assert.doesNotMatch(source,/animation-delay/);
-console.log('PASS static non-bouncing stars and reduced-motion fallback');
+const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');assert.match(css,/prefers-reduced-motion:reduce/);assert.match(css,/animation:starIn \.5s cubic-bezier/);assert.match(source,/animation-delay/);
+console.log('PASS sequential star bounce restored with reduced-motion fallback');
+for(const sample of [f,e,h]){assert.deepEqual(sample.timers.map(x=>x.ms),[400,750,1100]);sample.flushTimers();assert.deepEqual(sample.state().sounds,['victory','coin','coin','coin']);}
+a.flushTimers();assert.deepEqual(a.state().sounds,['victory']);
+for(const hard of [false,true])for(const count of [1,2,3]){const x=fixture(hard,count);if(hard)x.G.onStageClear();else void x.ctx.directReturn('clear');assert.equal(x.timers.length,count);x.flushTimers();assert.equal(x.state().sounds.filter(n=>n==='coin').length,count);}
+for(const change of ['hidden','newCard','newRun','leave']){const x=fixture(true);x.G.onStageClear();if(change==='hidden')x.$('stageClear').classList.contains=()=>true;if(change==='newCard')x.$('stageClear').firstElementChild={};if(change==='newRun')x.G.xpRun={token:'next'};if(change==='leave')x.G.phase='town';x.flushTimers();assert.deepEqual(x.state().sounds,['victory']);}
+console.log('PASS star sounds once per earned star; save retry never requeues; stale account/card/run/hidden/navigation cancels');
+
+// Run the real audio gate with a silent fake sink: force must never bypass mute.
+const audio=fs.readFileSync(new URL('../src/audio/audio.js',import.meta.url),'utf8');
+const playSource=audio.slice(audio.indexOf('  play(name, o = {}) {'),audio.indexOf('  // ----',audio.indexOf('  play(name, o = {}) {'))).trim().replace(/,$/,'');
+const play=vm.runInNewContext('({'+playSource+'}).play',{GAP:{coin:.06},SFX_FILES:{coin:['handleCoins2']},VOL:{coin:.45},Math});
+for(const mode of ['active','muted','background','locked']){
+ let starts=0;const sink={playbackRate:{value:0},connect(){},start(){starts++}};
+ const x={ctx:mode==='locked'?null:{currentTime:1,createBufferSource:()=>sink},sfxOff:()=>mode==='muted'||mode==='background',voices:0,last:{coin:1},buf:{handleCoins2:{}},out(){return {}}};
+ play.call(x,'coin',{force:true,rate:1.2});assert.equal(starts,mode==='active'?1:0);
+}
+console.log('PASS real forced coin audio respects mute/background mute and audio lock (silent sink; no listening claim)');
 
 // Exercise the actual town handoff, including the chest completion callback.
 const flow=fs.readFileSync(new URL('../src/ui/flow.js',import.meta.url),'utf8');
