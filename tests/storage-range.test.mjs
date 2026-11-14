@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import * as THREE from '../lib/three.module.js';
 import * as E from '../src/account/equip.js';
 import * as SG from '../src/account/storage.js';
+import { FT } from '../src/data/fighter.js';
+import { ADV } from '../src/data/advance.js';
 import { STORAGE_SORTS, sortStorageItems } from '../src/ui/storage-sort.js';
 const source = fs.readFileSync(new URL('../src/render/hero-range.js', import.meta.url), 'utf8');
-const {createHeroRange} = new Function('THREE', source.replace(/^import.*;\r?\n/, '').replace('export function', 'function') + '\nreturn {createHeroRange};')(THREE);
+const {createHeroRange} = new Function('THREE', 'FT', source.replace(/^import.*;\r?\n/gm, '').replace('export function', 'function') + '\nreturn {createHeroRange};')(THREE, FT);
 let seed=17;const rng=()=>((seed=seed*16807%2147483647)/2147483647);
 const items=[E.makeItem('acc','mage',4,rng),E.makeItem('weapon','mage',0,rng),E.makeItem('armor','mage',2,rng),E.makeItem('weapon','archer',3,rng),E.makeItem('weapon','mage',4,rng),E.makeItem('weapon','mage',4,rng)];
 items[4].e=2;delete items[5].e;
@@ -29,6 +31,11 @@ try{
  for(const radius of [1.8,2.7,6,8,9.6,12,6*1.45*1.25*1.15]){
   view.update(hero,radius,'wave');assert.equal(ring.visible,true);assert.equal(ring.scale.x,radius);assert.equal(ring.scale.y,radius);assert.equal(ring.position.x,3);assert.equal(ring.position.z,-8);assert.equal(ring.position.y,.09);
  }
+ for(const adv of [null, ADV.fighter.tiger, ADV.fighter.dragon]) for(const radius of [2.6,2.756,3.7,9.9,10,12]) {
+  view.update({...hero,cls:'fighter',adv},radius,'wave');assert.equal(ring.scale.x,Math.max(radius,FT.jpRange));
+ }
+ // Switching back removes the fighter-only boundary; invalid/dead states still hide.
+ view.update({...hero,cls:'mage'},9,'wave');assert.equal(ring.scale.x,9);
  for(const phase of ['loading','select','town','menu','over']){view.update(hero,6,phase);assert.equal(ring.visible,false);}
  for(const [h,r,n] of [[null,6,false],[{...hero,dead:1},6,false],[{...hero,hp:0},6,false],[hero,NaN,false],[hero,Infinity,false],[hero,0,false],[hero,6,true]]){view.update(h,r,'build',n);assert.equal(ring.visible,false);}
  const other={...hero,g:{position:{x:-4,y:0,z:2}}};view.update(other,2.7,'build');assert.equal(ring.position.x,-4);assert.equal(ring.scale.x,2.7);
