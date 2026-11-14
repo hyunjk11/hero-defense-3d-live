@@ -106,7 +106,7 @@ test('deployment source contains exact dependency closure and preserves client/D
     assert.deepEqual(staged,source,rel);assert.equal(crypto.createHash('sha256').update(source).digest('hex'),expected);
   }
   assert.equal(GAME_API_OPTIONS.region,'asia-northeast3');assert.equal(GAME_API_OPTIONS.minInstances,0);assert.equal(GAME_API_OPTIONS.maxInstances,1);assert.equal(GAME_API_OPTIONS.cors,false);
-  const cloud=fs.readFileSync(new URL('../src/config/cloud.js',import.meta.url),'utf8');assert.match(cloud,/storageMode: 'functions'/);assert.match(cloud,/functionsActivation: 'pending-deployment'/);assert(!cloud.includes('chatgpt.site'));
+  const cloud=fs.readFileSync(new URL('../src/config/cloud.js',import.meta.url),'utf8');assert.match(cloud,/storageMode: 'functions'/);assert.match(cloud,/functionsActivation: 'deployment-verified'/);assert(!cloud.includes('chatgpt.site'));
   const cfg=JSON.parse(fs.readFileSync(new URL('../firebase.json',import.meta.url)));assert.deepEqual(Object.keys(cfg),['functions']);assert.equal(cfg.functions[0].runtime,'nodejs22');
   assert.match(fs.readFileSync(new URL('../server/firestore.rules',import.meta.url),'utf8'),/allow read, write: if false/);
 });

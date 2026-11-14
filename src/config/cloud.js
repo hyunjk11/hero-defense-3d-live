@@ -9,7 +9,7 @@ export const CLOUD = {
   },
   // Release preparation: no Sites or direct-Firestore fallback.
   storageMode: 'functions',
-  functionsActivation: 'pending-deployment',
+  functionsActivation: 'deployment-verified',
   apiUrl: 'https://asia-northeast3-hero-defense-3d-independent.cloudfunctions.net/gameApi',
   tables: { profiles: 'hd3d_profiles', progress: 'hd3d_progress' },
   storagePrefix: 'hd3d_live',

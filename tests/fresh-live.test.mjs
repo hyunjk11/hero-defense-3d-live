@@ -11,7 +11,7 @@ const indexes=JSON.parse(fs.readFileSync(new URL('../direct/firestore.indexes.js
 const plan=freshRelease(rules,indexes);
 assert.equal(plan.productionReady,false);assert.equal(plan.oldDataReads,0);assert.equal(plan.oldDataWrites,0);
 assert.equal(plan.repositoryName,'hero-defense-3d-live');assert.equal(CLOUD.storagePrefix,'hd3d_live');
-assert.equal(CLOUD.authStorageKey,'hd3dLiveFirebaseAuth');assert.equal(CLOUD.storageMode,'functions');assert.equal(CLOUD.functionsActivation,'pending-deployment');assert.equal(CLOUD.apiUrl,'https://asia-northeast3-hero-defense-3d-independent.cloudfunctions.net/gameApi');
+assert.equal(CLOUD.authStorageKey,'hd3dLiveFirebaseAuth');assert.equal(CLOUD.storageMode,'functions');assert.equal(CLOUD.functionsActivation,'deployment-verified');assert.equal(CLOUD.apiUrl,'https://asia-northeast3-hero-defense-3d-independent.cloudfunctions.net/gameApi');
 assert(plan.initialWrites.length>100);assert(plan.initialWrites.every(w=>w.currentDocument.exists===false&&w.update.name.startsWith(FRESH_ROOT+'/hd3d_live_')));
 assert.equal(new Set(plan.initialWrites.map(w=>w.update.name)).size,plan.initialWrites.length);
 assert.deepEqual(plan.initialWrites.at(-1).update.fields,encodeFields({value:0}));

@@ -5,7 +5,7 @@ import {createFirebaseClient} from '../src/account/firebase-client.js';
 import {resolveFunctionsConfig} from '../src/account/functions-config.js';
 import {initialOwnerPlan,LIVE_ROOT,liveHandler} from '../server/live.mjs';
 test('pending production and wrong endpoints stop before Auth/network; demo never targets live',async()=>{
- let calls=0;await assert.rejects(createFirebaseClient(CLOUD,{sdk:{getApps(){calls++;}},fetch(){calls++;}}),e=>e.code==='FUNCTIONS_ACTIVATION_REQUIRED');assert.equal(calls,0);
+ let calls=0;await assert.rejects(createFirebaseClient({...CLOUD,functionsActivation:'pending-deployment'},{sdk:{getApps(){calls++;}},fetch(){calls++;}}),e=>e.code==='FUNCTIONS_ACTIVATION_REQUIRED');assert.equal(calls,0);
  const c={...CLOUD,functionsActivation:'deployment-verified',apiUrl:'https://asia-northeast3-hero-defense-3d-independent.cloudfunctions.net/gameApi'};assert.equal(resolveFunctionsConfig(c).emulated,false);
  for(const change of [{apiUrl:'https://attacker.invalid'},{apiUrl:'https://legacy.example.invalid/api/game'},{authEmulator:'http://127.0.0.1:9199'},{firebase:{...c.firebase,projectId:'other'}},{firestoreEndpoint:'https://firestore.googleapis.com'}])assert.throws(()=>resolveFunctionsConfig({...c,...change}),e=>e.code==='FUNCTIONS_CONFIG_INVALID');
  const demo={...c,storageMode:'functions-prototype',firebase:{...c.firebase,projectId:'demo-hd3d-direct'},apiUrl:'http://127.0.0.1:10742/api/game',authEmulator:'http://127.0.0.1:9199'};assert.equal(resolveFunctionsConfig(demo).emulated,true);
