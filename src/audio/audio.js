@@ -1,3 +1,4 @@
+import { skillVoice, SKILL_VOICES } from './skill-voice.js';
 import { catVoice } from './cat-voice.js';
 // 사운드: Kenney CC0 효과음 + OpenGameArt CC0 BGM, 일부(뿔나팔/보스 포효/번개)는 WebAudio 합성
 const SFX_FILES = {
@@ -70,6 +71,14 @@ export const Snd = {
     s.connect(this.out(o.pos, (VOL[name] || .5) * (o.vol ?? 1))); this.voices++; s.onended = () => this.voices--; s.start(now + (o.delay || 0));
   },
   // ---- 합성음 ----
+  skill(kind, pos) {
+    if (!SKILL_VOICES[kind] || !this.ctx || this.ctx.state !== 'running' || this.sfxOff() || !(this.cfg.sfx > 0) || this.voices >= 24) return;
+    const c=this.ctx,now=c.currentTime,key='skill:'+kind;
+    if(now-(this.last[key]??-Infinity)<.09)return;
+    this.last[key]=now;this.voices++;
+    const out=c.createGain();out.gain.value=1/(1+(pos?Math.hypot(pos.x-this.listener.x,pos.z-this.listener.z)/22:0)**2);out.connect(this.sfxG);
+    return skillVoice(c,out,kind,()=>{out.disconnect();this.voices--;});
+  },
   meow(pos) {
     // Signature cast cue gets one reserved voice, even during a crowded battle.
     // Never unlock from AUTO, override mute/volume, or queue sounds for later focus.

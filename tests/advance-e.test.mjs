@@ -46,9 +46,9 @@ test('range/target caps, one fan hit per enemy and first-hit sniper',()=>{
 
 test('each effect cancels before damage on death, warp, new map, town and removed hero; no retained geometry/material',()=>{
  for(const [h,b] of branches)for(const kind of ['death','warp','map','town','remove']){
-  const f=fixture(h,b);f.target();cast(f);const gs=new Set(),ms=new Set(),count=new Map();f.scene.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});for(const x of [...gs,...ms])x.addEventListener('dispose',()=>count.set(x,(count.get(x)||0)+1));
+  const f=fixture(h,b);f.target();cast(f);const gs=new Set(),ms=new Set(),count=new Map();f.scene.traverse(o=>{if(o.userData.skillCuePool)return;if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});for(const x of [...gs,...ms])x.addEventListener('dispose',()=>count.set(x,(count.get(x)||0)+1));
   if(kind==='death')f.hero.dead=5;if(kind==='warp')f.hero.warpT=1;if(kind==='map')f.G.tiles=[];if(kind==='town')f.G.screen='town';if(kind==='remove'){f.G.heroes=[];f.G.hero=null;}
-  f.tick(1);assert.equal(damage(f),0);assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);assert.equal(f.hero.eShield??null,null);for(const x of [...gs,...ms])assert.equal(count.get(x),1,`${h}/${b}/${kind}`);
+  f.tick(1);assert.equal(damage(f),0);assert.equal(f.cues.active(),0);assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);assert.equal(f.hero.eShield??null,null);for(const x of [...gs,...ms])assert.equal(count.get(x),1,`${h}/${b}/${kind}`);
  }
 });
 

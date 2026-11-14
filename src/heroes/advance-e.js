@@ -1,3 +1,4 @@
+import { createSkillCues } from '../render/skill-cues.js';
 import * as THREE from 'three';
 import { G } from '../core/state.js';
 import { scene } from '../render/scene.js';
@@ -14,6 +15,7 @@ import { catFlight, stepCatFlight } from '../data/cat-flight.js';
 import { createCatSpirit, animateCatSpirit } from '../render/cat-spirit.js';
 
 // One owned group and callback per cast. No equipment proc calls or independent timers.
+const skillCues=createSkillCues(scene);
 const COLORS={wind:0x85ffd5,hawk:0xffdf67,flame:0xff6a22,frost:0x90eaff,paladin:0xffe8a1,berserk:0xff4260,duel:0xff83be,thorn:0xf73179,tiger:0xffac66,dragon:0x78e8ff};
 const live=e=>!e.dead&&e.dying===undefined;
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -29,11 +31,14 @@ export function castAdvanceE(s,target,FX){
  play(h.ch,h.cls==='mage'?'Spellcast_Long':h.cls==='warrior'?'2H_Melee_Attack_Chop':h.cls==='gunner'?'ShootStand':h.cls==='fighter'?'Attack1':'2H_Ranged_Shoot',{once:true,force:true,speed:1.3});
  banner(s.n+'!',txt,850);Snd.play(h.cls==='gunner'?'draw':h.cls==='warrior'?'stomp':'magic',{pos:origin,force:true});
  const root=new THREE.Group();root.name='advance-e:'+s.key;scene.add(root);
- const terrain=G.tiles,bolts=[],sharedHits=new Set(),aim=target.clone();let time=0,fired=0,ended=false,shield=null;
- const hit=(e,mul=1,source=h.g.position)=>{if(!live(e))return;G.legendDmg=(G.legendDmg||0)+damage*mul;hurt(e,damage*mul,txt,true,{x:source.x,z:source.z,kind:s.ground?'melee':'ranged'});};
+ const terrain=G.tiles,bolts=[],sharedHits=new Set(),aim=target.clone();let time=0,fired=0,ended=false,shield=null,hitCues=0;
+ const cue=(kind,p,size=1,duration=.28,a=angle,length=0)=>skillCues.show(root,kind,{x:p.x,y:groundY(p.x,p.z)+.22,z:p.z},color,size,duration,a,length);
+ if(s.kind==='line'||s.kind==='fan')for(const k of s.kind==='fan'?[-1,0,1]:[0])cue('aim',origin,1,s.cast,angle+k*(s.spread||0)*radius,reach);
+ const hit=(e,mul=1,source=h.g.position)=>{if(!live(e))return;G.legendDmg=(G.legendDmg||0)+damage*mul;hurt(e,damage*mul,txt,true,{x:source.x,z:source.z,kind:s.ground?'melee':'ranged'});if(s.kind!=='paw'&&hitCues++<16)cue('impact',e.g.position,.8);};
  const eligible=()=>G.enemies.filter(e=>live(e)&&(!s.ground||!e.E.fly));
  let cat=null,flight=null,catFade=0,stopVoice=null;
- const close=()=>{stopVoice?.();stopVoice=null;cat?.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(root);disposeOwned(root);if(h.eShield===shield)h.eShield=null;};
+ const voices=[];
+ const close=()=>{skillCues.clear(root);for(const stop of voices)stop();stopVoice?.();stopVoice=null;cat?.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(root);disposeOwned(root);if(h.eShield===shield)h.eShield=null;};
  const shoot=(a,hits=new Set(),limit=1)=>{const m=bolt(color),d=new THREE.Vector3(Math.sin(a),0,Math.cos(a));m.position.copy(h.g.position).setY(groundY(h.g.position.x,h.g.position.z)+1.3);m.rotation.y=a;m.scale.setScalar(radius);root.add(m);bolts.push({m,d,hits,left:limit,dist:0});};
  let field=null,blades=null,beam=null,shell=null;
  if(s.kind==='field'){
@@ -51,6 +56,12 @@ export function castAdvanceE(s,target,FX){
  }else{const m=ring(root,origin,1.6,color);m.userData.charge=true;}
  const fieldHit=()=>{for(const e of eligible())if(distance(e.g.position,aim)<=s.area*radius){hit(e);if(!live(e))continue;if(s.slow){e.slowAmt=Math.max(e.slowT>0?e.slowAmt||0:0,e.E.boss?s.bossSlow:s.slow);e.slowT=Math.max(e.slowT||0,.65);}}};
  const fire=()=>{
+  if(s.kind!=='paw'){
+   // Field accents on onset/final pulse; other skills accent their real shots/strikes.
+   if(s.kind!=='field'||fired===0||fired===s.ticks-1){const stop=Snd.skill?.(s.b,s.kind==='field'?aim:h.g.position);if(stop)voices.push(stop);}
+   if(s.kind==='field'||s.kind==='shield')cue('pulse',s.kind==='field'?aim:h.g.position,s.area*radius,.32);
+   else cue('pulse',h.g.position,s.kind==='cone'?1.5:.7,.2);
+  }
   if(s.kind==='fan')for(const k of [-1,0,1])shoot(angle+k*s.spread*radius,sharedHits,99);
   else if(s.kind==='line')shoot(angle);
   else if(s.kind==='paw'){
@@ -71,10 +82,15 @@ export function castAdvanceE(s,target,FX){
  FX.push(dt=>{
   const owned=(G.heroes?.includes(h)||G.hero===h),inBattle=['build','wave'].includes(G.phase)&&G.screen!=='town';
   if(!owned||!h.g.parent||h.dead>0||h.warpT>0||G.tiles!==terrain||!inBattle){close();return false;}
-  time+=dt;
-  if(field){field.rotation.y+=dt*(s.b==='frost'?1.1:.25);for(const m of field.children)m.rotation.z+=dt*(s.b==='frost'?2:.1);}
+  time+=dt;skillCues.update(root,dt);
+  if(field){field.visible=time>=s.cast;field.rotation.y+=dt*(s.b==='frost'?1.1:.25);const fade=Math.min(1,Math.max(0,(s.cast+s.duration-time)/.3));
+   for(let i=0;i<field.children.length;i++){const m=field.children[i];m.rotation.z+=dt*(s.b==='frost'?2:.1);m.material.opacity=(s.b==='frost'?.52:.48)*fade;
+    if(s.b==='frost')m.position.y=.6+((i*.47+time*2.5)%2.8);else m.scale.y=.8+.22*Math.sin(time*12+i*2.4);}}
+
   if(shell){shell.position.copy(h.g.position);shell.position.y+=1.4;shell.rotation.y=time*.35;shell.material.opacity=shield?.value?Math.max(.07,.2*shield.value/shield.initial):.12;}
-  if(blades){blades.position.copy(h.g.position);blades.rotation.y=angle;blades.visible=time>=s.cast;blades.scale.setScalar(.85+.15*Math.sin(time*22));}
+  if(blades){blades.position.copy(h.g.position);blades.rotation.y=angle;const strike=Math.max(0,Math.floor((time-s.cast)/s.interval)),age=time-s.cast-strike*s.interval;
+   blades.visible=time>=s.cast&&strike<s.ticks&&age<.14;blades.rotation.y=angle+(strike%2?1:-1)*(.25-age*3);blades.scale.setScalar(.82+Math.min(1,age/.14)*.18);
+   for(const m of blades.children)m.material.opacity=.75*Math.max(0,1-age/.16);}
   if(beam)beam.material.opacity=Math.max(0,beam.material.opacity-dt*8);
   const count=s.kind==='paw'?1:(s.ticks||1),interval=s.kind==='field'?s.duration/s.ticks:(s.interval||1);
   while(fired<count&&time>=s.cast+fired*interval){fire();fired++;}
