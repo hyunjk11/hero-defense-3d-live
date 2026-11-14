@@ -967,3 +967,18 @@ body:not(.dungeonRun) #dgAuto,body.dungeonRun.dgAllAuto #autoSkillBtn{display:no
  #hud #build{max-height:calc(100dvh - 306px - var(--boss-space))}
  #statOv{top:calc(80px + var(--boss-space));max-height:calc(100dvh - 254px - var(--boss-space))}
 }
+
+/* Combat-owned effects: compact, scrollable, no modal or input interception. */
+#bossDebuffs{max-height:66px;overflow-y:auto;overscroll-behavior:contain;pointer-events:auto;scrollbar-width:thin}
+.bossDebuff.buff{color:#b9f2cd;border-color:#509776;background:#10271fed}
+#bossDebuffs:focus-visible,#heroEffects:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+#heroEffects{position:absolute;bottom:calc(100% + 6px);left:0;right:0;display:flex;gap:4px;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;pointer-events:auto;white-space:nowrap;padding:2px;box-sizing:border-box;border-radius:7px;background:#100e1bd9}
+#heroEffects[hidden]{display:none}
+.heroEffect{flex:none;font-size:11px;line-height:20px;font-weight:700;font-variant-numeric:tabular-nums;padding:0 6px;border-radius:5px;border:1px solid #509776;background:#10271ff2;color:#c1f6d5}
+.heroEffect.debuff{border-color:#bd7b87;background:#321924f2;color:#ffd1d8}
+@media(max-width:600px){
+ #heroEffects{position:relative;inset:auto;grid-column:1/-1;grid-row:1;min-width:0;max-height:34px}
+ #hud:has(#heroEffects:not([hidden])) #cam{bottom:calc(154px + env(safe-area-inset-bottom))}
+ #hud:has(#heroEffects:not([hidden])) #build{max-height:calc(100dvh - 338px - var(--boss-space))}
+ #bossDebuffs{max-height:60px}
+}
