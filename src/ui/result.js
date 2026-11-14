@@ -25,16 +25,31 @@ G.onStageClear = () => {
   sessionStorage.setItem('hd3d_live_lastRun', JSON.stringify({ reason: 'clear', wave, kills, got: got + info.souls, best: false, loot, stage: STAGE.id, stars, first: info.first, unlocked: info.unlocked }));
   renderNormalClear({wave,kills,got,loot,info,stars});
 };
-function renderNormalClear({wave,kills,got,loot,info,stars}){
-  Snd.setMusic('none'); Snd.play('victory', { force: true, exact: true }); Snd.play('levelUp', { force: true, delay: .4 });
-  const sv = Acc.load(), nx = ST.nextStage(sv, STAGE.id);
-  const el = $('stageClear'); el.innerHTML = `<div class="scBox"><div class="scT">스테이지 클리어!</div><div class="scS">${STAGE.no} · ${STAGE.n}</div><div class="scStars">${[0, 1, 2].map(i => `<i class="${i < stars ? 'on' : ''}" style="animation-delay:${.35 + i * .35}s">★</i>`).join('')}</div>
-    <div class="scConds">${ST.STAR_D.map((d, i) => `<div class="${i < stars ? 'got' : ''}">${i < stars ? '★' : '☆'} ${d}</div>`).join('')}</div>
-    <div class="scRw">${G.growthEnabled ? '<span id=runXP>XP 정산 중…</span><br>' : ''}영혼석 <b>+${got + info.souls}</b>${repeatRewardText(G.xpRun,loot[0])}${loot.filter(x => x.chest).length ? ` · 장비 <b>${loot.filter(x => x.chest).length}</b>개` : ''}${lootLines(loot.filter(x => x.src === 'essence'))}${info.unlocked.length ? `<br>🔓 새 스테이지 해금: ${info.unlocked.map(ST.stageNo).join(', ')}` : ''}</div><div class="scBtns"><button class="gbtn" id="scRetry" title="같은 스테이지 다시">🔁 재도전</button>${nx ? `<button class="gbtn" id="scNext" title="${ST.stageNo(nx)} ${ST.STAGES[nx].n}">▶ 다음 스테이지</button>` : ''}<button class="gbtn main" id="scTown">🏠 마을로 귀환</button></div></div>`;
-  el.classList.remove('hidden'); [0, 1, 2].forEach(i => i < stars && setTimeout(() => Snd.play('coin', { force: true, rate: 1 + i * .2 }), 400 + i * 350)); $('scTown').onclick = () => { Snd.play('confirm'); goTown(); };
-  $('scRetry').onclick = () => H.departStage(STAGE.id); if (nx) $('scNext').onclick = () => H.departStage(nx);
-  if (G.endStatsShow) G.endStatsShow('clear'); // 📊 통계 버튼 (ui/endstats.js)
+function normalClearReward({got,loot,info}){
+  return `${G.growthEnabled ? '<span id=runXP>XP 저장 중…</span><br>' : ''}영혼석 <b>+${got + info.souls}</b>${repeatRewardText(G.xpRun,loot[0])}${loot.filter(x => x.chest).length ? ` · 상자 <b>${loot.filter(x => x.chest).length}</b>개` : ''}${lootLines(loot.filter(x => x.src === 'essence'))}${info.unlocked.length ? `<br>🔓 새 스테이지 해금: ${info.unlocked.map(ST.stageNo).join(', ')}` : ''}`;
+}
+function normalClearActions(pending){
+  const save=STAGE.hard&&HG.viewSave?HG.viewSave():Acc.load();
+  const nx=ST.nextStage(save,STAGE.id),town=$('scTown'),retry=$('scRetry'),next=$('scNext');
+  town.disabled=retry.disabled=next.disabled=!!pending;
+  town.textContent='🏡 마을로 귀환';town.onclick=()=>{Snd.play('confirm');goTown();};
+  retry.onclick=()=>H.departStage(STAGE.id);
+  next.hidden=!nx;next.title=nx?`${ST.stageNo(nx)} ${(ST.STAGES[nx]||ST.HARD_STAGES?.[nx])?.n||''}`:'';
+  next.onclick=()=>{if(nx)H.departStage(nx);};
+}
+function renderNormalClear({got=0,loot=[],info={souls:0,unlocked:[]},stars,pending=false,hard=false}){
+  Snd.setMusic('none'); Snd.play('victory', { force: true, exact: true });
+  const el = $('stageClear'); el.innerHTML = `<div class="scBox"><div class="scT">${hard?'하드 클리어!':'스테이지 클리어!'}</div><div class="scS">${STAGE.no} · ${STAGE.n}</div><div class="scStars">${[0, 1, 2].map(i => `<i class="${i < stars ? 'on' : ''}">★</i>`).join('')}</div>
+    <div class="scConds">${ST.STAR_D.map((d, i) => `<div class="${i < stars ? 'got' : ''}">${i < stars ? '✓' : '·'} ${d}</div>`).join('')}</div>
+    <div class="scRw" id="directReward" role="status" aria-live="polite">${hard?'<span id="runXP">보상 저장 중…</span>':pending?'저장 중…':normalClearReward({got,loot,info})}</div><div class="scBtns"><button class="gbtn" id="scRetry" title="같은 스테이지 다시">↻ 재도전</button><button class="gbtn" id="scNext">▶ 다음 스테이지</button><button class="gbtn main" id="scTown">🏡 마을로 귀환</button></div></div>`;
+  el.classList.remove('hidden');normalClearActions(pending);
+  if (G.endStatsShow) G.endStatsShow('clear');
   refreshRunXP();
+}
+function finishNormalClear(result){
+  // Keep the existing card, stars and statistics mounted while the receipt settles.
+  $('directReward').innerHTML=normalClearReward(result);
+  normalClearActions(false);refreshRunXP();
 }
 export function lootLines(L) { const ch = L.filter(x => x.chest), ess = L.reduce((a, x) => a + (x.src === 'essence' ? x.essence : 0), 0);
   return (ch.length ? `<br>획득 보상 상자 <b>${ch.length}</b>개 <small>(🎁 상자 보관함)</small>` : '') + (ess ? `<br>◆ 전직 정수 +${ess}` : ''); }
@@ -51,7 +66,7 @@ export function onRunEnd(reason) {
 }
 // Direct mode confirms an immutable run receipt before leaving this existing
 // result screen. A failed/unknown commit keeps its journal and retries the ID.
-let directReturnJob=null;
+let directReturnJob=null,directClearView=null;
 async function directReturn(reason){
  if(directReturnJob)return directReturnJob;
  if(G.runSaved)return;
@@ -61,8 +76,11 @@ async function directReturn(reason){
  const clear=reason==='clear',stars=clear?ST.starsFor(G.coreHp,G.coreMax):0;
  let button,reward;
  if(clear){
-  $('stageClear').innerHTML=`<div class="scBox"><div class="scT">스테이지 클리어!</div><div class="scS">${stage.no} · ${stage.n}</div><div class="scStars">${'★'.repeat(stars)}</div><div class="scRw" id="directReward">저장 중…</div><div class="scBtns"><button class="gbtn main" id="scTown">마을로 귀환</button></div></div>`;
-  $('stageClear').classList.remove('hidden');button=$('scTown');reward=$('directReward');G.endStatsShow?.('clear');
+  if(!directClearView||directClearView.run!==run||directClearView.session!==session||directClearView.uid!==uid||directClearView.button!==$('scTown')){
+   renderNormalClear({stars,pending:true});
+   directClearView={run,session,uid,button:$('scTown')};
+  }
+  normalClearActions(true);button=$('scTown');reward=$('directReward');
  }else{
   button=$('overTown');reward=$('overReward');$('overTitle').textContent=reason==='retreat'?'전투 종료':'전투 결과';
   $('overTxt').textContent=`${stage?.no||''} · 완료 웨이브 ${G.completedWaves||0} · 처치 ${kills}`;
@@ -78,9 +96,9 @@ async function directReturn(reason){
    G.runSaved=true;G.xpPendingWrite=Promise.resolve(true);
    sessionStorage.setItem('hd3d_live_lastRun',JSON.stringify({reason,wave,kills,got:r.souls,best:!!r.best,loot:r.loot,stage:stage?.id,stars,first:r.first,unlocked:r.unlocked}));
    reward.textContent=`획득 영혼석 +${r.souls}`;
-   if(clear)renderNormalClear({wave,kills,got:r.souls,loot:r.loot,info:{souls:0,first:r.first,unlocked:r.unlocked},stars});if(button){button.disabled=false;button.onclick=goTown;}
+   if(clear)finishNormalClear({got:r.souls,loot:r.loot,info:{souls:0,first:r.first,unlocked:r.unlocked}});else if(button){button.disabled=false;button.onclick=goTown;}
    if(reason==='retreat')goTown();
-  }catch(e){if(current()){G.runSaved=false;reward.textContent=e.message||Acc.SAVE_WAIT_MESSAGE;if(button){button.disabled=false;button.onclick=()=>directReturn(reason);}}}
+  }catch(e){if(current()){G.runSaved=false;reward.textContent=e.message||Acc.SAVE_WAIT_MESSAGE;if(button){button.disabled=false;button.textContent='다시 저장';button.onclick=()=>directReturn(reason);}}}
  })();directReturnJob=job;
  try{await job;}finally{if(directReturnJob===job)directReturnJob=null;}
 }
@@ -96,16 +114,15 @@ function refreshRunXP() {
   // Hard target is the first reward box. Display its acknowledged storage outcome,
   // never the selection alone; partial/failed runs do not apply the target.
   const target=reward&&STAGE?.hard&&G.completedWaves>=STAGE.waves?repeatRewardText(G.xpRun,{chest:reward.chests>0,auto:!!(reward.steel||reward.crystal)}):'';
-  el.textContent=`공용 XP +${xp}${reward?` · 영혼석 +${reward.souls} · 상자 ${reward.chests}개${target}${reward.steel||reward.crystal?" · 보관함 초과분 재료 전환":""}`:''}`;
+  el.textContent=`공용 XP +${xp}${reward?`\n영혼석 +${reward.souls} · 상자 ${reward.chests}개${target}${reward.steel||reward.crystal?"\n보관함 초과분 재료 전환":""}`:''}`;
+  if(STAGE?.hard&&G.completedWaves>=STAGE.waves&&$('scNext'))normalClearActions(false);
 }
 HG.onGrowth(refreshRunXP);
 
 function hardClear(){
   if(G.runSaved)return;G.runSaved=true;G.phase='over';const stars=ST.starsFor(G.coreHp,G.coreMax);
   G.xpPendingWrite=HG.checkpoint(G.xpRun,G.completedWaves||0,true,true,stars,sumKills());
-  Snd.setMusic('none');Snd.play('victory',{force:true,exact:true});
-  $('stageClear').innerHTML=`<div class="scBox"><div class="scT">하드 클리어!</div><div class="scS">${STAGE.no} · ${STAGE.n}</div><div class="scStars">${'★'.repeat(stars)}</div><div class="scRw"><span id="runXP">보상 저장 중…</span></div><div class="scBtns"><button class="gbtn" id="scRetry">재도전</button><button class="gbtn main" id="scTown">마을로 귀환</button></div></div>`;
-  $('stageClear').classList.remove('hidden');$('scTown').onclick=goTown;$('scRetry').onclick=()=>H.departStage(STAGE.id);G.endStatsShow?.('clear');
+  renderNormalClear({stars,hard:true});
 }
 function hardEnd(reason){
   if(G.runSaved)return;G.runSaved=true;G.xpPendingWrite=HG.checkpoint(G.xpRun,G.completedWaves||0,false,true,1,sumKills());
