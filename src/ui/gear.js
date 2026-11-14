@@ -23,7 +23,7 @@ import { iconKey, weaponIcon, icon, setOf, GCi, clsN, GC, eqOf, sorted, tile, ls
 export { iconKey, weaponIcon, icon, lskHtml, card, bonusHtml, heroDots } from './itemview.js'; // 기존 import 경로 호환
 import { reveal, revealing, chestCount, openChestUI, lastChestBatch, initChest } from './chest.js';
 export { reveal, revealing, chestCount, openChestUI, lastChestBatch } from './chest.js'; // 기존 import 경로 호환
-let ui = { inv: false, smith: false, invSel: null, invF: 'all', invTab: 'bag', cxTab: 1, smTab: 'enh', smSel: null, dis: new Set(), crSlot: 'weapon', crSet: 0, busy: false, rrSel: null, rrCand: null, xchMsg: '', stoF: { slot: 'all', grade: 'all' }, stoSort: 'grade', stoSel: null, stoMsg: '' };
+let ui = { inv: false, smith: false, invSel: null, invF: 'all', invTab: 'bag', cxTab: 1, smTab: 'enh', smSel: null, dis: new Set(), crSlot: 'weapon', crSet: 0, busy: false, rrSel: null, rrCand: null, xchMsg: '', stoF: { slot: 'all', grade: 'all' }, stoSort: 'group', stoSel: null, stoMsg: '' };
 let hooks = { onChange: () => {}, cheer: () => {} };
 export function initGear(h) { hooks = { ...hooks, ...h }; bind(); }
 const S = () => Acc.load(), hero = () => S().hero;

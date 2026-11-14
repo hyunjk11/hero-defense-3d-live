@@ -7,10 +7,11 @@ import {directGearEnabled,runDirectGear} from '../account/direct-gear-client.js'
 import * as Acc from '../account/account.js';
 import * as E from '../account/equip.js';
 import * as SG from '../account/storage.js';
+import { STORAGE_SORTS, sortStorageItems } from './storage-sort.js';
 import { card, tile } from './itemview.js';
 const GN = g => (g === 'all' ? '모든 등급' : E.GRADES[g].n);
 export function renderStorage(s, X) { const ui = X.ui, f = ui.stoF, cap = SG.storCap(s), used = SG.storUsed(s), nx = SG.nextCost(s), x = SG.storX(s);
-  const bag = SG.sortItems(SG.storable(s).filter(it => SG.matches(it, f)), ui.stoSort), st = SG.sortItems((s.stor || []).filter(it => SG.matches(it, f)), ui.stoSort), eqN = s.inv.length - SG.storable(s).length;
+  const bag = sortStorageItems(SG.storable(s).filter(it => SG.matches(it, f)), ui.stoSort), st = sortStorageItems((s.stor || []).filter(it => SG.matches(it, f)), ui.stoSort), eqN = s.inv.length - SG.storable(s).length;
   const all = [...s.inv, ...(s.stor || [])], sel = ui.stoSel && all.find(it => it.id === ui.stoSel), selIn = sel ? ((s.stor || []).includes(sel) ? 'stor' : 'bag') : null, selEq = sel && E.isEquipped(s, sel.id);
   $('invHead').innerHTML = `📦 창고 <b class="${used >= cap ? 'full' : ''}">${used}/${cap}</b> · <span style="color:#ffe08a">계정 공용 보관함</span>`;
   const pct = Math.min(100, Math.round(used / cap * 100));
@@ -18,7 +19,7 @@ export function renderStorage(s, X) { const ui = X.ui, f = ui.stoF, cap = SG.sto
     ${nx ? `<div class="stoExp"><span>칸 확장 +${SG.STOR.step} <small>(${x}/${SG.STOR.steps}단계 · 최대 ${SG.storMax()}칸)</small></span><button class="gbtn sm stoExpGo" data-pay="steel" ${s.mat.steel >= nx.steel ? '' : 'disabled'}><i class="mi steel"></i>강철 ${nx.steel}</button><button class="gbtn sm stoExpGo" data-pay="souls" ${s.souls >= nx.souls ? '' : 'disabled'}><i class="mi souls"></i>영혼석 ${nx.souls}</button></div>` : `<div class="stoExp"><span class="maxT">✦ 최대 확장 ${SG.storMax()}칸 ✦</span></div>`}</div>
     <div class="stoFilt"><div class="ftabs" id="stoSlot">${[['all', '모든 부위'], ['weapon', '무기'], ['armor', '방어구'], ['acc', '장신구']].map(([k, n]) => `<button class="ftab ${f.slot === k ? 'on' : ''}" data-v="${k}">${n}</button>`).join('')}</div>
       <div class="ftabs" id="stoGrade">${SG.GRADE_F.map(g => `<button class="ftab ${String(f.grade) === String(g) ? 'on' : ''}" data-v="${g}" ${typeof g === 'number' ? `style="color:${E.GRADES[g].c}"` : ''}>${GN(g)}</button>`).join('')}</div>
-      <select id="stoSort" class="stoSort" title="정렬">${Object.entries(SG.SORTS).map(([k, n]) => `<option value="${k}" ${ui.stoSort === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="stoOrder"><label for="stoSort">정렬</label><select id="stoSort" class="stoSort">${Object.entries(STORAGE_SORTS).map(([k, n]) => `<option value="${k}" ${ui.stoSort === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
     <div class="stoCols"><div class="stoCol"><div class="stoH"><span>🎒 가방 <b class="${s.inv.length >= E.CAP ? 'full' : ''}">${s.inv.length}/${E.CAP}</b>${eqN ? ` <small>(장착 ${eqN}개 제외)</small>` : ''}</span><button class="gbtn sm" id="stoAllIn" ${bag.length && used < cap ? '' : 'disabled'}>일괄 보관 ▶</button></div>
         <div class="smGrid stoGrid" id="stoBag">${bag.map(it => tile(it, s, it.id === ui.stoSel ? 'sel' : '')).join('') || '<div class="emptyMsg">보관할 장비가 없어요</div>'}</div></div>
       <div class="stoCol"><div class="stoH"><span>📦 창고 <b class="${used >= cap ? 'full' : ''}">${used}/${cap}</b></span><button class="gbtn sm" id="stoAllOut" ${st.length ? '' : 'disabled'}>◀ 일괄 꺼내기</button></div>
@@ -40,7 +41,7 @@ export function renderStorage(s, X) { const ui = X.ui, f = ui.stoF, cap = SG.sto
     b.onpointerenter = e => { if (e.pointerType !== 'mouse') return; const it = [...Acc.load().inv, ...(Acc.load().stor || [])].find(x => x.id === id); if (it) X.showTip(b, card(it)); }; b.onpointerleave = e => { if (e.pointerType === 'mouse') X.hideTip(); }; });
   B.querySelectorAll('#stoSlot .ftab').forEach(b => b.onclick = () => { f.slot = b.dataset.v; Snd.play('ui'); rer(); });
   B.querySelectorAll('#stoGrade .ftab').forEach(b => b.onclick = () => { const v = b.dataset.v; f.grade = v === 'all' ? v : +v; Snd.play('ui'); rer(); });
-  $('stoSort').onchange = e => { ui.stoSort = e.target.value; Snd.play('ui'); rer(); };
+  $('stoSort').onchange = e => { ui.stoSort = e.target.value; X.hideTip(); Snd.play('ui'); rer(); $('stoSort').focus(); };
   if ($('stoMove')) $('stoMove').onclick = () => move([sel.id]);
   $('stoAllIn').onclick = () => { if (!bag.length) return; move(bag.map(it => it.id)); };
   $('stoAllOut').onclick = () => { if (!st.length) return; move(st.map(it => it.id)); };

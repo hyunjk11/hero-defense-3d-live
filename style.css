@@ -934,3 +934,12 @@ body:not(.dungeonRun) #dgAuto,body.dungeonRun.dgAllAuto #autoSkillBtn{display:no
 #runXP{white-space:pre-line}
 .scBtns button[hidden]{display:none}
 @media(prefers-reduced-motion:reduce){.scBox,.scStars i{animation:none;transform:none;opacity:1}}
+
+/* Storage order is a view preference, separate from slot/grade filters. */
+.stoOrder{display:flex;align-items:center;gap:8px;margin-left:auto;white-space:nowrap}
+.stoOrder label{color:var(--txt);font-weight:700;font-size:var(--fs)}
+.stoOrder .stoSort{min-height:36px;color:var(--txt);padding:6px 10px;max-width:100%}
+.stoOrder .stoSort:focus-visible{outline:2px solid #ffe08a;outline-offset:2px}
+@media(max-width:600px){.stoOrder{margin-left:0;width:100%;justify-content:flex-end}.stoOrder .stoSort{min-height:40px}.stoFilt{gap:8px}}
+
+@media(max-width:800px){.stoCols{grid-template-columns:minmax(0,1fr)}.stoGrid{min-height:90px;max-height:240px}.stoH{flex-wrap:wrap}.stoSide{min-width:0}.stoBar{width:min(180px,48vw)}}
