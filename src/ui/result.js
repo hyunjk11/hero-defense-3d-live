@@ -22,7 +22,7 @@ G.onStageClear = () => {
   if(directGearEnabled()){void directReturn('clear');return;}
   if (G.runSaved) return; G.runSaved = true; G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves || 0, true, true); G.phase = 'over'; const wave = G.wave, kills = sumKills(), stars = ST.starsFor(G.coreHp, G.coreMax); let got = 0, loot = [], info = null, best = false;
   Acc.update(d => { const [n, g, l] = P.applyRun(d, { wave, kills, drops: G.runDrops || [], hero: G.hero ? G.hero.cls : undefined, stage: true, ch: STAGE.ch, repeatTarget:G.xpRun?.repeat?G.xpRun.target:null, repeatStage:STAGE.id, repeatWin:true, bossKills: G.runBossKills || [] }); let [n2, inf] = P.applyStage(n, STAGE.id, stars, G.hero ? G.hero.cls : undefined); got = g; loot = [...l, ...inf.loot]; info = inf; return n2; }); Acc.flush();
-  sessionStorage.setItem('hd3d_live_lastRun', JSON.stringify({ reason: 'clear', wave, kills, got: got + info.souls, best: false, loot, stage: STAGE.id, stars, first: info.first, unlocked: info.unlocked }));
+  sessionStorage.setItem('hd3d_live_lastRun', JSON.stringify({ reason: 'clear', resultShown:true, wave, kills, got: got + info.souls, best: false, loot, stage: STAGE.id, stars, first: info.first, unlocked: info.unlocked }));
   renderNormalClear({wave,kills,got,loot,info,stars});
 };
 function normalClearReward({got,loot,info}){
@@ -94,7 +94,7 @@ async function directReturn(reason){
    const r=await runDirectNormal({challenge:!stage,args:{p_token:run.token,p_wave:wave,p_kills:kills,p_stars:stars,p_drops:Acc.A.sb?.serverEconomy?[]:G.runDrops||[],...(!stage||Acc.A.sb?.serverEconomy?{p_bossKills:G.runBossKills||[]}: {})},checkpoint:{run,completed:G.completedWaves||0,win:clear,stars}});
    if(!current())return;if(!r?.ok)throw new Error('보상 저장을 확인하지 못했습니다.');
    G.runSaved=true;G.xpPendingWrite=Promise.resolve(true);
-   sessionStorage.setItem('hd3d_live_lastRun',JSON.stringify({reason,wave,kills,got:r.souls,best:!!r.best,loot:r.loot,stage:stage?.id,stars,first:r.first,unlocked:r.unlocked}));
+   sessionStorage.setItem('hd3d_live_lastRun',JSON.stringify({reason,resultShown:clear,wave,kills,got:r.souls,best:!!r.best,loot:r.loot,stage:stage?.id,stars,first:r.first,unlocked:r.unlocked}));
    reward.textContent=`획득 영혼석 +${r.souls}`;
    if(clear)finishNormalClear({got:r.souls,loot:r.loot,info:{souls:0,first:r.first,unlocked:r.unlocked}});else if(button){button.disabled=false;button.onclick=goTown;}
    if(reason==='retreat')goTown();

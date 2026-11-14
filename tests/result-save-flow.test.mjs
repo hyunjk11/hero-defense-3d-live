@@ -29,3 +29,16 @@ h.growth.rewardXP['run-a']=400;h.growth.hardRewards['run-a']={souls:320,chests:4
 console.log('PASS hard uses the same three-star/conditions/card and updates only confirmed reward without replay');
 const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');assert.match(css,/prefers-reduced-motion:reduce/);assert.doesNotMatch(css,/animation:starIn/);assert.doesNotMatch(source,/animation-delay/);
 console.log('PASS static non-bouncing stars and reduced-motion fallback');
+
+// Exercise the actual town handoff, including the chest completion callback.
+const flow=fs.readFileSync(new URL('../src/ui/flow.js',import.meta.url),'utf8');
+const townSource=flow.slice(flow.indexOf('export function enterTown()'),flow.indexOf('function doOpenShop()')).replace('export ','');
+for(const reason of ['clear','retreat','dead'])for(const shown of [undefined,false,true])for(const chests of [0,3]){
+ let record=JSON.stringify({reason,resultShown:shown,stage:'1-1',stars:3,wave:10,kills:100,got:50,loot:[]}),popups=0,opens=0,done;
+ const n={classList:{add(){}},visible:false},ctx={town:n,G:{},cam:{target:{set(){}}},Acc:{A:{user:null}},HG:{refresh(){}},showNotices:()=>Promise.resolve(),sessionStorage:{getItem:()=>record,removeItem:()=>{record=null}},$:()=>n,ST:{stageNo:x=>x},popup:()=>popups++,lootLines:()=>'',chestCount:()=>chests,setTimeout:fn=>fn(),openChestUI:fn=>{opens++;done=fn}};
+ ctx.TOWN_Z=0;for(const key of ['departing','blessNear','smithNear','portalNear','labNear','shopNear','dgNear'])ctx[key]=false;
+ for(const key of ['hideAll','buildTown','spawnTownHero','show','closeBless','closeShopUI','closeAdmin','closeLab','closeSmith','closeInv','closeStats','closeStageSel','closeDungeon','refreshTown'])ctx[key]=()=>{};
+ vm.createContext(ctx);vm.runInContext(townSource,ctx);ctx.enterTown();assert.equal(record,null);assert.equal(opens,chests?1:0);if(chests){assert.equal(popups,0);done();}assert.equal(popups,reason==='clear'&&shown===true?0:1);
+}
+assert.equal(JSON.parse(f.state().saved[0][1]).resultShown,true);assert.equal(JSON.parse(r.state().saved[0][1]).resultShown,false);
+console.log('PASS 18 town handoffs retain chests and legacy/retreat recovery, skip only the already-shown clear recap');
