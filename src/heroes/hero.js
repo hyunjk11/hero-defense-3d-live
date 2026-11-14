@@ -5,6 +5,7 @@ import { sortieC } from '../data/herostats.js';
 import { focusMods } from '../data/hero-growth.js';
 import { load as equipmentSave } from '../account/account.js';
 import { equippedItems } from '../account/equip.js';
+import { setsForItems } from '../account/set-status.js';
 import { updateChapterGear } from '../render/chapter-gear.js';
 import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
@@ -52,8 +53,10 @@ function spawnHero(cls, L = null, party = false) {
   if (L) { const keep = { perm: G.perm, equip: G.equip, legend: G.legend, adv: G.adv, heroLevel: G.heroLevel, heroTree:G.heroTree, heroGear:G.heroGear }; Object.assign(G, L); try { return spawnHero(cls, null, party); } finally { Object.assign(G, keep); } }
   const q = G.perm && G.equip ? G.equip : null;
   const C = sortieC(cls, { perm: G.perm, adv: G.adv, eq: q, level: G.growthEnabled ? G.heroLevel || 1 : 1 });
-  const ch = makeHeroModel(cls, null, C.adv && C.adv.model); ch.g.position.set(tileX(CORE[0] - 1), 0, tileZ(CORE[1])); ch.g.rotation.y = -Math.PI / 2; scene.add(ch.g); if (G.perm) updateChapterGear(ch, G.heroGear || equippedItems(equipmentSave(), cls));
+  const equippedGear = G.perm ? G.heroGear || equippedItems(equipmentSave(), cls) : [];
+  const ch = makeHeroModel(cls, null, C.adv && C.adv.model); ch.g.position.set(tileX(CORE[0] - 1), 0, tileZ(CORE[1])); ch.g.rotation.y = -Math.PI / 2; scene.add(ch.g); if (G.perm) updateChapterGear(ch, equippedGear);
   const prevCtl = G.hero; hero = G.hero = G.curHero = { adv: C.adv || null, advHits: 0, advStunCd: 0, warpT: 0, warpCd: 0, stuckT: 0, stuckD: 1e9, unstuckN: 0, cls, C, eq: q, ch, g: ch.g, hp: C.hp, max: C.hp, cd: 0, skillCd: 0, atkT: 0, path: [], dead: 0, spinT: 0, flash: 0, face: -Math.PI / 2 };
+  hero.equippedSets = setsForItems(equippedGear, cls);
   const build=G.heroTree?.hero===cls&&G.heroTree?.branch===C.adv?.k&&G.heroTree?.level===(C.level||1)?G.heroTree:null;
   Object.assign(hero,{tree:build?structuredClone(build):null,treeMods:treeMods(build)});
   Object.assign(hero, { lsk: G.perm ? G.legend || null : null, lcd: 0, licd: 0, leap: null }); // E cooldown belongs to the hero, independently of the equipped proc.

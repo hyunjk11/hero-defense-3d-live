@@ -14,6 +14,8 @@ import { mountGrowth } from './hero-growth.js';
 import * as Acc from '../account/account.js';
 import * as Sh from '../account/shop.js';
 import * as E from '../account/equip.js';
+import { setStatuses } from '../account/set-status.js';
+import { equippedSetsHtml } from './setview.js';
 import * as AD from '../data/advance.js';
 import { NOM, breakdown, finalStats, heroCP, effectsOf, heroEEffect, critMul, CP_TXT } from '../data/herostats.js';
 import { meterDps, skillShare } from '../combat/meter.js';
@@ -39,6 +41,7 @@ function renderTown() { const s = Acc.load(), own = VISIBLE_HEROES.filter(h => S
   $('statDetails').innerHTML = `<div class="stHead">${esc(D.title)} <small>Q ${esc(D.C.skill || '')}</small></div>
     <div class="stTop"><div class="stCP cp" title="${esc(CP_TXT)}"><small>전투력</small><b id="statCP">${int(D.cp)}</b></div><div class="stCP" title="${esc(DPS_TXT)}"><small>예상 DPS</small><b id="statDps">${r1(F.dps)}</b></div><div class="stCP"><small>실효 체력</small><b>${int(F.ehp)}</b></div></div>
     <div class="stRows">${D.rows.map(r => `<div class="stRow" data-k="${r.k}"><span class="stN">${r.n}</span><b class="stV">${esc(r.v)}</b><span class="stP">${chips(r.parts)}</span></div>`).join('')}</div>
+    <div class="lbl">착용 세트 · 능력치에 포함</div>${equippedSetsHtml(setStatuses(s, st.cls).filter(x => x.count))}
     <div class="lbl">영웅 고유 스킬 · Lv.10</div><div class="stFxs">${fxHtml(D.efx)}</div>
     <div class="lbl">장착 전설 자동 효과</div><div class="stFxs">${fxHtml(D.fx)}</div>
     <div class="stNote">${esc(CP_TXT)}<br>${esc(DPS_TXT)}<br>판 안 강화·던전 축복은 전투 중 📊 (C 키) 에서 확인</div>`; }
@@ -75,6 +78,7 @@ function renderOv() { const L = heroesNow(), hud = $('hud'); if (!L.length || !h
   const team = L.reduce((a, x) => a + (x.dm ? x.dm.tot : 0), 0) + (G.dmOther ? G.dmOther.tot : 0), bf = buffs(h, m);
   $('ovBody').innerHTML = `<div class="ovHd">${esc(h.C.title || heroLabel(h.cls))}${h.dead > 0 ? ' <em>쓰러짐</em>' : ''}</div>
     <div class="ovG">${cell('전투력', int(cp), 'hi')}${cell('예상 DPS', r1(F.dps), 'hi')}${cell('공격력', r1(F.dmg))}${cell('공격 속도', `${Math.round(F.rate * 100) / 100}/초`)}${cell('치명타 확률', `${r1(Math.min(100, F.crit))}%`)}${cell('치명타 피해', `${Math.round(F.critX * 100)}%`)}${cell('사거리', r1(F.range))}${cell('체력', `${int(Math.max(0, h.hp))}/${int(h.max)}`)}${cell('피해 감소', `${r1((1 - F.taken) * 100)}%`)}${cell('스킬 피해', `${Math.round(F.skillMul * 100)}%`)}${cell('Q 재사용', `${r1(F.cd)}초 (−${r1(F.cdRed * 100)}%)`)}${cell('기대 배율', `×${Math.round(critMul(F.crit, F.critX) * 100) / 100}`)}</div>
+    <div class="ovSub">착용 세트 · 능력치에 포함</div>${equippedSetsHtml(h.equippedSets || [])}
     <div class="ovSub">영웅 E / 장비 자동 효과</div><div class="stFxs">${fxHtml([...heroEEffect(h.cls, h.C.level || 1, h.eq?.cdr || 0,h.adv,h.treeMods), ...effectsOf(h.lsk)])}</div>
     <div class="ovSub">판 안 버프</div><div class="ovBf">${bf.length ? bf.map(x => `<span>${esc(x)}</span>`).join('') : '<span class="none">없음</span>'}</div>
     <div class="ovSub">피해 미터</div>${dm ? `<div class="ovG m">${cell('실시간 DPS (5초)', r1(meterDps(dm, t)), 'hi')}${cell('총 피해', big(dm.tot))}${cell('최고 한 방', big(dm.max))}${cell('처치 수', int(dm.kills))}${cell('스킬 비중', `${Math.round(skillShare(dm) * 100)}%`)}${cell('받은 피해', big(dm.taken))}${cell('팀 피해 비중', `${team > 0 ? Math.round(dm.tot / team * 100) : 0}%`)}</div>` : ''}

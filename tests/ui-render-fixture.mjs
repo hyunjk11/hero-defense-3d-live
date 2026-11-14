@@ -6,9 +6,9 @@ import {pathToFileURL} from 'node:url';
 export async function fixture(root, {items=0, level=30, hero='mage', branch, enabled=true}={}) {
   root=path.resolve(root);
   const imp=f=>import(pathToFileURL(path.join(root,'src',f)));
-  const [P,E,H,AD,Heroes,Tree,Stats,Preview,HeroE]=await Promise.all([
+  const [P,E,H,AD,Heroes,Tree,Stats,Preview,HeroE,Sets]=await Promise.all([
     imp('account/progress.js'),imp('account/equip.js'),imp('data/hero-growth.js'),imp('data/advance.js'),
-    imp('data/heroes.js'),imp('data/skill-tree.js'),imp('data/herostats.js'),imp('ui/growth-preview.js'),imp('data/hero-e.js')]);
+    imp('data/heroes.js'),imp('data/skill-tree.js'),imp('data/herostats.js'),imp('ui/growth-preview.js'),imp('data/hero-e.js'),imp('account/set-status.js')]);
   let save=P.empty(),reads=0,epoch=1;save.hero=hero;save.souls=1000;save.nick='Local fixture';
   if(branch)save.adv[hero]={b:branch,n:1};
   let seed=8123;const rng=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
@@ -34,7 +34,7 @@ export async function fixture(root, {items=0, level=30, hero='mage', branch, ena
   const G={screen:'town',phase:'town'};
   const Sh={heroOwned:()=>true,usableHero:h=>h};
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const deps={HG,H,Acc,Sh,AD,G,document,esc,...Heroes,...Tree,...Stats,...Preview,...HeroE,
+  const deps={HG,H,Acc,Sh,AD,G,document,esc,...Heroes,...Tree,...Stats,...Preview,...HeroE,...Sets,SLOTS:E.SLOTS,STAT:E.STAT,
     $ ,Snd:{play(){}},E,escLayer(){},definePanel:()=>({show(){},hide(){}}),addEventListener(){},meterDps:()=>0,skillShare:()=>0};
   const load=(file,names)=>{
     const original=fs.readFileSync(path.join(root,'src/ui',file),'utf8');
@@ -45,6 +45,7 @@ export async function fixture(root, {items=0, level=30, hero='mage', branch, ena
   };
   const tree=load('skill-tree.js','mountTree,selectedBuild');Object.assign(deps,tree);
   const growth=load('hero-growth.js','mountGrowth,refreshCard,confirm,refreshGrowthUI');Object.assign(deps,growth);
+  Object.assign(deps,load('setview.js','equippedSetsHtml'));
   const stats=load('stats.js','renderTown,townData,openStats,closeStats');
   return {root,P,E,H,AD,HG,Acc,G,$,nodes,growth,tree,stats,
     readCount:()=>reads,resetReads:()=>{reads=0;},

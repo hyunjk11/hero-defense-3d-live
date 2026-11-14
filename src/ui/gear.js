@@ -35,7 +35,7 @@ function renderInv() {
   if (!ui.inv) return; const s = S(), h = s.hero, eq = s.eq[h] || {};
   $('invTabs').innerHTML = [['bag', '🎒 가방'], ['stor', '📦 창고'], ['codex', '📖 도감']].map(([k, n]) => `<button class="ftab ${ui.invTab === k ? 'on' : ''}" data-v="${k}">${n}${k === 'codex' && codexClaimable(s) ? ' <i class="newDot"></i>' : ''}</button>`).join('');
   document.querySelectorAll('#invTabs .ftab').forEach(b => b.onclick = () => { ui.invTab = b.dataset.v; ui.stoMsg = ''; Snd.play('ui'); hideTip(); renderInv(); });
-  const cx = ui.invTab === 'codex', so = ui.invTab === 'stor'; for (const id of ['invTopW', 'invFilt', 'invMidW', 'invMsg']) $(id).classList.toggle('hidden', cx || so); $('codexBody').classList.toggle('hidden', !cx); $('storBody').classList.toggle('hidden', !so); $('invPanel').classList.toggle('wide', so);
+  const cx = ui.invTab === 'codex', so = ui.invTab === 'stor'; for (const id of ['invTopW', 'invFilt', 'invMidW', 'invMsg']) $(id).classList.toggle('hidden', cx || so); $('codexBody').classList.toggle('hidden', !cx); $('storBody').classList.toggle('hidden', !so); $('invPanel').classList.toggle('wide', so); $('invPanel').classList.toggle('codexMode', cx);
   if (so) { renderStorage(s, STC); return; } if (cx) { $('invHead').innerHTML = `📖 장비 도감 · <span style="color:#ffe08a">${heroLabel(h)}</span>`; renderCodex(s); return; }
   const list = sorted(s.inv.filter(x => ui.invF === 'all' || x.s === ui.invF), s);
   const sel = s.inv.find(x => x.id === ui.invSel), cur = sel ? s.inv.find(x => x.id === eq[sel.s]) : null;
