@@ -13,7 +13,7 @@ for(let i=0;i<ids.length;i++){
  const n=Math.floor(s.waves/5),first=H.hardReward(s,s.waves,true,true,'mage',()=>0,null,2);
  assert.equal(first.items.length,n+1);assert.equal(first.items.at(-1).g,3);
  const repeat=H.hardReward(s,s.waves,true,false,'mage',()=>0,null,2);
- assert.equal(repeat.items.length,n+2);assert.deepEqual(repeat.items.slice(-2).map(x=>x.g),[0,0]);
+ assert.equal(repeat.items.length,n+2);assert.deepEqual(repeat.items.slice(-2).map(x=>x.g),s.ch>=3?[1,1]:[0,0]);
  assert.ok(repeat.items.every(x=>x.c===s.ch&&x.k==='gear'));
  const old=H.hardReward(s,s.waves,true,false,'mage',()=>0,null,1);
  assert.deepEqual(repeat.items.slice(0,n),old.items);assert.equal(repeat.souls,old.souls);

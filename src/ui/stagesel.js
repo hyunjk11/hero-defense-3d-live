@@ -5,7 +5,7 @@ import { readTarget, writeTarget } from '../account/repeat-target.js';
 // ================= 스테이지 선택 지도 (출정의 문) =================
 import * as HG from '../account/hero-growth.js';
 import { hardOpen, hardReward } from '../data/hard.js';
-import { HARD_REWARD_VERSION, COLLECTION_ODDS, collectionCount } from '../data/hard-collection.js';
+import { HARD_REWARD_VERSION, collectionOdds, collectionCount } from '../data/hard-collection.js';
 import { selectedSummary } from './skill-tree.js';
 import { Snd } from '../audio/audio.js';
 import { $, esc } from '../core/util.js';
@@ -66,7 +66,7 @@ function dropHtml(D, extra=0) {
   if (!D) return ''; const C = D.set, top = D.grades.lastIndexOf(true);
   const chips = [['weapon', weaponIcon(D.hero)], ['armor', iconKey('armor')], ['acc', iconKey('acc')]].map(([sl, ic]) => `<button class="drc" aria-label="${C.n} ${E.SLOTS[sl]} 미리보기" data-tip="set" data-sl="${sl}" data-g="${top}" data-ch="${D.ch}" data-h="${D.hero}">${ic}<i>${C.badge}</i></button>`).join('');
   const dots = D.grades.map((on, g) => `<i class="gd ${on ? 'on' : ''}" style="--gc:${GRADES[g].c}" title="${GRADES[g].n} ${Math.round(D.odds[g] * 1000) / 10}%"></i>`).join('');
-  return `<div class="drop" style="--cc:${C.color}"><div class="drRow"><span class="drL">${C.badge} ${C.n} 세트</span><span class="drChips">${chips}</span><span class="drG">${dots}</span></div>${extra?`<div class="drRow">추가 상자 ${extra}개 · ${COLLECTION_ODDS.map((v,g)=>v?GRADES[g].n+' '+v+'%':'').filter(Boolean).join(' · ')}</div>`:''}</div>`;
+  return `<div class="drop" style="--cc:${C.color}"><div class="drRow"><span class="drL">${C.badge} ${C.n} 세트</span><span class="drChips">${chips}</span><span class="drG">${dots}</span></div>${extra?`<div class="drRow">추가 상자 ${extra}개 · ${collectionOdds(D.ch).map((v,g)=>v?GRADES[g].n+' '+v+'%':'').filter(Boolean).join(' · ')}</div>`:''}</div>`;
 }
 let tipT = 0;
 function bindTips(root, s) {

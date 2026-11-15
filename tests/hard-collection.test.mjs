@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HARD_STAGES, hardReward } from '../src/data/hard.js';
-import { COLLECTION_ODDS, HARD_REWARD_VERSION, collectionCount, optionalCollectionGrade } from '../src/data/hard-collection.js';
+import { COLLECTION_ODDS, collectionOdds, HARD_REWARD_VERSION, collectionCount, optionalCollectionGrade } from '../src/data/hard-collection.js';
 import { seeded } from '../src/account/rewarditems.js';
 import * as E from '../src/account/equip.js';
 import * as P from '../src/account/progress.js';
@@ -30,7 +30,7 @@ test('every stage/wave boundary: partial, loss, first clear, legacy and future s
  for(const v of [undefined,1,3,'2',null])assert.equal(collectionCount(HARD_STAGES['hard-5-1'],HARD_STAGES['hard-5-1'].waves,true,false,v),0);
 });
 
-test('additional grade table has exact 50/35/15 buckets; H3+ minimum grade filtering is not applied',()=>{
+test('additional grade table keeps H1/2 and excludes white from H3+',()=>{
  assert.deepEqual(COLLECTION_ODDS,[50,35,15,0,0]);assert.equal(HARD_REWARD_VERSION,2);
  for(const s of Object.values(HARD_STAGES)){
   const counts=[0,0,0,0,0],base=Math.floor(s.waves/5);
@@ -39,7 +39,7 @@ test('additional grade table has exact 50/35/15 buckets; H3+ minimum grade filte
    const rw=hardReward(s,s.waves,true,false,'mage',()=>draw++%2===0?.1:grade,'gunner',2);
    for(const it of rw.items.slice(base)){counts[it.g]++;assert.equal(it.h,'mage');}
   }
-  assert.deepEqual(counts,[1000,700,300,0,0]);
+  assert.deepEqual(counts,s.ch>=3?[0,1400,600,0,0]:[1000,700,300,0,0]);
  }
  for(const [x,g] of [[0,0],[.499999,0],[.5,1],[.849999,1],[.85,2],[.999999,2]])assert.equal(E.rollGrade(COLLECTION_ODDS,()=>x),g);
 });
@@ -55,7 +55,7 @@ test('chest capacities 195..200 preserve older boxes and existing rewards before
   assert.equal(next.mat.steel-save.mat.steel,expected.steel);assert.equal(next.mat.crystal-save.mat.crystal,expected.crystal);
   const extraStored=loot.slice(-2).filter(x=>x.chest),ids=extraStored.map(x=>x.chest);
   if(ids.length)E.openChests(next,Infinity,ids);
-  assert.equal(!!(P.codexBits(next,5,'mage')&1),extraStored.length>0);
+  assert.equal(!!(P.codexBits(next,5,'mage')&1),false);
   const once=structuredClone(next);assert.equal(P.applyMail(next,500,rw)[1],false);assert.deepEqual(P.applyMail(next,500,rw)[0],P.clean(once));
   assert.deepEqual(P.clean(JSON.parse(JSON.stringify(next))).chests,next.chests);
  }
@@ -80,3 +80,5 @@ test('full inventory blocks opening without losing optional boxes or falsely reg
  [s]=P.applyMail(s,701,{items:[{k:'gear',s:'weapon',h:'mage',g:0,c:5}]});const box=structuredClone(s.chests),souls=s.souls;
  const [,r]=E.openChests(s);assert.equal(r.opened.length,0);assert.equal(r.blocked,1);assert.deepEqual(s.chests,box);assert.equal(s.souls,souls);assert.equal(P.codexBits(s,5,'mage')&1,0);
 });
+
+test('new chapter 3+ reward batches never produce white at every grade interval',()=>{for(const stage of Object.values(HARD_STAGES).filter(s=>s.ch>=3))for(let n=0;n<1000;n++){const rw=hardReward(stage,stage.waves,true,false,'mage',()=>n/1000,null,2);assert.ok(rw.items.every(x=>x.g>0));}for(const ch of [3,4,5,6,7,8,9,10])assert.deepEqual(collectionOdds(ch),[0,70,30,0,0]);});

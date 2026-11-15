@@ -25,7 +25,7 @@ test('server stamps the reward contract and all released stages award exactly ba
   f.tick();const before=f.save().chests.length,r=await f.finish(id,s.id),newBoxes=f.save().chests.slice(before);
   assert.equal(r.ok,true);assert.equal(r.hardReward.chests,Math.floor(s.waves/5)+2);
   assert.equal(newBoxes[0].it.h,'gunner');assert.ok(newBoxes.slice(1).every(x=>x.it.h==='mage'));
-  assert.ok(newBoxes.slice(-2).every(x=>x.it.g===0&&x.it.c===s.ch));
+  assert.ok(newBoxes.slice(-2).every(x=>x.it.g===(s.ch>=3?1:0)&&x.it.c===s.ch));
  }
 });
 
@@ -67,7 +67,7 @@ test('commit failure is atomic; subsequent retry stores the same target and only
  const f=fixture();await f.start('failed-collection');f.tick();const before=structuredClone(f.db.tables);
  await assert.rejects(f.db.transaction(async tx=>{await execute(tx,user,{kind:'rpc',name:'hd3d_growth_progress',args:{p_token:'failed-collection',p_completed:HARD_STAGES['hard-5-1'].waves,p_win:true,p_finish:true}},{now:1793600120000,random:()=>.1});throw Error('QA commit failure');}));
  assert.deepEqual(f.db.tables,before);await f.finish('failed-collection');assert.equal(f.save().hardRewardSeq,1);assert.equal(f.db.tables.hd3d_mail.length,1);
- const ready=P.clean(JSON.parse(JSON.stringify(f.save())));E.openChests(ready);assert.ok(P.codexBits(ready,5,'mage')&1);assert.deepEqual(P.clean(JSON.parse(JSON.stringify(ready))),ready);
+ const ready=P.clean(JSON.parse(JSON.stringify(f.save())));E.openChests(ready);assert.ok(P.codexBits(ready,5,'mage')&2);assert.equal(P.codexBits(ready,5,'mage')&1,0);assert.deepEqual(P.clean(JSON.parse(JSON.stringify(ready))),ready);
 });
 
 test('200 full boxes returns zero stored boxes and materials; retry never grants codex or more materials',async()=>{

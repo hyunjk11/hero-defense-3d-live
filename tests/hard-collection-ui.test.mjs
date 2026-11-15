@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import * as P from '../src/account/progress.js';import * as E from '../src/account/equip.js';
 import * as ST from '../src/data/stages.js';import {CLASSES,heroLabel} from '../src/data/heroes.js';
 import {CHSET,CH_KEYS,CODEX_RW} from '../src/data/items.js';
-import {COLLECTION_ODDS,optionalCollectionGrade} from '../src/data/hard-collection.js';
+import {collectionOdds,optionalCollectionGrade} from '../src/data/hard-collection.js';
 import {MORVIA,BOSS_SETS,MORVIA_HEROES} from '../src/data/boss-sets.js';
 import {setStatuses,setDefinition} from '../src/account/set-status.js';
 const ui=new URL('../src/ui/',import.meta.url);
@@ -28,8 +28,8 @@ test('chapter 3..10 white slots are hidden without changing records or completio
  }
 });
 test('chapter 1 and 2 common collection remains visible',()=>{for(const ch of [1,2]){const s=P.empty(),f=fixture();assert.match(f.render(s,ch).html,new RegExp('data-ch="'+ch+'" data-row="mage" data-g="0"[^>]*>\\?</button>'));E.codexAdd(s,E.makeItem('weapon','mage',0,()=>.1,ch));assert.match(f.render(s,ch).html,new RegExp('data-ch="'+ch+'" data-row="mage" data-g="0"[^>]*><span>'));}});
-test('existing drop preview keeps high-grade odds separate from additional 50/35/15 and adds no panel',()=>{
+test('existing drop preview keeps high-grade odds separate from additional chapter-specific odds and adds no panel',()=>{
  const source=fs.readFileSync(new URL('stagesel.js',ui),'utf8'),part=source.slice(source.indexOf('function dropHtml'),source.indexOf('let tipT'));
- const render=new Function('E','GRADES','COLLECTION_ODDS','weaponIcon','iconKey',part+';return dropHtml;')(E,E.GRADES,COLLECTION_ODDS,()=>'',()=>''),d=P.dropPreview('hard-5-1','mage');
- const old=render(d),now=render(d,2);assert.ok(now.includes(old.slice(0,-6)));assert.match(now,/추가 상자 2개 · 일반 50% · 고급 35% · 희귀 15%/);assert.doesNotMatch(old,/추가 상자/);assert.doesNotMatch(now,/<dialog|confirm|panel/i);
+ const render=new Function('E','GRADES','collectionOdds','weaponIcon','iconKey',part+';return dropHtml;')(E,E.GRADES,collectionOdds,()=>'',()=>''),d=P.dropPreview('hard-5-1','mage');
+ const old=render(d),now=render(d,2);assert.ok(now.includes(old.slice(0,-6)));assert.match(now,/추가 상자 2개 · 고급 70% · 희귀 30%/);assert.doesNotMatch(old,/추가 상자/);assert.doesNotMatch(now,/<dialog|confirm|panel/i);
 });

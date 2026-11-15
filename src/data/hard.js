@@ -2,7 +2,7 @@ import { BASE_CHAPTERS } from './chapters/base.js';
 import { hardGearOdds } from './items.js';
 import { rollGrade, SLOT_KEYS } from '../account/equip.js';
 import { targetGear } from './repeat-target.js';
-import { COLLECTION_ODDS, collectionCount } from './hard-collection.js';
+import { collectionOdds, collectionCount } from './hard-collection.js';
 import chapter5 from './chapters/chapter5.js';
 const normalChapters=[...BASE_CHAPTERS,chapter5];
 // Only these five chapters are released. Normal chapter definitions remain untouched.
@@ -32,7 +32,7 @@ export function hardReward(s,completed,win,first,hero,random=()=>.5,target=null,
  const items=Array.from({length:count},(_,i)=>{const slot=SLOT_KEYS[Math.floor(random()*SLOT_KEYS.length)],g=i===waveBoxes?3:rollGrade(odds,random),chosen=win&&n===s.waves&&!first&&i===0?targetGear(target):null;return {k:'gear',...(chosen||{s:slot,...(slot==='weapon'?{h:hero}:{})}),g,c:s.ch};});
  // Append after every existing draw and item index; never apply the selected target here.
  for(let i=0;i<collectionCount(s,completed,win,first,rewardVersion);i++){
-  const slot=SLOT_KEYS[Math.floor(random()*SLOT_KEYS.length)],g=rollGrade(COLLECTION_ODDS,random);
+  const slot=SLOT_KEYS[Math.floor(random()*SLOT_KEYS.length)],g=rollGrade(collectionOdds(s.ch),random);
   items.push({k:'gear',s:slot,...(slot==='weapon'?{h:hero}:{}),g,c:s.ch});
  }
  return {souls:n*(14+2*(s.ch-1))+(win?180+s.idx*20+20*(s.ch-1):0)+(win&&first?240:0),...(items.length?{items}:{})};
