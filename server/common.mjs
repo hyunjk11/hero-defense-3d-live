@@ -1,3 +1,4 @@
+import { BOSS_SETS, MORVIA_HEROES } from '../src/data/boss-sets.js';
 // Supplied only by private runtime configuration; never by a request or browser.
 export function getPrivateOwnerEmail() {
   const value=globalThis.process?.env?.HD3D_OWNER_EMAIL;
@@ -23,7 +24,7 @@ export function validItem(x) {
     && ['weapon','armor','acc'].includes(x.s) && Number.isInteger(x.g) && x.g >= 0 && x.g <= 4
     && (x.s === 'weapon' ? heroes.includes(x.h) : !('h' in x))
     && (!('c' in x) || Number.isInteger(x.c) && x.c >= 1 && x.c <= 10)
-    && (!('set' in x) || x.set === 'morvia' && x.g === 3 && !('c' in x) && (x.s !== 'weapon' || x.h !== 'mechanic'));
+    && (!('set' in x) || Object.hasOwn(BOSS_SETS, x.set) && x.g === BOSS_SETS[x.set].grade && !('c' in x) && (x.s !== 'weapon' || MORVIA_HEROES.includes(x.h)));
 }
 export function validReward(r) {
   if (r == null) return true;
