@@ -1,3 +1,4 @@
+import { abyssalIcon } from './abyssal-icons.js';
 import { endgameIcon } from './endgame-icons.js';
 import { machineIcon } from './machine-icons.js';
 import { morviaIcon } from './morvia-icons.js';
@@ -14,7 +15,7 @@ export const ICON = { ...Object.fromEntries(HERO_KEYS.map(k => [k, CLASSES[k].ic
 export const FALLBACK = { weapon: '⚔️', any: '📦' }; // 모르는 영웅/슬롯 키 → 'undefined' 대신 일반 아이콘
 export const iconKey = k => ICON[k] || FALLBACK.any;
 export const weaponIcon = h => ICON[h] || FALLBACK.weapon;
-export const icon = it => endgameIcon(it) || morviaIcon(it) || machineIcon(it) || stormIcon(it) || desertIcon(it) || swampIcon(it) || (!it ? FALLBACK.any : it.s === 'weapon' ? weaponIcon(it.h) : iconKey(it.s));
+export const icon = it => abyssalIcon(it) || endgameIcon(it) || morviaIcon(it) || machineIcon(it) || stormIcon(it) || desertIcon(it) || swampIcon(it) || (!it ? FALLBACK.any : it.s === 'weapon' ? weaponIcon(it.h) : iconKey(it.s));
 
 export const setOf = E.setOf;
 export const GCi = it => GC(it.g);

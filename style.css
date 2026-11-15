@@ -1006,3 +1006,6 @@ body:not(.dungeonRun) #heroEffects{position:static;inset:auto;transform:none;wid
 body:not(.dungeonRun) #heroEffects[hidden]{display:none}
 body:not(.dungeonRun) #heroEffects .heroEffect{flex:0 0 18px;width:18px;height:18px;min-width:18px;min-height:18px;font-size:12px;line-height:1;border-radius:4px}
 @media(pointer:coarse){body:not(.dungeonRun) #heroEffects .heroEffect{flex-basis:24px;width:24px;height:24px;min-width:24px;min-height:24px;font-size:13px}body:not(.dungeonRun) #heroEffects{max-height:52px}}
+
+/* Dungeon set art: shared inventory, storage, equipped slots and codex. */
+.abyssalItemIcon{width:1.45em;height:1.45em;vertical-align:middle;overflow:visible}.ic>.abyssalItemIcon{width:100%;height:100%;max-width:64px;max-height:64px}.cxBossItem .abyssalItemIcon,.cxBossItem .morviaItemIcon{width:44px;height:44px}.cxBossItem:has(.abyssalItemIcon){border-color:#558fbe80;background:#11243c}.cxBossItem:has(.abyssalItemIcon) b{color:#a0e9ff}.cxBossItem.owned:has(.abyssalItemIcon){border-color:#89dfff;background:#1b3450}

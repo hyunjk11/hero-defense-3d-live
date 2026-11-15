@@ -34,7 +34,7 @@ export function renderCodex(s, X) { const ui = X.ui;
   if (BOSS_SETS[ui.cxTab]) { const C=BOSS_SETS[ui.cxTab];
     h += `<div class="cxBossSource">${C.source} · 영웅 등급 · 현재 보유 (가방·창고)</div><div class="cxBossGrid">` + [...MORVIA_HEROES, 'armor', 'acc'].map(row => {
       const owned = E.allItems(s).filter(it => it.set === C.key && (cxSlot(row) === 'weapon' ? it.s === 'weapon' && it.h === row : it.s === row)).length;
-      return `<button class="cxBossItem${owned ? ' owned' : ''}" data-boss-row="${row}"><span>${cxRowIcon(row)}</span><span><b>${esc(C.names[row][C.grade])}</b><small>${cxRowN(row)}</small></span><em>${owned ? `보유 ${owned}` : '미보유'}</em></button>`;
+      return `<button class="cxBossItem${owned ? ' owned' : ''}" data-boss-row="${row}"><span>${icon({set:C.key,s:cxSlot(row),h:row,g:C.grade})}</span><span><b>${esc(C.names[row][C.grade])}</b><small>${cxRowN(row)}</small></span><em>${owned ? `보유 ${owned}` : '미보유'}</em></button>`;
     }).join('') + '</div>';
   } else if (ui.cxTab) { const ch = ui.cxTab, C = P.codexState(s, ch), SC = ST.CHAPTERS.find(c => c.id === ch), un = ST.chapterUnlocked(s, ch);
     h += `<div class="cxGridScroll" tabindex="0" role="region" aria-label="장비 수집 등급표"><div class="cxGrid" style="--cc:${CHSET[ch].color}"><div class="cxHd"></div>${E.GRADES.map(g => `<div class="cxHd" style="color:${g.c}">${g.n}</div>`).join('')}<div class="cxHd">보상</div>`
