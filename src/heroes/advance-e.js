@@ -21,7 +21,7 @@ const live=e=>!e.dead&&e.dying===undefined;
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 function mesh(geo,color,opacity=.8){return new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,toneMapped:false}));}
 function ring(root,p,r,color){const m=mesh(new THREE.RingGeometry(Math.max(.01,r-.1),r,48),color,.65);m.rotation.x=-Math.PI/2;m.position.set(p.x,groundY(p.x,p.z)+.18,p.z);root.add(m);return m;}
-function bolt(color){const g=new THREE.Group(),shaft=mesh(new THREE.CylinderGeometry(.055,.09,1.7,8),color),head=mesh(new THREE.ConeGeometry(.2,.7,8),color);shaft.rotation.x=head.rotation.x=Math.PI/2;head.position.z=1.05;g.add(shaft,head);return g;}
+function bolt(color,branch){const gun=branch==='thorn',sniper=branch==='hawk',length=gun?2.8:sniper?2.4:1.7,g=new THREE.Group(),shaft=mesh(new THREE.CylinderGeometry(gun?.035:.055,gun?.14:.09,length,8),color,gun?.45:.65),head=mesh(new THREE.ConeGeometry(gun?.12:sniper?.28:.2,gun?.38:sniper?.95:.7,8),color,.95);shaft.rotation.x=head.rotation.x=Math.PI/2;head.position.z=length/2+.2;g.add(shaft,head);return g;}
 
 export function castAdvanceE(s,target,FX){
  const h=hero,origin=h.g.position.clone(),dir=target.clone().sub(origin).setY(0);
@@ -32,14 +32,14 @@ export function castAdvanceE(s,target,FX){
  banner(s.n+'!',txt,850);Snd.play(h.cls==='gunner'?'draw':h.cls==='warrior'?'stomp':'magic',{pos:origin,force:true});
  const root=new THREE.Group();root.name='advance-e:'+s.key;scene.add(root);
  const terrain=G.tiles,bolts=[],sharedHits=new Set(),aim=target.clone();let time=0,fired=0,ended=false,shield=null,hitCues=0;
- const cue=(kind,p,size=1,duration=.28,a=angle,length=0)=>skillCues.show(root,kind,{x:p.x,y:groundY(p.x,p.z)+.22,z:p.z},color,size,duration,a,length);
+ const cue=(kind,p,size=1,duration=.28,a=angle,length=0)=>skillCues.show(root,kind,{x:p.x,y:groundY(p.x,p.z)+.22,z:p.z},color,size,duration,a,length,s.b);
  if(s.kind==='line'||s.kind==='fan')for(const k of s.kind==='fan'?[-1,0,1]:[0])cue('aim',origin,1,s.cast,angle+k*(s.spread||0)*radius,reach);
- const hit=(e,mul=1,source=h.g.position)=>{if(!live(e))return;G.legendDmg=(G.legendDmg||0)+damage*mul;hurt(e,damage*mul,txt,true,{x:source.x,z:source.z,kind:s.ground?'melee':'ranged'});if(s.kind!=='paw'&&hitCues++<16)cue('impact',e.g.position,.8);};
+ const hit=(e,mul=1,source=h.g.position)=>{if(!live(e))return;G.legendDmg=(G.legendDmg||0)+damage*mul;hurt(e,damage*mul,txt,true,{x:source.x,z:source.z,kind:s.ground?'melee':'ranged'});if(s.kind!=='paw'&&hitCues++<16)cue('impact',e.g.position,1.2,.38);};
  const eligible=()=>G.enemies.filter(e=>live(e)&&(!s.ground||!e.E.fly));
  let cat=null,flight=null,catFade=0,stopVoice=null;
  const voices=[];
  const close=()=>{skillCues.clear(root);for(const stop of voices)stop();stopVoice?.();stopVoice=null;cat?.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(root);disposeOwned(root);if(h.eShield===shield)h.eShield=null;};
- const shoot=(a,hits=new Set(),limit=1)=>{const m=bolt(color),d=new THREE.Vector3(Math.sin(a),0,Math.cos(a));m.position.copy(h.g.position).setY(groundY(h.g.position.x,h.g.position.z)+1.3);m.rotation.y=a;m.scale.setScalar(radius);root.add(m);bolts.push({m,d,hits,left:limit,dist:0});};
+ const shoot=(a,hits=new Set(),limit=1)=>{const m=bolt(color,s.b),d=new THREE.Vector3(Math.sin(a),0,Math.cos(a));m.position.copy(h.g.position).setY(groundY(h.g.position.x,h.g.position.z)+1.3);m.rotation.y=a;m.scale.setScalar(radius);root.add(m);bolts.push({m,d,hits,left:limit,dist:0});};
  let field=null,blades=null,beam=null,shell=null;
  if(s.kind==='field'){
   field=new THREE.Group();field.position.set(aim.x,groundY(aim.x,aim.z)+.15,aim.z);root.add(field);ring(root,aim,s.area*radius,color);
@@ -60,7 +60,7 @@ export function castAdvanceE(s,target,FX){
    // Field accents on onset/final pulse; other skills accent their real shots/strikes.
    if(s.kind!=='field'||fired===0||fired===s.ticks-1){const stop=Snd.skill?.(s.b,s.kind==='field'?aim:h.g.position);if(stop)voices.push(stop);}
    if(s.kind==='field'||s.kind==='shield')cue('pulse',s.kind==='field'?aim:h.g.position,s.area*radius,.32);
-   else cue('pulse',h.g.position,s.kind==='cone'?1.5:.7,.2);
+   else cue('pulse',h.g.position,s.kind==='cone'?1.8:1.25,.32);
   }
   if(s.kind==='fan')for(const k of [-1,0,1])shoot(angle+k*s.spread*radius,sharedHits,99);
   else if(s.kind==='line')shoot(angle);
@@ -85,7 +85,7 @@ export function castAdvanceE(s,target,FX){
   time+=dt;skillCues.update(root,dt);
   if(field){field.visible=time>=s.cast;field.rotation.y+=dt*(s.b==='frost'?1.1:.25);const fade=Math.min(1,Math.max(0,(s.cast+s.duration-time)/.3));
    for(let i=0;i<field.children.length;i++){const m=field.children[i];m.rotation.z+=dt*(s.b==='frost'?2:.1);m.material.opacity=(s.b==='frost'?.52:.48)*fade;
-    if(s.b==='frost')m.position.y=.6+((i*.47+time*2.5)%2.8);else m.scale.y=.8+.22*Math.sin(time*12+i*2.4);}}
+    if(s.b==='frost')m.position.y=3.4-((i*.47+time*3.5)%2.8);else m.scale.y=.8+.22*Math.sin(time*12+i*2.4);}}
 
   if(shell){shell.position.copy(h.g.position);shell.position.y+=1.4;shell.rotation.y=time*.35;shell.material.opacity=shield?.value?Math.max(.07,.2*shield.value/shield.initial):.12;}
   if(blades){blades.position.copy(h.g.position);blades.rotation.y=angle;const strike=Math.max(0,Math.floor((time-s.cast)/s.interval)),age=time-s.cast-strike*s.interval;

@@ -1,3 +1,4 @@
+import { updateQFeedback } from './render/q-feedback.js';
 import { updateMachineDeco } from './render/machine-environment.js';
 import { updateStormDeco } from './render/storm-environment.js';
 import './ui/saveconflict.js';
@@ -99,7 +100,7 @@ function step(dt) {
   }
   G.distT -= dt; if (G.distDirty && G.distT <= 0) { computeDist(); G.distT = .35; }
   for (const t of G.dirty) { refreshTile(t); if (t.shk > 0) t.shk -= dt; else G.dirty.delete(t); }
-  updFlow(dt); updLoot(dt); updPreview(dt); updFx(dt); updParticles(P, dt); updParticles(PB, dt); updVolcano(dt); updRuins(dt); updateSwampDeco(G.t); updateStormDeco(G.t); updateMachineDeco(G.t); updDebris(dt); updCoins(dt); updLighting(dt); updRoute(); updBars(dt); updBossBar(dt); Snd.listener = cam.target; if (G.screenMusic) Snd.setMusic(G.screenMusic); else if (G.phase !== 'over') Snd.setMusic(G.phase === 'wave' ? (G.enemies.some(e => e.E.boss && !e.dead) ? 'boss' : 'wave') : 'build');
+  updFlow(dt); updLoot(dt); updPreview(dt); updFx(dt); updateQFeedback(dt); updParticles(P, dt); updParticles(PB, dt); updVolcano(dt); updRuins(dt); updateSwampDeco(G.t); updateStormDeco(G.t); updateMachineDeco(G.t); updDebris(dt); updCoins(dt); updLighting(dt); updRoute(); updBars(dt); updBossBar(dt); Snd.listener = cam.target; if (G.screenMusic) Snd.setMusic(G.screenMusic); else if (G.phase !== 'over') Snd.setMusic(G.phase === 'wave' ? (G.enemies.some(e => e.E.boss && !e.dead) ? 'boss' : 'wave') : 'build');
   portalDisk.rotation.z -= dt * 2.5; if (rand() < .6) emit(P, portal.position.x + rnd(-.3, .3), rnd(.6, 3.2), portal.position.z + rnd(-1.4, 1.4), 1, 0xc07aff, 1.5, .8, 2, .3);
   crystal.rotation.y += dt * 1.2; crystal.position.y = 3.6 + Math.sin(G.t * 2) * .2; coreRings.forEach((r, k) => r.rotation.z += dt * (k ? -1.5 : 1));
   if (moveMark.visible) { moveMark.scale.multiplyScalar(1 - dt * 3); moveMark.material.opacity = moveMark.scale.x; if (moveMark.scale.x < .2) moveMark.visible = false; }

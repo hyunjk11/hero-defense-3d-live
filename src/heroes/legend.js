@@ -72,7 +72,7 @@ function legendProc0(t, attack) {
   if (s.max && !procTargets(s, t, G.enemies, G.t, attack).length) return;
   if (LR() >= (G.legendForce ? 1 : s.chance)) return; hero.licd = s.icd; count(hero.lsk);
   const oldProc = ({ multishot, frostorb, boomerang, ricochet, overdrill, pawstorm })[hero.lsk];
-  if (oldProc) oldProc(t, s, attack); else impactProc(t, s, attack);
+  if (oldProc) { legendFeedback(hero,t,s,[],FX,true); oldProc(t, s, attack); } else impactProc(t, s, attack);
 }
 // Immediate bounded follow-up to a basic attack. No new timers/projectile ownership or recursive proc calls.
 function impactProc(t, s, attack) {
@@ -83,7 +83,7 @@ function impactProc(t, s, attack) {
     emit(P, e.g.position.x, e.g.position.y + 1.3, e.g.position.z, 12, s.color, 4, .35);
   }
   if (targets.length) { ringFx(t.g.position, s.radius || .8, s.color, .25); Snd.play('zap', { pos: t.g.position, vol: .35, rate: 1.5 }); }
-  if(s.h!=='mechanic')legendFeedback(hero,t,s,targets,FX);
+  legendFeedback(hero,t,s,targets,FX);
 }
 // 멀티샷: 황금 화살 5발 부채꼴
 function multishot(t, s) {
@@ -134,6 +134,7 @@ export function castLegend(at) { if (!skillAllowed(hero, 'E')) return false; ret
 function castLegend0(at) {
   const s = legendActive(); if (!s || !hero || hero.dead > 0 || hero.lcd > 0 || hero.eCastT > 0 || hero.leap || (hero.ft && hero.ft.leap) || (hero.mech && hero.mech.busy > 0) || (G.phase !== 'build' && G.phase !== 'wave')) { if (s && hero && hero.lcd > 0) Snd.play('error'); return false; }
   if (hero.warpT > 0) return false; hero.lcd = legendCd(); hero.spinT = 0; hero.roseT = 0; if (hero.swirl) hero.swirl.visible = false; const key = s.key; G.heroEN ||= {}; G.heroEN[key] = (G.heroEN[key] || 0) + 1;
+  if (!s.kind) legendFeedback(hero,hero,s,[],FX,true);
   if (s.kind) castAdvanceE(s, aim((s.reach*(s.reachMul||1)) || 1, at), FX); else if (key === 'rosebarrage') rosebarrage(s, aim(14, at)); else if (key === 'gigahammer') gigahammer(s, aim(12, at)); else if (key === 'tigerdash') tigerdash(s, aim(9, at)); else ({ pierce, meteorstorm, quake })[key](s, at);
   if(hero.treeMods?.weave||hero.treeMods?.pursuit||hero.treeMods?.pursuitRanged)treeSkillUsed(hero,'e',G.t);hero.autoSkillUntil = G.t + Math.max(.8, hero.atkT || 0); return true;
 }

@@ -1,3 +1,4 @@
+import { qFeedback } from '../render/q-feedback.js';
 import { skillAllowed } from '../data/hard-party.js';
 import { treeQBonus, treeSkillUsed } from '../data/skill-tree.js';
 import { Snd } from '../audio/audio.js';
@@ -21,7 +22,7 @@ import { advSkill } from './advfx.js';
 function castSkill(at) {
   if (!skillAllowed(hero, 'Q')) return;
   const cd = hero && hero.skillCd, result = asSkill(castSkill0, at);
-  if (hero && hero.skillCd > cd) {hero.autoSkillUntil = G.t + Math.max(.8, hero.atkT || 0);treeSkillUsed(hero,'q',G.t);}
+  if (hero && hero.skillCd > cd) {hero.autoSkillUntil = G.t + Math.max(.8, hero.atkT || 0);treeSkillUsed(hero,'q',G.t);const target=(at&&at.isVector3?at:mouseGround).clone(),p=hero.g.position;if(target.distanceTo(p)>16)target.sub(p).setLength(16).add(p);qFeedback(hero,target);}
   return result;
 } // 피해 미터: 스킬 피해로 집계. AUTO가 다음 스킬로 시전 동작을 끊지 않게 한다.
 function castSkill0(at) { // at: 목표 지점(Vector3, 던전 AI). 없으면(키·버튼) 마우스 지점

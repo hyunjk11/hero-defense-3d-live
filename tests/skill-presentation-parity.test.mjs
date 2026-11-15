@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+import {fixture,createSkillCues} from './support/advance-e-runtime.mjs';import {ADV_E} from '../src/data/hero-e.js';import {LSK} from '../src/account/equip.js';import * as THREE from '../lib/three.module.js';
+const branches=Object.entries(ADV_E).flatMap(([h,bs])=>Object.keys(bs).map(b=>[h,b]));
+test('all branch cues expose distinct signatures with fixed geometry and no runtime random calls',()=>{
+ const scene=new THREE.Scene(),pool=createSkillCues(scene,24),owner={};let calls=0;const random=Math.random;Math.random=()=>{calls++;return .5};
+ try{const shapes=new Set();for(const [h,b] of branches){assert.equal(pool.show(owner,'impact',{x:0,y:0,z:0},0xffffff,1,.4,0,0,b),true);const obj=scene.children.at(-1),crest=obj.children[3];assert.equal(crest.visible,true);shapes.add(crest.geometry);assert.ok(obj.children.filter(x=>x.visible).length<=3);}assert.ok(shapes.size>=7);assert.equal(calls,0);pool.clear(owner);assert.equal(scene.children.length,0);}finally{Math.random=random;pool.dispose();}
+});
+test('mechanic bounded proc now has a signature and its missing audio without changing damage',()=>{const f=fixture('mechanic',null),t=f.target(),sounds=[];f.hero.lsk='gigahammer';f.env.Snd.skill=k=>{sounds.push(k);return()=>{}};f.api.legendProc(t);assert.equal(f.hits.length,1);assert.equal(f.hits[0].loss,100*LSK.gigahammer.mul);assert.ok(f.legendCues.active());assert.deepEqual(sounds,['legend_gigahammer']);f.tick(1);assert.equal(f.legendCues.active(),0);});
+// Optional baseline inputs are used by the isolated release audit, never production.
+if(process.env.SKILL_BASE_ADV&&process.env.SKILL_BASE_LEGEND){
+ const beforeA=fs.readFileSync(process.env.SKILL_BASE_ADV,'utf8'),beforeL=fs.readFileSync(process.env.SKILL_BASE_LEGEND,'utf8');
+ function measure(h,b,mode,before,key){const f=fixture(h,b,50,before?beforeA:null,before?beforeL:null),e=f.target(0,mode==='far'?23:2,{boss:mode==='boss',fly:mode==='air',armor:.2});f.target(1,2);let randomCalls=0;const random=Math.random;Math.random=()=>{randomCalls++;return .5};let trace=[];
+ try{if(key){f.hero.lsk=key;f.api.legendProc(e,{mode:'melee'});}else f.api.castLegend(new THREE.Vector3(0,0,mode==='far'?23:2));if(mode==='cancel')f.G.screen='town';let last=0;for(let frame=0;frame<600;frame++){f.tick(.01);if(f.hits.length!==last){trace.push([frame,JSON.parse(JSON.stringify(f.hits.slice(last)))]);last=f.hits.length;}}return JSON.parse(JSON.stringify({trace,hits:f.hits,cooldown:f.hero.lcd,icd:f.hero.licd,counts:f.G.legendN,randomCalls,slow:e.slowT,stun:e.stunT}));}finally{Math.random=random}}
+ for(const [h,b] of branches)for(const mode of ['normal','far','boss','air','cancel'])test(`${h}/${b}/${mode}: baseline damage, timing, CC, cooldown and RNG parity`,()=>assert.deepEqual(measure(h,b,mode,false),measure(h,b,mode,true)));
+ for(const [h,key] of [['archer','pierce'],['mage','meteorstorm'],['warrior','quake'],['gunner','rosebarrage'],['mechanic','gigahammer'],['fighter','tigerdash']])for(const mode of ['normal','boss','air','cancel'])test(`${key}/${mode}: baseline proc parity`,()=>assert.deepEqual(measure(h,null,mode,false,key),measure(h,null,mode,true,key)));
+}

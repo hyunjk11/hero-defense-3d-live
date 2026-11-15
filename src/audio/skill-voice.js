@@ -1,5 +1,6 @@
 // Short deterministic accents. No samples, timers or game/random state are consumed.
 export const SKILL_VOICES = Object.freeze({
+  legend_gigahammer:['square',170,48,.18,.09],
   legend_pierce:['triangle',1240,360,.15,.16], legend_meteorstorm:['sine',620,1240,.24,.18],
   legend_quake:['sawtooth',130,32,.18,.17], legend_rosebarrage:['triangle',750,170,.12,.17], legend_tigerdash:['triangle',310,60,.16,.21],
   wind:['sine',880,320,.14,.16], hawk:['triangle',1400,180,.2,.25],

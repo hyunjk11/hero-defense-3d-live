@@ -6,7 +6,7 @@ const read=f=>fs.readFileSync(new URL('../src/heroes/'+f,import.meta.url),'utf8'
 const build=(h,b,cs)=>{let t={};for(const [l,c]of Object.entries(cs))t=changeTree(t,h,b,50,0,+l,c);return treeBuild(t,h,b,50);};
 test('actual Q consumes weave once only after a successful cast, with gear and tree damage applied once',()=>{
  const calls=[],hero={cls:'mage',skillCd:0,dead:0,treeMods:treeMods(build('mage','flame',{20:'dense',40:'assault',50:'weave'})),adv:{},g:new THREE.Group()},G={t:10,phase:'wave',focus:2};
- const env=vm.createContext({skillAllowed,THREE,hero,G,treeQBonus,treeSkillUsed,asSkill:(f,...a)=>f(...a),stat:{dmg:()=>200,skillMul:()=>1.5,skillCd:()=>20},advSkill:(_t,m,b)=>{calls.push({m,b});return true;},mouseGround:new THREE.Vector3(0,0,3)});
+ const env=vm.createContext({qFeedback:()=>{},skillAllowed,THREE,hero,G,treeQBonus,treeSkillUsed,asSkill:(f,...a)=>f(...a),stat:{dmg:()=>200,skillMul:()=>1.5,skillCd:()=>20},advSkill:(_t,m,b)=>{calls.push({m,b});return true;},mouseGround:new THREE.Vector3(0,0,3)});
  vm.runInContext(strip(read('skills.js'))+';this.cast=castSkill',env);treeSkillUsed(hero,'e',10);
  hero.dead=1;env.cast();assert.equal(hero.treeWeaveUntil,16);assert.equal(calls.length,0);hero.dead=0;env.cast();
  assert.ok(Math.abs(calls[0].m-1.5*1.2*1.08*1.25)<1e-10);assert.equal(calls[0].b,200);assert.equal(hero.treeWeaveUntil,0);env.cast();assert.equal(calls.length,1);
