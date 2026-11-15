@@ -1,3 +1,4 @@
+import { archiveMail } from './mail-actions.mjs';
 import { levelOf } from '../src/data/hero-growth.js';
 import { context, denied, integer, itemReward, text } from './common.mjs';
 import { growth } from './growth.mjs';
@@ -16,11 +17,13 @@ const advanceStamp=(now,old)=>new Date(Math.max(now,Number.isFinite(Date.parse(o
 const readTables=['profiles','progress','orders','mail','owned','notices','bans','admin_log','dungeon_wallet','dungeon_runs','dungeon_buys','spire_best','spire_runs','spire_weeks'];
 export async function query(c,q){
   if(typeof q.table!=='string'||!q.table.startsWith('hd3d_'))denied();const table=q.table.slice(5);if(!readTables.includes(table))denied();
-  const filters=q.filters||{};allowedKeys(filters,['id','user_id','item','updated_at','status','created_at']);
+  const filters=q.filters||{};allowedKeys(filters,['id','user_id','item','updated_at','status','created_at','archived']);
   if(q.action==='select'){
     if(table==='admin_log')c.requireAdmin();const own=['profiles','progress','bans'].includes(table)||!c.admin&&!['notices','admin_log'].includes(table);
-    const scoped={...filters};if(own){const field=table==='profiles'?'id':'user_id';if(field in filters&&filters[field]!==c.uid)return {data:q.single?null:[],error:null};scoped[field]=c.uid;}
+    if('archived' in filters && (table!=='mail'||typeof filters.archived!=='boolean'))denied('invalid archive filter','23514');
+    const scoped={...filters};delete scoped.archived;if(own){const field=table==='profiles'?'id':'user_id';if(field in filters&&filters[field]!==c.uid)return {data:q.single?null:[],error:null};scoped[field]=c.uid;}
     let rows=await c.list(table,scoped);
+    if(table==='mail'&&'archived' in filters)rows=rows.filter(m=>!!m.archived_at===filters.archived);
     if(table==='notices'&&!c.admin)rows=rows.filter(n=>n.active&&(!n.starts_at||Date.parse(n.starts_at)<=c.now)&&(!n.ends_at||Date.parse(n.ends_at)>c.now));
     if(q.order){if(!['created_at','updated_at','id'].includes(q.order.field))denied('invalid sort','23514');const factor=q.order.ascending?1:-1;rows.sort((a,b)=>typeof a[q.order.field]==='number'?factor*(a[q.order.field]-b[q.order.field]):factor*String(a[q.order.field]||'').localeCompare(String(b[q.order.field]||'')));}
     rows=rows.slice(0,integer(q.limit??200,1,1000));return {data:project(rows,q.columns,q.single),error:null};
@@ -104,6 +107,7 @@ export async function execute(tx,user,operation,options={}){
   if(operation.kind!=='rpc'||typeof operation.name!=='string')denied();
   const name=operation.name.replace(/^hd3d_/,''),a=operation.args||{};let result;
   if(name==='my_status')result={admin:c.admin,owner:c.owner,banned:!!c.ban,ban_reason:c.ban?.reason||null,banned_at:c.ban?.created_at||null};
+  else if(name==='mail_archive')result=await archiveMail(c,a);
   else if(name==='claim_mail')result=await claimMail(c,a);
   else if(name.startsWith('growth_'))result=await growth(c,name.slice(7),a);
   else if(name.startsWith('dungeon_'))result=await dungeon(c,name.slice(8),a);

@@ -18,6 +18,15 @@ import { GRADES } from '../account/equip.js';
 import { card, showTip, hideTip, sampleItem, weaponIcon, iconKey, icon } from './gear.js';
 
 const ICONS = { forest: ['🌲', '🍄'], snow: ['❄️', '⛄'], volcano: ['🌋', '🔥'], ruins: ['🏛️', '🗿'], swamp: ['🌿', '🧪'], desert: ['🌵', '☀️'], storm: ['⚡', '☁️'], machine: ['⚙️', '🔩'], abyss: ['🌀', '🔮'], citadel: ['🐉', '🏰'] };
+let stageFocus=null;
+function stageOverlay(open){
+ const town=$('scr_town');if(!town)return;
+ const wasOpen=town.classList.contains('stageOpen');
+ town.classList.toggle('stageOpen',open);
+ for(const el of town.querySelectorAll(':scope > .twLeft,:scope > .twRail,:scope > .twBottom'))el.inert=open;
+ if(open){if(!wasOpen)stageFocus=document.activeElement;let b=$('stageBackdrop');if(!b){b=document.createElement('div');b.id='stageBackdrop';b.onclick=()=>closeStageSel();town.appendChild(b);}b.classList.remove('hidden');queueMicrotask(()=>{if(town.classList.contains('stageOpen'))$('stClose').focus();});}
+ else{$('stageBackdrop')?.classList.add('hidden');if(stageFocus?.isConnected)stageFocus.focus();stageFocus=null;}
+}
 let ui = { open: false, hard:false, ch: 1, sel: null }, hooks = { challenge: () => {}, start: () => {} };
 const LAST = 'hd3d_live_lastStage';
 export function initStageSel(h) { hooks = { ...hooks, ...h }; $('stClose').onclick = () => closeStageSel(); }
@@ -26,9 +35,9 @@ export function rememberStage(id) { try { localStorage.setItem(LAST, JSON.string
 export function openStageSel() {
   const s = HG.viewSave(); if (!ui.open) Snd.play('confirm');
   if (!ui.sel) { try { const last = JSON.parse(localStorage.getItem(LAST) || 'null'); if (last && ST.stageUnlocked(s, last.id)) ui.sel = ST.stars(s, last.id) ? ST.nextStage(s, last.id) || last.id : last.id; } catch (_) {} }
-  ui.sel ||= current(s) || '1-1'; ui.hard=!!ST.getStage(ui.sel)?.hard;ui.ch = ST.getStage(ui.sel)?.ch||1; ui.open = true; SP.show(); render();
+  ui.sel ||= current(s) || '1-1'; ui.hard=!!ST.getStage(ui.sel)?.hard;ui.ch = ST.getStage(ui.sel)?.ch||1; ui.open = true; SP.show(); render(); stageOverlay(true);
 }
-export function closeStageSel(silent) { if (ui.open && !silent) Snd.play('ui'); ui.open = false; SP.hide(); hideTip(); }
+export function closeStageSel(silent) { if (ui.open && !silent) Snd.play('ui'); ui.open = false; SP.hide(); hideTip(); stageOverlay(false); }
 const SP = definePanel('stage', { id: 'stagePanel', z: 40, isOpen: () => ui.open, close: s => closeStageSel(s) });
 const starStr = n => [0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}">★</i>`).join('');
 function render() {

@@ -102,7 +102,7 @@ export function openMail() { if (!ui.mail) Snd.play('confirm'); hooks.closeOther
 export function closeMail(silent) { if (ui.mail && !silent) Snd.play('ui'); ui.mail = false; MP.hide(); }
 const MP = definePanel('mail', { id: 'mailPanel', z: 42, isOpen: () => ui.mail, close: s => closeMail(s) });
 function renderMail() {
-  if (!ui.mail) return; const A = Acc.A, st = Sh.S.status, L = Sh.S.mail; let h = '';
+  if (!ui.mail) return; renderMailActions(); const A = Acc.A, st = Sh.S.status, L = Sh.S.mail; let h = '';
   if (!A.user) h = '<div class="emptyMsg">로그인한 계정만 우편을 받을 수 있어요.</div>';
   else if (st === 'missing') h = '<div class="emptyMsg">서버 준비 중이에요.</div>';
   else if (st === 'error') h = '<div class="emptyMsg">서버에 연결할 수 없어요.</div>';
@@ -113,9 +113,10 @@ function renderMail() {
       <div class="mAct">${m.reward ? (m.revoked ? '<span class="got revoked">회수됨</span>' : m.claimed && !pending ? '<span class="got">받음 ✓</span>' : `<button class="gbtn main mClaim" data-id="${m.id}">${pending ? '저장 재시도' : '받기'}</button>`) : ''}</div></div>`; }).join('');
   if ($('mailList')._h !== h) { $('mailList')._h = h; $('mailList').innerHTML = h;
     document.querySelectorAll('#mailList .mailItem').forEach(el => el.onclick = () => { const id = +el.dataset.id, m = Sh.S.mail.find(x => x.id === id); if (m && !m.read) { Sh.markRead(id); render(); } });
-    document.querySelectorAll('#mailList .mClaim').forEach(b => b.onclick = async e => { e.stopPropagation(); b.disabled = true; const r = await Sh.claim(+b.dataset.id); b.disabled = false; ui.mailMsg = (r.ok ? '✅ ' : '⚠ ') + esc(r.msg);
+    document.querySelectorAll('#mailList .mClaim').forEach(b => b.onclick = async e => { e.stopPropagation(); if(ui.mailBusy||Sh.S.mailAction)return; ui.mailBusy=true; renderMailActions(); b.disabled = true; const r = await Sh.claim(+b.dataset.id); ui.mailBusy=false; b.disabled = false; ui.mailMsg = (r.ok ? '✅ ' : '⚠ ') + esc(r.msg);
       if (r.ok && !r.already) { Snd.play('levelUp'); Snd.play('coins'); if (r.reward && r.reward.hero) { ui.mailMsg = `${(PROD['hero_' + r.reward.hero] || {}).icon || '🎁'} <b>${esc(heroLabel(r.reward.hero))}</b> 해금! 영웅 선택에서 고를 수 있어요.`; hooks.cheer(); } } else Snd.play(r.ok ? 'ui' : 'error');
       hooks.onChange(); render(); }); }
+  document.querySelectorAll('#mailList .mClaim').forEach(b=>b.disabled=!!(ui.mailBusy||Sh.S.mailAction));
   $('mailMsg').innerHTML = ui.mailMsg || (Sh.isBanned() ? '<span class="bad">⛔ 계정이 정지되어 우편을 받을 수 없어요.</span>' : '');
 }
 function badge() { const n = Acc.A.user ? Sh.unread() : 0, b = $('twMailN'); if (b) { b.textContent = n > 9 ? '9+' : n || ''; b.classList.toggle('hidden', !n); }
@@ -129,3 +130,21 @@ export function initShop(h) {
   badge();
 }
 G.shop = { Sh, openShop, closeShop, openMail, closeMail, openAdmin, closeAdmin, ui: () => ui, pvKey: () => (pv && pv.ch && pv.ch.g.visible ? pv.key : null) };
+
+function renderMailActions(){
+ let bar=$('mailActions');
+ if(!bar){bar=document.createElement('div');bar.id='mailActions';bar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';$('mailList').before(bar);}
+ const busy=!!(ui.mailBusy||Sh.S.mailAction),ready=!!Acc.A.user&&Sh.S.status==='ok'&&!Sh.isBanned();
+ bar.innerHTML='<button class="gbtn main" data-mail-action="all">모두 받기</button><button class="gbtn" data-mail-action="clean">받은 우편 정리</button>'+(Sh.S.archivedIds?.length?'<button class="gbtn" data-mail-action="undo">정리 취소</button>':'');
+ for(const b of bar.querySelectorAll('button')){
+  const k=b.dataset.mailAction;b.disabled=busy||!ready||(k==='all'?!Sh.claimableCount():k==='clean'?!Sh.cleanupCount():false);
+  b.onclick=async()=>{
+   if(ui.mailBusy||Sh.S.mailAction)return;
+   const user=Acc.A.user?.id,epoch=Acc.sessionId();ui.mailBusy=true;ui.mailMsg='처리 중…';renderMail();
+   try{const r=await(k==='all'?Sh.claimAll():Sh.cleanupMail(k==='undo'));
+    if(Acc.A.user?.id===user&&Acc.sessionId()===epoch){ui.mailMsg=esc(r.msg||'완료');hooks.onChange();}
+   }catch(e){if(Acc.A.user?.id===user&&Acc.sessionId()===epoch)ui.mailMsg=esc(e.message||'처리하지 못했습니다.');}
+   finally{ui.mailBusy=false;render();}
+  };
+ }
+}

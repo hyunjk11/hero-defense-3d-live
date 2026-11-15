@@ -1,3 +1,4 @@
+import { claimableMail, createMailBatch } from './mail-actions.js';
 // 상점 · 우편함 · 관리자 클라이언트 (Supabase). 유료 영웅 소유권은 서버 테이블 hd3d_owned(사용자 쓰기 불가)에서 읽은 값만 메모리에 둠 (localStorage/세이브에 저장하지 않음).
 // 테이블/함수가 아직 없으면(schema.sql 미실행) status = 'missing' → UI는 '서버 준비 중'. 게스트는 구매/우편 불가.
 import { A, ensureClient, load as accLoad, store as accStore, onChange as accOnChange, setBanned, onDenied, flush, ready as accountReady, serverSaveState, SAVE_WAIT_MESSAGE, sessionId, mailSaved, beginServerSave, markServerSave, finishServerSave, reloadAuthoritative } from './account.js';
@@ -13,7 +14,7 @@ import { CLASSES, DEFAULT_HERO, isHidden } from '../data/heroes.js';
 const T = SHOP.tables;
 const ready = () => accountReady() && !serverSaveState();
 const canRecoverClaims = () => { const pending=serverSaveState();return accountReady()&&(!pending||A.sb?.atomicMail&&pending.token?.startsWith('mail:')&&!pending.busy); };
-export const S = { status: 'idle', owned: [], ownedUid: null, orders: [], mail: [], adminOrders: [], msg: '', listeners: [], me: { st: 'idle', admin: false, owner: false, banned: false, reason: null } }; // status: idle | guest | loading | ok | missing | error
+export const S = { mailAction: null, archivedIds: [], status: 'idle', owned: [], ownedUid: null, orders: [], mail: [], adminOrders: [], msg: '', listeners: [], me: { st: 'idle', admin: false, owner: false, banned: false, reason: null } }; // status: idle | guest | loading | ok | missing | error
 // me = 서버 hd3d_my_status (관리자/owner/정지). st: idle | ok | missing(schema.sql 재실행 전) | error
 const emit = () => S.listeners.forEach(f => { try { f(S); } catch (e) { console.warn(e); } });
 export const onShop = f => S.listeners.push(f);
@@ -62,12 +63,13 @@ async function fetchShop() {
   if (S.status !== 'ok') S.status = 'loading'; emit();
   const u = A.user.id, epoch = sessionId(), c = await sb();
   if (A.user?.id !== u || sessionId() !== epoch) return S;
-  const [o, , r, m] = await Promise.all([q(c.from(T.owned).select('item').eq('user_id', u)), refreshMe().catch(() => {}), q(c.from(T.orders).select('*').eq('user_id', u).order('created_at', { ascending: false }).limit(50)), q(c.from(T.mail).select('*').eq('user_id', u).order('created_at', { ascending: false }).limit(100))]);
+  const [o, , r, m, archived] = await Promise.all([q(c.from(T.owned).select('item').eq('user_id', u)), refreshMe().catch(() => {}), q(c.from(T.orders).select('*').eq('user_id', u).order('created_at', { ascending: false }).limit(50)), q(c.from(T.mail).select('*').eq('user_id', u).eq('archived', false).order('created_at', { ascending: false }).limit(100)), q(c.from(T.mail).select('id').eq('user_id', u).eq('archived', true).order('created_at', { ascending: false }).limit(100))]);
   if (A.user?.id !== u || sessionId() !== epoch) return S;
-  const bad = [o, r, m].find(x => x.error);
+  const bad = [o, r, m, archived].find(x => x.error);
   if (bad) { S.status = isMissing(bad.error) ? 'missing' : 'error'; S.msg = bad.error.message || ''; emit(); return S; }
   if (!A.user || A.user.id !== u) return S;
   S.owned = [...new Set((o.data || []).map(x => x.item))]; S.ownedUid = u;
+  S.archivedIds = [...new Set((archived.data || []).map(m=>m.id).filter(id=>Number.isSafeInteger(id)&&id>0))];
   const rd = readSet(); S.orders = r.data || []; S.mail = (m.data || []).map(x => ({ ...x, read: rd.has(String(x.id)) })); S.status = 'ok'; emit();
   if (canRecoverClaims() && !recovering && !claiming.size && pendList().length) setTimeout(() => recoverClaims().catch(() => {}), 0); return S;
 }
@@ -101,7 +103,8 @@ const pendKey = () => CLOUD.storagePrefix + '_mailpend_' + uid();
 const pendList = () => { try { const a = JSON.parse(ls.get(pendKey()) || '[]'); return Array.isArray(a) ? a.filter(Number.isSafeInteger) : []; } catch (e) { return []; } };
 const pendSet = (id, on) => { const a = new Set(pendList()); if (on) a.add(id); else a.delete(id); durableSet(pendKey(), JSON.stringify([...a])); };
 export const pendingClaims = () => pendList();
-export async function claim(id, { quiet = false } = {}) {
+export async function claim(id, { quiet = false, batchToken = null } = {}) {
+  if(S.mailAction && batchToken!==mailBatchToken)return {ok:false,busy:true,msg:'우편 처리 중입니다.'};
   if (!A.user) return { ok: false, msg: '로그인이 필요합니다.' };
   if (serverSaveState() && !(A.sb?.atomicMail && serverSaveState().token==='mail:'+id && !serverSaveState().busy)) return {ok:false, pending:true, msg:SAVE_WAIT_MESSAGE};
   if (!canRecoverClaims()) return { ok: false, msg: '계정 저장을 불러오거나 저장 기록 선택을 마친 뒤 다시 받아 주세요.' };
@@ -169,7 +172,7 @@ async function claimAtomic(id,{quiet,current,wasPending}) {
 }
 // 응답이 끊겨 '받는 중'으로 남은 우편을 다시 처리 (로그인 후 refresh 때 자동)
 let recovering = false;
-export async function recoverClaims() { if (recovering || !canRecoverClaims() || claiming.size) return 0; recovering = true; let n = 0;
+export async function recoverClaims() { if (S.mailAction || recovering || !canRecoverClaims() || claiming.size) return 0; recovering = true; let n = 0;
   try { for (const id of pendList()) { if (mailSaved(id)) { pendSet(id, false); continue; } const r = await claim(id, { quiet: true }); if (r.recovered || (r.ok && !r.already)) n++; } } finally { recovering = false; } return n; }
 // 영혼석·재료는 저장 데이터에 더하고 장부에 id 기록 (한 번만). 영웅은 서버 hd3d_owned 로 해금 → refresh
 function applyReward(id, rw) { const [s, ok, res] = applyMail(accLoad(), id, rw); if (ok) accStore(s); return [ok, res || []]; }
@@ -195,6 +198,38 @@ accOnChange(() => {
   lastReady = canRecover;
 });
 addEventListener('online', () => { if (canRecoverClaims()) recoverClaims().catch(() => {}); });
-let lastU = null; accOnChange(() => { const u = A.user ? A.user.id : null; if (u !== lastU) { lastU = u; S.owned = []; S.ownedUid = null; S.orders = []; S.mail = []; S.adminOrders = []; S.me = { st: 'idle', admin: false, owner: false, banned: false, reason: null }; setBanned(false); S.status = u ? 'loading' : 'guest'; if (u) refresh().catch(() => {}); else emit(); } });
+let lastU = A.user?.id || null; accOnChange(() => { const u = A.user ? A.user.id : null; if (u !== lastU) { lastU = u; S.mailAction = null; S.archivedIds = []; S.owned = []; S.ownedUid = null; S.orders = []; S.mail = []; S.adminOrders = []; S.me = { st: 'idle', admin: false, owner: false, banned: false, reason: null }; setBanned(false); S.status = u ? 'loading' : 'guest'; if (u) refresh().catch(() => {}); else emit(); } });
 // 새로고침으로 출정할 때(?stage&run) 유료 영웅이면 로그인·서버 소유권 확인을 먼저 (최대 ms)
 export async function verifyOwned(ms = 8000) { const to = new Promise(r => setTimeout(r, ms)); try { await Promise.race([(async () => { if (!A.user) { const { autoLogin } = await import('./account.js'); await autoLogin(); } if (A.user) await refresh(); })(), to]); } catch (e) {} }
+
+const mailBatchToken=Symbol('mail batch'),mailBatch=createMailBatch();
+export const claimableCount=()=>claimableMail(S.mail,pendList()).length;
+export const cleanupCount=()=>S.mail.filter(m=>m.claimed&&!pendList().includes(m.id)).length;
+export async function claimAll(){
+ if(S.mailAction||claiming.size||recovering)return {ok:false,msg:'우편 처리 중입니다.'};
+ if(!canRecoverClaims()||S.status!=='ok'||S.me.banned)return {ok:false,msg:'계정과 저장 상태를 확인해 주세요.'};
+ const u=uid(),epoch=sessionId(),current=()=>uid()===u&&sessionId()===epoch;
+ const action={kind:'claim',done:0,total:claimableCount()};S.mailAction=action;emit();
+ try{
+  const r=await mailBatch(S.mail,{pending:pendList(),isCurrent:current,claim:id=>claim(id,{batchToken:mailBatchToken}),onProgress:()=>{action.done++;if(current())emit();}});
+  return {...r,msg:r.received+'개 받음'+((r.remaining+r.failed.length)?' · '+(r.remaining+r.failed.length)+'개 남음':'')+(r.failed?.[0]?.msg?' · '+r.failed[0].msg:'')};
+ }catch(e){return {ok:false,msg:e.message||'수령이 중단되었습니다. 다시 확인해 주세요.'};}
+ finally{if(current()&&S.mailAction===action){S.mailAction=null;emit();}}
+}
+export async function cleanupMail(restore=false){
+ if(S.mailAction||claiming.size||recovering)return {ok:false,msg:'우편 처리 중입니다.'};
+ if(!ready()||S.status!=='ok'||!uid())return {ok:false,msg:'계정과 저장 상태를 확인해 주세요.'};
+ const u=uid(),epoch=sessionId(),current=()=>uid()===u&&sessionId()===epoch;
+ const ids=(restore?S.archivedIds:S.mail.filter(m=>m.claimed&&!pendList().includes(m.id)).map(m=>m.id)).slice(0,100);
+ if(!ids.length)return {ok:true,msg:restore?'복원할 우편이 없습니다.':'정리할 받은 우편이 없습니다.'};
+ const action={kind:restore?'restore':'archive'};S.mailAction=action;emit();
+ try{
+  const c=await sb();if(!current())return {ok:false,msg:'계정이 변경되었습니다.'};
+  const {data,error}=await q(c.rpc('hd3d_mail_archive',{p_ids:ids,p_restore:restore}));
+  if(!current())return {ok:false,msg:'계정이 변경되었습니다.'};
+  if(error||data?.ok!==true)return {ok:false,msg:error?.message||'우편 정리에 실패했습니다.'};
+  if(restore)S.archivedIds=S.archivedIds.filter(id=>!data.ids.includes(id));else S.archivedIds=[...new Set([...S.archivedIds,...data.ids])];
+  await refresh();return {ok:true,msg:data.ids.length+'개 '+(restore?'복원했습니다.':'정리했습니다.')};
+ }catch(e){return {ok:false,msg:e.message||'우편 정리에 실패했습니다.'};}
+ finally{if(current()&&S.mailAction===action){S.mailAction=null;emit();}}
+}
