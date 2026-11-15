@@ -92,7 +92,7 @@ export function rosebarrage(s, tg) {
     for (let i = 0; i < 12; i++) { const k = i & 1, a = ang + (i / 11 - .5) * 1.3*(s.radius||1) + (v - 1) * .05, from = muzzle(k).setY(1.25); flash(k, 1.6);
       lineShot(from, new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), { dmg, range: 13, pierce: 3, color: 0xff6aa8, trail: 0xff3a8a, w: 1.8, len: 1.4, txt: '#ff8ac0', spark: 0xff9ac8, big: v === 2,
         onEnd: v === 2 && i === 5 ? p => bloom(p, s) : null, lsk: true }); }
-    Snd.gun(muzzle(0), { rate: .85, vol: 1.2, big: true }); Snd.gun(muzzle(1), { rate: .95, vol: 1 }); });
+    Snd.gun(muzzle(0), { rate: .85, vol: 1.2, big: true, skill: true }); Snd.gun(muzzle(1), { rate: .95, vol: 1 }); });
 }
 export function bloom(p, s, leg = true) { const c = p.clone().setY(0), R = 3.4*(s.radius||1), dmg = stat.dmg() * s.mul * 2 * stat.skillMul(); lsk = leg; for (const e of alive()) if (d2(e, c.x, c.z) <= R * R) hurt(e, dmg, '#ff6aa8', true); lsk = false;
   ringFx(c, R + 1, 0xff3a8a, .5); ringFx(c, R * .5, 0xffe0f0, .3); petals(c, 34, 6); emit(P, c.x, 1, c.z, 60, 0xff6aa8, 8, .6, -6, 1.5); Snd.play('boom', { pos: c, vol: .6, rate: 1.3 }); }

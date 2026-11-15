@@ -133,9 +133,10 @@ function boomerang(t, s) {
 export function castLegend(at) { if (!skillAllowed(hero, 'E')) return false; return asSkill(castLegend0, at); }
 function castLegend0(at) {
   const s = legendActive(); if (!s || !hero || hero.dead > 0 || hero.lcd > 0 || hero.eCastT > 0 || hero.leap || (hero.ft && hero.ft.leap) || (hero.mech && hero.mech.busy > 0) || (G.phase !== 'build' && G.phase !== 'wave')) { if (s && hero && hero.lcd > 0) Snd.play('error'); return false; }
-  if (hero.warpT > 0) return false; hero.lcd = legendCd(); hero.spinT = 0; hero.roseT = 0; if (hero.swirl) hero.swirl.visible = false; const key = s.key; G.heroEN ||= {}; G.heroEN[key] = (G.heroEN[key] || 0) + 1;
+  if (hero.warpT > 0) return false; hero.qPoseT=0;hero.ePoseT=0; hero.lcd = legendCd(); hero.spinT = 0; hero.roseT = 0; if (hero.swirl) hero.swirl.visible = false; const key = s.key; G.heroEN ||= {}; G.heroEN[key] = (G.heroEN[key] || 0) + 1;
   if (!s.kind) legendFeedback(hero,hero,s,[],FX,true);
   if (s.kind) castAdvanceE(s, aim((s.reach*(s.reachMul||1)) || 1, at), FX); else if (key === 'rosebarrage') rosebarrage(s, aim(14, at)); else if (key === 'gigahammer') gigahammer(s, aim(12, at)); else if (key === 'tigerdash') tigerdash(s, aim(9, at)); else ({ pierce, meteorstorm, quake })[key](s, at);
+  if(!s.kind&&(key==='pierce'||key==='meteorstorm')){hero.ePoseT=Math.max(0,hero.atkT||0);hero.ePoseTerrain=G.tiles;}
   if(hero.treeMods?.weave||hero.treeMods?.pursuit||hero.treeMods?.pursuitRanged)treeSkillUsed(hero,'e',G.t);hero.autoSkillUntil = G.t + Math.max(.8, hero.atkT || 0); return true;
 }
 // 관통샷: 충전 → 일직선 모든 적 관통하는 황금 화살 + 큰 잔상

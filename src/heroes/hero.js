@@ -132,6 +132,7 @@ const MELEE_ONLY = { warrior: 1, fighter: 1 };
 function updHero(dt) {
   const h = hero;
   h.qPoseT=h.dead>0||h.warpT>0||h.eCastT>0||h.qPoseTerrain!==G.tiles||G.screen==='town'||!['build','wave'].includes(G.phase)?0:Math.max(0,(h.qPoseT||0)-dt);
+  h.ePoseT=h.dead>0||h.warpT>0||h.eCastT>0||h.ePoseTerrain!==G.tiles||G.screen==='town'||!['build','wave'].includes(G.phase)?0:Math.max(0,(h.ePoseT||0)-dt);
   h.ch.mixer.update(dt); if (h.adv) advUpd(dt); // 전직: 오라·무기 스케일·불꽃 바닥·성역
   if (h.dead > 0) { h.dead -= dt; if (h.dead <= 0) { h.hp = h.max; h.hb.show(true); h.g.position.set(tileX(CORE[0] - 1), 0, tileZ(CORE[1])); play(h.ch, 'Cheer', { once: true }); h.atkT = 1.2; emit(P, h.g.position.x, 1, h.g.position.z, 40, 0x8aff9a, 5, .8); ringFx(h.g.position, 2.5, 0x8aff9a, .6); } return; }
   const fwd = new THREE.Vector3(-Math.sin(cam.theta), 0, -Math.cos(cam.theta)), right = new THREE.Vector3(-fwd.z, 0, fwd.x), mv = new THREE.Vector3();
@@ -174,7 +175,7 @@ function updHero(dt) {
   else if (tgt && h.spinT <= 0) { const want = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); if (!moving) h.face = want;
     if (h.cd <= 0) { h.cd = 1 / stat.rate();
       let hitD = h.cls === 'warrior' ? .12 : .08;
-      if (!moving) { const nm = h.cls === 'warrior' && rand() < .5 ? '1H_Melee_Attack_Slice_Horizontal' : h.C.atk, spd = h.C.atkSpd * Math.max(1, stat.rate() / h.C.rate); if(!(h.qPoseT>0))play(h.ch, nm, { once: true, force: true, speed: spd }); h.atkT = Math.min(.55, 1 / stat.rate());
+      if (!moving) { const nm = h.cls === 'warrior' && rand() < .5 ? '1H_Melee_Attack_Slice_Horizontal' : h.C.atk, spd = h.C.atkSpd * Math.max(1, stat.rate() / h.C.rate); if(!(h.qPoseT>0||h.ePoseT>0))play(h.ch, nm, { once: true, force: true, speed: spd }); h.atkT = Math.min(.55, 1 / stat.rate());
         if (h.ch.hitAt) hitD = h.ch.hitAt / spd; } // Meshy 전사: 칼 휘두름 정점에 타격
       const t0 = tgt; later(hitD, () => { if (!t0.dead && hero.dead <= 0) { attack(t0); if (hero.lsk) legendProc(t0); } }); } }
   if (h.spinT > 0) { h.spinT -= dt; h.spinTick -= dt; h.g.rotation.y += dt * 9;
@@ -183,7 +184,7 @@ function updHero(dt) {
   else { let d = h.face - h.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); h.g.rotation.y += d * Math.min(1, dt * 14); }
   if (h.cls === 'gunner' && h.eCastT > 0) play(h.ch, moving ? 'ShootWalk' : 'ShootStand', { speed: moving ? 1.3 : 1, fade: .12 });
   else if (h.eCastT > 0) { /* Preserve E cast clip; movement above is unchanged. */ }
-  else if (h.qPoseT > 0) { /* Q visual hold does not suppress basic attacks or movement. */ }
+  else if (h.qPoseT > 0 || h.ePoseT > 0) { /* Q/E visual hold does not suppress basic attacks or movement. */ }
   else if (h.roseT > 0) { /* ShootCharged 재생 중 */ } else if (h.gunT > 0) play(h.ch, moving ? 'ShootWalk' : 'ShootStand', { speed: moving ? 1.3 : 1, fade: .12 });
   else if (h.spinT <= 0) { if (moving) play(h.ch, 'Running_A', { speed: h.ch.runSpd || 1.1 }); else if (h.atkT <= 0) play(h.ch, 'Idle', { fade: .25 }); }
   if(h.cls==='gunner')h.ch.aimWeapons?.(h.face); // visual pose only, after movement/rotation
