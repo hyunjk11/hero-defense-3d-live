@@ -1,3 +1,4 @@
+import {createHellfireBurn} from '../../src/data/hellfire-burn.js';
 import {abyssalStrike} from '../../src/data/abyssal-set.js';
 import {ABYSSAL_PROC} from '../../src/data/boss-sets.js';
 import { skillAllowed } from '../../src/data/hard-party.js';
@@ -28,7 +29,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
   const toon=vm.createContext({THREE,scene,mergeVertices:g=>g});
   vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/toon.js',import.meta.url),'utf8')).replace(/^export \{.*$/gm,'')+';this.dispose=disposeOwned;',toon);
   const cats=vm.createContext({THREE});vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/cat-spirit.js',import.meta.url),'utf8'))+';this.api={createCatSpirit,animateCatSpirit};',cats);
-  const adv=vm.createContext({createSkillCues,THREE,G,hero,scene,catFlight,stepCatFlight,...cats.api,disposeOwned:toon.dispose,groundY:()=>0,hurt:env.hurt0,grantEShield,stat:env.stat,play:env.play,Snd:env.Snd,banner:no,knock:(e,x,z,d)=>{e.knock=d;}});
+  const adv=vm.createContext({createHellfireBurn,createSkillCues,THREE,G,hero,scene,catFlight,stepCatFlight,...cats.api,disposeOwned:toon.dispose,groundY:()=>0,hurt:env.hurt0,grantEShield,stat:env.stat,play:env.play,Snd:env.Snd,banner:no,knock:(e,x,z,d)=>{e.knock=d;}});
   vm.runInContext(strip(advanceSource??fs.readFileSync(new URL('../../src/heroes/advance-e.js',import.meta.url),'utf8'))+';this.cast=castAdvanceE;this.cues=typeof skillCues===\'undefined\'?null:skillCues;',adv);env.castAdvanceE=adv.cast;
   const lf=vm.createContext({createSkillCues,scene,G,groundY:()=>0,Snd:env.Snd});
   vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/legend-feedback.js',import.meta.url),'utf8'))+';this.feedback=legendFeedback;this.pool=pool;',lf);env.legendFeedback=lf.feedback;

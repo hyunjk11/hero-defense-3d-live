@@ -16,7 +16,7 @@ export const ADV_E = {
   hawk:variant('archer','hawk','매의 심판','🦅','line',12,6,{reach:30,width:.8,cast:.7},'0.7초 조준 후 첫 적 600% · 거리 30'),
  },
  mage: {
-  flame:variant('mage','flame','업화 기둥','🔥','field',12,4,{reach:16,area:3.6,duration:3,ticks:6,ground:true,cast:.6},'반경 3.6 · 3초간 6회 각 400% · 지상'),
+  flame:variant('mage','flame','업화 기둥','🔥','field',12,4.5,{reach:16,area:4.2,duration:3,ticks:6,burnDps:1,burnDuration:2,cast:.6},'반경 4.2 · 3초간 6회 각 450% · 지상·공중 · 적중 시 2초 화상(초당 100%, 재적중 갱신·중첩 불가)'),
   frost:variant('mage','frost','블리자드','❄️','field',14,1.5,{reach:16,area:4.8,duration:4,ticks:8,slow:.4,bossSlow:.2,freeze:.6,bossFreeze:.2,cast:.6},'반경 4.8 · 4초간 8회 각 150% · 둔화 40%(보스 20%) · 끝에 빙결 0.6초(보스 0.2초)'),
  },
  warrior: {
@@ -42,7 +42,7 @@ export function eDescription(s){
  switch(s.kind){
   case 'fan':return `3갈래 화살 · 적마다 ${d}% 1회 · 거리 ${reach}`;
   case 'line':return `${s.cast}초 조준 후 첫 적 ${d}% · 거리 ${reach}`;
-  case 'field':return `반경 ${r} · ${s.duration}초간 ${s.ticks}회 각 ${d}%`+(s.ground?' · 지상':` · 둔화 ${n(s.slow*100)}%(보스 ${n(s.bossSlow*100)}%) · 끝에 빙결 ${n(s.freeze*(s.cc||1))}초(보스 ${n(s.bossFreeze*(s.cc||1))}초)`);
+  case 'field':return `반경 ${r} · ${s.duration}초간 ${s.ticks}회 각 ${d}%`+(s.burnDps?` · 지상·공중 · 적중 시 ${s.burnDuration}초 화상(초당 ${n(s.burnDps*(s.damageMul||1)*100)}%, 재적중 갱신·중첩 불가)`:s.ground?' · 지상':` · 둔화 ${n(s.slow*100)}%(보스 ${n(s.bossSlow*100)}%) · 끝에 빙결 ${n(s.freeze*(s.cc||1))}초(보스 ${n(s.bossFreeze*(s.cc||1))}초)`);
   case 'shield':return `최대 체력 ${n(Math.min(.5,s.shield*(s.shieldMul||1))*100)}% 보호막 ${n(Math.min(8,s.duration*(s.durationMul||1)))}초(중첩 불가) · 반경 ${r} 지상 ${d}%`;
   case 'cone':return `전방 반경 ${r} · 지상 ${d}%씩 ${s.ticks}연격`+(s.knockBase?` · 끝에 ${n(s.knockBase*(s.knock||1))}m 밀치기(보스 제외)`:'');
   case 'volley':return `목표 주변 반경 ${r}에서 재탐색 · ${s.ticks}발 각 ${d}% · 사거리 ${reach}`;

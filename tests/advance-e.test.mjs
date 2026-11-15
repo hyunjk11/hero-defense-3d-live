@@ -12,14 +12,14 @@ const cast=f=>f.api.castLegend(new f.THREE.Vector3(0,0,2));
 for(const [h,b] of branches)test(`${h}/${b}: actual E dispatch, armor, ticks, cooldown, no equipment proc`,()=>{
  const f=fixture(h,b),e=f.target(0,2,{armor:.2}),s=ADV_E[h][b];
  assert.equal(f.api.legendActive().key,s.key);assert.equal(cast(f),true);assert.equal(cast(f),false);assert.equal(f.hero.lcd,s.cd);
- f.tick(8);const count=s.kind==='fan'?1:(s.ticks||1),want=100*s.mul*count*.8;
- assert.ok(Math.abs(damage(f)-want)<1e-6,`${damage(f)} != ${want}`);assert.equal(f.hits.length,count);assert.equal(f.hero.licd,0);assert.deepEqual(Object.keys(f.G.legendN),[]);assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);
+ f.tick(8);const count=s.kind==='fan'?1:(s.ticks||1),want=100*(s.mul*count+(s.burnDps?4.5*s.burnDps:0))*.8;
+ assert.ok(Math.abs(damage(f)-want)<1e-6,`${damage(f)} != ${want}`);assert.equal(f.hits.length,count+(s.burnDps?9:0));assert.equal(f.hero.licd,0);assert.deepEqual(Object.keys(f.G.legendN),[]);assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);
 });
 
 test('all Lv30 choices and all 320 saved combinations resolve finite branch effects without changing preset IDs',()=>{
  for(const [h,b] of branches){
   for(let bits=0;bits<32;bits++){let raw={};for(const [i,tier] of [15,20,30,40,50].entries())raw=changeTree(raw,h,b,50,0,tier,treeOptions(h,b,tier)[bits>>i&1].id);assert.deepEqual(cleanTrees(JSON.parse(JSON.stringify(raw))),raw);const m=treeMods(treeBuild(raw,h,b,50)),s=treeESkill(ADV_E[h][b],m);assert.ok(eDescription(s));assert.ok(Number.isFinite(s.mul)&&s.mul>0);assert.ok(m.eCd>=.7);}
-  for(const o of treeOptions(h,b,30)){const f=fixture(h,b),e=f.target(0,2,{armor:.2});f.hero.treeMods=choices(h,b,30,o.id);cast(f);f.tick(.4);if(b==='paladin')assert.equal(f.hero.eShield.value,1000*.35*(o.eShield||1));f.tick(8);const want=100*ADV_E[h][b].mul*(ADV_E[h][b].kind==='fan'?1:(ADV_E[h][b].ticks||1))*.8*(o.eMul||1);assert.ok(Math.abs(damage(f)-want)<1e-6,`${b}/${o.id} ${damage(f)}/${want}`);}
+  for(const o of treeOptions(h,b,30)){const f=fixture(h,b),e=f.target(0,2,{armor:.2});f.hero.treeMods=choices(h,b,30,o.id);cast(f);f.tick(.4);if(b==='paladin')assert.equal(f.hero.eShield.value,1000*.35*(o.eShield||1));f.tick(8);const want=100*(ADV_E[h][b].mul*(ADV_E[h][b].kind==='fan'?1:(ADV_E[h][b].ticks||1))+(ADV_E[h][b].burnDps?4.5*ADV_E[h][b].burnDps:0))*.8*(o.eMul||1);assert.ok(Math.abs(damage(f)-want)<1e-6,`${b}/${o.id} ${damage(f)}/${want}`);}
  }
 });
 

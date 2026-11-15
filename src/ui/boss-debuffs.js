@@ -2,7 +2,7 @@ import { SP_AFFIX_BY } from '../data/spire.js';
 import { ETYPES } from '../data/monsters.js';
 
 // Read the same remaining timers/flags as enemy AI; never advance or change them here.
-export function bossDebuffs(boss) {
+export function bossDebuffs(boss, now = 0) {
   if (!boss || boss.dead || boss.dying !== undefined || !boss.E?.boss) return [];
   const effects = [], timed = (id, name, time, detail = '') => {
     if (Number.isFinite(time) && time > 0) effects.push({ id, name, time, detail });
@@ -17,6 +17,8 @@ export function bossDebuffs(boss) {
   // AI uses 45% when slowAmt is zero/unset, and pauses slowT during a stun.
   const slow = boss.slowAmt || .45;
   if (Number.isFinite(slow) && slow > 0) timed('slow', '둔화', boss.slowT, `${Math.round(slow * 100)}%`);
+  const burn = boss.hellfireBurn;
+  if (burn) timed('hellfire', '업화 화상', burn.until-now, `초당 ${Math.round(burn.dps)} 피해(방어 적용 전)`);
   const crack = boss.E.ab?.crack;
   if (boss.cracked && crack && boss.armor < crack.armor) {
     effects.push({ id: 'crack', name: '갑옷 파괴', time: crack.regen > 0 && boss.regenT > 0 ? boss.regenT : null, detail: '' });
@@ -64,7 +66,7 @@ export function renderBossDebuffs(container, boss, now = 0, context = {}) {
   let view = views.get(container);
   if (!view) { view = { boss: null, nodes: new Map() }; views.set(container, view); }
   if (view.boss !== boss) { container.replaceChildren(); view.nodes.clear(); view.boss = boss; }
-  const effects = [...bossBuffs(boss,now,context),...bossDebuffs(boss)], active = new Set(effects.map(effect => effect.id));
+  const effects = [...bossBuffs(boss,now,context),...bossDebuffs(boss,now)], active = new Set(effects.map(effect => effect.id));
   for (const [id, node] of view.nodes) if (!active.has(id)) { node.remove(); view.nodes.delete(id); }
   for (let i = 0; i < effects.length; i++) {
     const effect = effects[i]; let node = view.nodes.get(effect.id);

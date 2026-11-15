@@ -90,4 +90,4 @@ export const treeCooldown=(base,original,mul=1)=>Math.max(Math.min(base,original
 export const treeTaken=h=>Math.max(.75,(h.treeMods?.taken||1)*(h.treeMods?.lastguard&&h.hp<h.max*.4?.8:1));
 export const treeQBonus=(h,now)=>h.treeMods?.weave&&now<(h.treeWeaveUntil||0)?1.25:1;
 export function treeSkillUsed(h,key,now){if(key==='e'){h.treeFollowUntil=now+6;if(h.treeMods?.weave)h.treeWeaveUntil=now+6;}else if(key==='q')h.treeWeaveUntil=0;}
-export function treeESkill(s,m={}){return s?{...s,mul:s.mul*(m.eMul||1),radius:m.eRadius||1,cc:m.eCC||1,knock:m.eKnock||1,reachMul:m.eReach||1,shieldMul:m.eShield||1,durationMul:m.eDuration||1}:null;}
+export function treeESkill(s,m={}){return s?{...s,mul:s.mul*(m.eMul||1),damageMul:m.eMul||1,radius:m.eRadius||1,cc:m.eCC||1,knock:m.eKnock||1,reachMul:m.eReach||1,shieldMul:m.eShield||1,durationMul:m.eDuration||1}:null;}
