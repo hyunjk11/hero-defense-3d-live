@@ -1,3 +1,4 @@
+import {batchCitadelBodies} from './citadel-body-batch.js';
 import * as THREE from 'three';
 import {G} from '../core/state.js';
 import {mk,toon,shareGeo} from './toon.js';
@@ -59,5 +60,8 @@ export function makeEndgameEnemy(E){
   legs.forEach((n,i)=>n.rotation.x=Math.sin(m.phase+i%2*Math.PI)*a*.4);arms.forEach((n,i)=>{n.rotation.x=-charge*.65+strike*.55;n.rotation.z=(i%2?1:-1)*charge*.22;});
   wings.forEach((n,i)=>{n.rotation.y=(i%2?1:-1)*(E.fly?.3+Math.sin(G.t*7)*.35:e.endAwakened?.65:.25+charge*.2);});orbit.forEach((n,i)=>n.rotation.z+=dt*(.3+charge)*(i%2?-1:1));tails.forEach(n=>n.rotation.y=Math.sin(m.phase)*.2);doors.forEach((n,i)=>n.rotation.y=(i%2?1:-1)*(e.endRecover>0?.9:charge*.4));if(head)head.rotation.x=-charge*.15+strike*.15;if(core&&!e.flash)core.material.emissiveIntensity=.5+charge+(e.endAwakened?.4:0);
  };
+ // Citadel animation moves groups only; leaf transforms are fixed after construction.
+ if(!abyss)inner.traverse(o=>{if(o.isMesh){o.updateMatrix();o.matrixAutoUpdate=false;}});
+ if(!abyss)batchCitadelBodies(inner,{shareGeometry:shareGeo});
  return m;
 }

@@ -8,7 +8,9 @@ const read=f=>fs.readFileSync(new URL('../src/'+f,import.meta.url),'utf8');
 const strip=s=>s.replace(/^import .*;.*$/gm,'').replace(/^export \{.*$/gm,'').replace(/\bexport (?=(?:const|function|let))/g,'');
 const scene=new THREE.Scene(),G={t:0};const toonContext=vm.createContext({THREE,scene,mergeVertices:g=>g});
 vm.runInContext(strip(read('render/toon.js'))+'\nthis.api={mk,toon,shareGeo,disposeObj,disposeOwned};',toonContext);
-const env=vm.createContext({THREE,G,...toonContext.api});
+const utils=vm.createContext({...THREE,THREE});vm.runInContext(fs.readFileSync(new URL('../lib/addons/utils/BufferGeometryUtils.js',import.meta.url),'utf8').replace(/import[\s\S]*?from ['"]three['"];?/,'').replace(/export\s*\{[\s\S]*?\};?/g,'')+';this.merge=mergeGeometries;',utils);
+const env=vm.createContext({THREE,G,mergeGeometries:utils.merge,...toonContext.api});
+vm.runInContext(strip(read('render/citadel-body-batch.js')),env);
 vm.runInContext(strip(read('render/endgame-monsters.js'))+'\nthis.api={makeEndgameEnemy};',env);
 let modelCount=0;
 for(const def of Object.values({...ABYSS_ENEMIES,...CITADEL_ENEMIES})){
