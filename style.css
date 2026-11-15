@@ -978,8 +978,8 @@ body:not(.dungeonRun) #dgAuto,body.dungeonRun.dgAllAuto #autoSkillBtn{display:no
 .heroEffect.debuff{border-color:#bd7b87;background:#321924f2;color:#ffd1d8}
 @media(max-width:600px){
  #heroEffects{position:relative;inset:auto;grid-column:1/-1;grid-row:1;min-width:0;max-height:34px}
- #hud:has(#heroEffects:not([hidden])) #cam{bottom:calc(154px + env(safe-area-inset-bottom))}
- #hud:has(#heroEffects:not([hidden])) #build{max-height:calc(100dvh - 338px - var(--boss-space))}
+ body.dungeonRun #hud:has(#heroEffects:not([hidden])) #cam{bottom:calc(154px + env(safe-area-inset-bottom))}
+ body.dungeonRun #hud:has(#heroEffects:not([hidden])) #build{max-height:calc(100dvh - 338px - var(--boss-space))}
  #bossDebuffs{max-height:60px}
 }
 
@@ -1000,9 +1000,9 @@ body.dungeonRun #heroEffects{position:absolute;left:auto;right:calc(12px + env(s
 }
 @media(max-height:500px){body.dungeonRun #heroEffects{max-height:52px}}
 
-/* Normal combat: tiny status icons immediately above HP, never a full-width overlay. */
-body:not(.dungeonRun) #heroBox{min-width:0}
-body:not(.dungeonRun) #heroEffects{position:static;inset:auto;transform:none;width:auto;max-width:220px;max-height:40px;min-height:0;display:flex;flex-wrap:wrap;gap:2px;margin:0 0 3px;padding:0;border:0;border-radius:0;background:transparent;overflow-x:hidden;overflow-y:auto}
+/* Normal combat: icons float outside the unchanged hero panel. */
+body:not(.dungeonRun) #heroBox{position:relative;min-width:0}
+body:not(.dungeonRun) #heroEffects{position:absolute;inset:auto;left:0;bottom:calc(100% + 6px);transform:none;width:100%;max-width:220px;max-height:40px;min-height:0;display:flex;flex-wrap:wrap;gap:2px;margin:0;padding:0;border:0;border-radius:0;background:transparent;overflow-x:hidden;overflow-y:auto}
 body:not(.dungeonRun) #heroEffects[hidden]{display:none}
 body:not(.dungeonRun) #heroEffects .heroEffect{flex:0 0 18px;width:18px;height:18px;min-width:18px;min-height:18px;font-size:12px;line-height:1;border-radius:4px}
 @media(pointer:coarse){body:not(.dungeonRun) #heroEffects .heroEffect{flex-basis:24px;width:24px;height:24px;min-width:24px;min-height:24px;font-size:13px}body:not(.dungeonRun) #heroEffects{max-height:52px}}
@@ -1030,3 +1030,5 @@ body:not(.dungeonRun) #heroEffects .heroEffect{flex:0 0 18px;width:18px;height:1
  #stagePanel .snode .nm{font-size:10px;max-width:70px}
 }
 @media(max-width:480px){#scr_town #stagePanel{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:12px 10px}#stagePanel .stMap{height:240px}#stagePanel .chtab b{font-size:12px}#stagePanel .snode .nm{max-width:56px}}
+
+@media(max-width:600px){body:not(.dungeonRun) #heroEffects{max-width:calc(100% - 204px)}}

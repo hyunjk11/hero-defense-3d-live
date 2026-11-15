@@ -12,6 +12,9 @@ vm.runInNewContext("{"+mount+"}",context);assert.equal(effects.parentNode,dungeo
 G.dungeon=false;vm.runInNewContext("{"+mount+"}",context);assert.equal(effects.parentNode,box);assert.equal(box.children[0],effects);assert.equal(box.children[1],hp);
 vm.runInNewContext("{"+mount+"}",context);assert.equal(box.children.length,2);
 const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');
-assert.match(css,/body:not\(\.dungeonRun\) #heroEffects\{position:static;[^}]*background:transparent/);
+assert.match(css,/body:not\(\.dungeonRun\) #heroEffects\{position:absolute;[^}]*background:transparent/);
 assert.match(css,/body:not\(\.dungeonRun\) #heroEffects \.heroEffect\{flex:0 0 18px/);
-console.log('PASS normal tiny icons: nested directly above HP, dungeon return/repeat safe, transparent compact layout');
+console.log('PASS normal tiny icons: nested directly above HP, dungeon return/repeat safe, outside panel, transparent compact layout');
+
+assert.match(css,/body:not\(\.dungeonRun\) #heroBox\{position:relative;/);
+assert.match(css,/body:not\(\.dungeonRun\) #heroEffects\{[^}]*bottom:calc\(100% \+ 6px\)/);
