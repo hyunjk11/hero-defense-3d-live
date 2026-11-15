@@ -120,8 +120,9 @@ export const Snd = {
     if (!this.ctx || this.sfxOff()) return; const t = this.ctx.currentTime, out = this.out(pos, .5); this.noiseHit(t, .7, .5, out, 5500, 1.2, 'highpass'); for (let k = 0; k < 3; k++) this.osc('square', 1400, t + k * .22, .06, .05, out, 0);
   },
   // 총성 (합성): 고역 노이즈 '탕' + 중역 몸통 + 낮은 쿵 + 금속성 클릭. ping = 도탄 '팅', big = 피니시
-  gun(pos, o = {}) { if (!this.ctx || this.sfxOff() || this.voices > 30) return; const now = this.ctx.currentTime; if (!o.big && !o.ping && this.last.gun && now - this.last.gun < .035) return; if (!o.ping) this.last.gun = now;
-    const r = (o.rate || 1) * (.95 + Math.random() * .1), v = o.vol ?? 1, out = this.out(pos, .55 * v), t = now + .005; this.voices++; setTimeout(() => this.voices--, 300);
+  // Q/E reports reserve at most two voices; ordinary effects retain their existing cap.
+  gun(pos, o = {}) { if (!this.ctx || this.sfxOff() || (o.skill ? (this.skillGunVoices || 0) >= 2 : this.voices > 30)) return; const now = this.ctx.currentTime; if (!o.big && !o.ping && this.last.gun && now - this.last.gun < .035) return; if (!o.ping) this.last.gun = now;
+    const r = (o.rate || 1) * (.95 + Math.random() * .1), v = o.vol ?? 1, out = this.out(pos, .55 * v), t = now + .005; this.voices++; if(o.skill)this.skillGunVoices=(this.skillGunVoices||0)+1; setTimeout(() => {this.voices--;if(o.skill)this.skillGunVoices=Math.max(0,(this.skillGunVoices||0)-1);}, 300);
     if (o.ping) { this.osc('sine', 2600 * r, t, .18, .12, out, 1700 * r); this.osc('triangle', 3900 * r, t, .08, .05, out); this.noiseHit(t, .03, .4, out, 6000, 1, 'highpass'); return; }
     this.noiseHit(t, .07, 1, out, 3200 * r, .7, 'highpass'); this.noiseHit(t, o.big ? .35 : .14, .8, out, 1100 * r, .9); this.osc('triangle', (o.big ? 110 : 190) * r, t, o.big ? .25 : .08, o.big ? .9 : .55, out, 45);
     this.osc('square', 2400 * r, t, .018, .12, out, 700); },

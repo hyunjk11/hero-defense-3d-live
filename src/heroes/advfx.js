@@ -107,7 +107,7 @@ function pierceShot(tgt, mul, base) { const A = hero.adv, hp = hero.g.position, 
     const end = from.clone().addScaledVector(dir, SNIPE_LEN); end.y = from.y; flash(0, 3); hero.ch.recoil = 1.6; G.shake = Math.max(G.shake || 0, .45); cnt('pierceshot');
     tracer(from, end, 0xffffff, .16); tracer(from, end, A.col, .4); beam(from, end, A.col); ringFx(from, 2.4, A.col, .35); emit(PB, from.x, from.y, from.z, 18, A.col, 6, .45, 0, .6);
     for (let i = 0; i < 6; i++) petals(from.clone().addScaledVector(dir, 3 + i * 4.5).setY(.3), 5, 2.5); petals(from.clone().setY(.2), 10, 3);
-    Snd.gun(from, { rate: .45, vol: 1.6, big: true }); Snd.play('boom', { pos: from, vol: .35, rate: 1.7 }); Snd.whoosh(from, .5, 600, 4200, .6); G.advN.snipeN = n; });
+    Snd.gun(from, { rate: .45, vol: 1.6, big: true, skill: true }); Snd.play('boom', { pos: from, vol: .35, rate: 1.7 }); Snd.whoosh(from, .5, 600, 4200, .6); G.advN.snipeN = n; });
   return true; }
 function beam(a, b, col) { const L = a.distanceTo(b), m = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 1, 10, 1, true).rotateX(Math.PI / 2).translate(0, 0, .5), ADD(col, .85)); m.position.copy(a); m.lookAt(b); m.scale.set(1, 1, L); scene.add(m); let t = 0;
   FX.push(dt => { t += dt; const k = t / .45; m.scale.set(1 + k * 1.5, 1 + k * 1.5, L); m.material.opacity = .85 * (1 - k); if (k < 1) return true; scene.remove(m); m.geometry.dispose(); m.material.dispose(); return false; }); }

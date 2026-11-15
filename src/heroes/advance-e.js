@@ -33,7 +33,7 @@ function thornShotFeedback(h){
  ch.recoil=Math.max(ch.recoil||0,1.2);
  h.gunT=Math.max(h.gunT||0,.24);
  play(ch,'ShootStand',{speed:1,fade:.05});
- Snd.gun(from,{big:true,rate:.6,vol:1.2});
+ Snd.gun(from,{big:true,rate:.6,vol:1.2,skill:true});
 }
 
 export function castAdvanceE(s,target,FX){
@@ -41,7 +41,8 @@ export function castAdvanceE(s,target,FX){
  if(dir.lengthSq()<.001)dir.set(Math.sin(h.face),0,Math.cos(h.face));dir.normalize();
  const angle=Math.atan2(dir.x,dir.z),radius=s.radius||1,reach=s.reach*(s.reachMul||1),damage=stat.dmg()*s.mul*stat.skillMul(),color=COLORS[s.b],txt='#'+color.toString(16).padStart(6,'0');
  h.face=angle;h.eCastAngle=angle;h.path=[];h.eCastT=s.kind==='volley'||s.kind==='cone'||s.kind==='paw'?s.cast+(s.ticks-1)*s.interval+.12:s.cast;h.atkT=Math.max(h.atkT,h.eCastT);
- play(h.ch,h.cls==='mage'?'Spellcast_Long':h.cls==='warrior'?'2H_Melee_Attack_Chop':h.cls==='gunner'?'ShootStand':h.cls==='fighter'?'Attack1':'2H_Ranged_Shoot',{once:true,force:true,speed:1.3});
+ const clip=h.cls==='mage'?'Spellcast_Long':h.cls==='warrior'?(h.ch.acts?.['1H_Melee_Attack_Chop']?'1H_Melee_Attack_Chop':'2H_Melee_Attack_Chop'):h.cls==='gunner'?'ShootStand':h.cls==='fighter'?(s.kind==='paw'?'PalmS':'PunchCombo'):'2H_Ranged_Shoot';
+ play(h.ch,clip,{once:true,force:true,speed:1.3});
  banner(s.n+'!',txt,850);Snd.play(h.cls==='gunner'?'draw':h.cls==='warrior'?'stomp':'magic',{pos:origin,force:true});
  const root=new THREE.Group();root.name='advance-e:'+s.key;scene.add(root);
  const terrain=G.tiles,bolts=[],sharedHits=new Set(),aim=target.clone();let time=0,fired=0,ended=false,shield=null,hitCues=0;
@@ -71,7 +72,7 @@ export function castAdvanceE(s,target,FX){
  const fire=()=>{
   if(s.kind!=='paw'){
    // Field accents on onset/final pulse; other skills accent their real shots/strikes.
-   if(s.b!=='thorn'&&(s.kind!=='field'||fired===0||fired===s.ticks-1)){const stop=Snd.skill?.(s.b,s.kind==='field'?aim:h.g.position);if(stop)voices.push(stop);}
+   if(s.b!=='thorn'&&s.b!=='duel'&&(s.kind!=='field'||fired===0||fired===s.ticks-1)){const stop=Snd.skill?.(s.b,s.kind==='field'?aim:h.g.position);if(stop)voices.push(stop);}
    if(s.kind==='field'||s.kind==='shield')cue('pulse',s.kind==='field'?aim:h.g.position,s.area*radius,.32);
    else cue('pulse',h.g.position,s.kind==='cone'?1.8:1.25,.32);
   }
@@ -89,7 +90,7 @@ export function castAdvanceE(s,target,FX){
     if(d<=s.area*radius&&Math.acos(dot)<=Math.min(Math.PI*.9,s.arc*radius)){hit(e);if(live(e)&&s.knockBase&&fired===s.ticks-1&&!e.E.boss){knock(e,center.x,center.z,s.knockBase*(s.knock||1),.6);}}}
   }else if(s.kind==='volley'){
    const target=eligible().filter(e=>distance(e.g.position,h.g.position)<=reach&&distance(e.g.position,aim)<=s.area*radius).sort((a,b)=>distance(a.g.position,aim)-distance(b.g.position,aim))[0];
-   if(target){const a=h.g.position.clone().setY(groundY(h.g.position.x,h.g.position.z)+1.3),b=target.g.position.clone().setY(target.g.position.y+1.3);beam.position.copy(a);beam.lookAt(b);beam.scale.z=a.distanceTo(b);beam.visible=true;beam.material.opacity=1;hit(target);}else beam.visible=false;
+   if(target){const k=fired%2,ch=h.ch;ch.aimWeapons?.(h.face);h.g.updateMatrixWorld(true);const muzzle=ch.muz?.[k]?.getWorldPosition(new THREE.Vector3()),f=ch.flashes?.[k];if(f){f.t=.07*1.5;f.big=1.5;f.g.visible=true;f.g.rotation.y=angle;}ch.gunKick?.(k);h.gunT=Math.max(h.gunT||0,.2);Snd.gun(muzzle||h.g.position,{rate:k?1.04:.97,vol:.85,skill:true});const a=h.g.position.clone().setY(groundY(h.g.position.x,h.g.position.z)+1.3),b=target.g.position.clone().setY(target.g.position.y+1.3);beam.position.copy(a);beam.lookAt(b);beam.scale.z=a.distanceTo(b);beam.visible=true;beam.material.opacity=1;hit(target);}else beam.visible=false;
   }
  };
  FX.push(dt=>{
