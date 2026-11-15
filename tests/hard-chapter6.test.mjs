@@ -11,3 +11,20 @@ test('runtime creates exact two owned warning strips and uses bounded new-rule d
  const edges=G.fxs.filter(f=>f.kind==='hard-lane-edge');assert.equal(edges.length,4);for(const f of edges){f.m.geometry.computeBoundingBox();const b=f.m.geometry.boundingBox;assert.ok(Math.abs(b.max.x-.7)<1e-6);assert.equal(b.max.y,5);assert.equal(f.m.material.color.getHex(),0xb83112);}
  let geometries=0,materials=0;for(const f of G.fxs){f.m.geometry.addEventListener('dispose',()=>geometries++);f.m.material.addEventListener('dispose',()=>materials++);}const fx=fs.readFileSync(new URL('../src/render/vfx.js',import.meta.url),'utf8');vm.runInContext(fx.slice(fx.indexOf('function updFx('),fx.indexOf('export {',fx.indexOf('function updFx(')))+';this.updateFx=updFx;',ctx);ctx.updateFx(2);assert.equal(G.fxs.length,0);assert.equal(scene.children.length,0);assert.equal(geometries,8);assert.equal(materials,8);});
 
+
+test('actual warning world vertices and local inside/outside samples match hit footprint at every heading',()=>{
+ for(const angle of [0,Math.PI/4,Math.PI/3])for(const follow of [false,true]){
+  const event={rule:'desert-twin',p:{x:3,z:7},from:{x:3+Math.sin(angle)*4,z:7-Math.cos(angle)*4},follow};
+  const scene=new THREE.Scene(),G={fxs:[]},ctx=vm.createContext({THREE,scene,G,...H});
+  vm.runInContext(fs.readFileSync(new URL('../src/monsters/hard.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export ','')+';this.warn=chapterWarning;',ctx);
+  ctx.warn(event,{hardCast:{}});scene.updateMatrixWorld(true);
+  for(const f of G.fxs.filter(f=>f.kind==='hard-lanes')){
+   const m=f.m,pos=m.geometry.attributes.position;
+   // Inset vertex samples avoid floating-point ambiguity on inclusive boundaries.
+   for(let i=0;i<pos.count;i++){const p=new THREE.Vector3().fromBufferAttribute(pos,i).multiplyScalar(.999).applyMatrix4(m.matrixWorld);assert.equal(H.hardHit(event,p),true,`vertex ${angle}/${follow}`);}
+   for(const [x,y,expected] of [[.69,0,true],[-.69,0,true],[.71,0,false],[-.71,0,false],[0,4.99,true],[0,5.01,false]]){
+    const p=new THREE.Vector3(x,y,0).applyMatrix4(m.matrixWorld);assert.equal(H.hardHit(event,p),expected,`${angle}/${follow}/${x}/${y}`);
+   }
+  }
+ }
+});

@@ -45,7 +45,7 @@ function chapterWarning(event,owner){
  for(const {angle,offset} of footprints){
   const geometry=shape.kind==='annulus'?new THREE.RingGeometry(shape.inner,shape.outer,64):new THREE.PlaneGeometry(shape.width,shape.length);
   const material=new THREE.MeshBasicMaterial({color:shape.color,transparent:true,opacity:.5,side:THREE.DoubleSide,depthWrite:false,depthTest:false,toneMapped:false});
-  const m=new THREE.Mesh(geometry,material);m.renderOrder=20;m.rotation.set(-Math.PI/2,0,angle);m.position.set(event.p.x+Math.cos(angle)*offset,.24,event.p.z+Math.sin(angle)*offset);scene.add(m);
+  const m=new THREE.Mesh(geometry,material);m.renderOrder=20;m.rotation.set(-Math.PI/2,0,shape.kind==='lanes'?-angle:angle);m.position.set(event.p.x+Math.cos(angle)*offset,.24,event.p.z+Math.sin(angle)*offset);scene.add(m);
   G.fxs.push({m,t:0,dur:owner?shape.dur:.25,kind:'hard-'+shape.kind,live});
   if(shape.kind==='lanes'){
    // An inward border keeps the visible outer edge exactly on the collision footprint.
