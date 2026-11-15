@@ -15,7 +15,18 @@ export const skillShare = m => (m.tot > 0 ? m.sk / m.tot : 0);
 // 받은 피해 (영웅이 실제로 잃은 체력 · hero.js heroDamage)
 export function meterTaken(m, d) { if (d > 0) { m.taken += d; m.takenN++; } }
 // 타워별 피해: tw.dmT / tw.dmK (hurt() 가 기록) · 피해를 준 타워는 list(G.dmTowers) 에 한 번만 → 판매·파괴돼도 결과 화면에 남음
-export function towerAdd(list, tw, d, kill) { if (!tw.dmT && !tw.dmK && list) list.push(tw); tw.dmT = (tw.dmT || 0) + (d > 0 ? d : 0); if (kill) tw.dmK = (tw.dmK || 0) + 1; }
+// Retired statistics own scalar values only; in-flight shots may still update via tw.dmRecord.
+export function retireTowerMeter(list, tw) {
+  const record = tw.dmRecord || (tw.dmRecord = { type: tw.type, lvl: tw.lvl, branch: tw.branch || null, dmT: tw.dmT || 0, dmK: tw.dmK || 0, dead: true });
+  if (list) for (let i = 0; i < list.length; i++) if (list[i] === tw) list[i] = record;
+  return record;
+}
+export function towerAdd(list, tw, d, kill) {
+  if (tw.dead && !tw.dmRecord) retireTowerMeter(list, tw);
+  if (!tw.dmRecord && !tw.dmT && !tw.dmK && list) list.push(tw);
+  tw.dmT = (tw.dmT || 0) + (d > 0 ? d : 0); if (kill) tw.dmK = (tw.dmK || 0) + 1;
+  if (tw.dmRecord) { const record = tw.dmRecord; record.dmT = tw.dmT; record.dmK = tw.dmK || 0; if (list && (record.dmT || record.dmK) && !list.includes(record)) list.push(record); }
+}
 // 웨이브 기록 log = G.waveLog [{ n, t0, t1 }] (t1 = -1 진행 중) · 다음 웨이브 시작 = 이전 웨이브 닫음
 export function waveEnd(log, t) { const w = log && log[log.length - 1]; if (w && w.t1 < 0) w.t1 = t; }
 export function waveStart(log, n, t) { if (!log) return; waveEnd(log, t); log.push({ n, t0: t, t1: -1 }); }
