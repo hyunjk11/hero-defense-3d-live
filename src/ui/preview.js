@@ -23,7 +23,7 @@ const M = new THREE.Matrix4(), Q = new THREE.Quaternion().setFromEuler(new THREE
 let ghost = null, ghostType = null, gridT = 0, gridTool = null;
 const ghostMats = [];
 function topY(t) { return isBlock(t.t) ? 1.22 : t.t === T.CARVED ? -.4 : .06; }
-function setGhost(type) { if (ghostType === type) return; if (ghost) scene.remove(ghost); ghost = null; ghostType = type; if (!type) return;
+function setGhost(type) { if (ghostType === type) return; if (ghost) scene.remove(ghost); for (const m of ghostMats) m.dispose(); ghostMats.length = 0; ghost = null; ghostType = type; if (!type) return;
   ghost = towerModel(type, 1).g; ghostMats.length = 0; ghost.traverse(o => { if (!o.isMesh) return; o.castShadow = false; if (o.userData.ol) return; const m = o.material.clone(); m.transparent = true; m.opacity = .7; m.depthWrite = false; if (m.emissive) { m.emissive.set(OK); m.emissiveIntensity = .45; } o.material = m; ghostMats.push(m); }); scene.add(ghost); }
 const usable = (tool, t) => tool === 'clear' ? isBlock(t.t) : tool === 'barricade' ? (t.t === T.CARVED || t.t === T.GRASS) && !t.tower && !t.bar : t.t === T.GRASS && !t.tower && !t.bar;
 function refreshGrid() { const tool = G.tool, col = tool === 'clear' ? CLR : 0x9ae8ff; grid.material.color.set(col); gridFill.material.color.set(col); let n = 0;

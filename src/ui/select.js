@@ -15,8 +15,14 @@ import { banner, refreshHud, setPhaseUI } from './hud.js';
 import { heroOwned } from '../account/shop.js';
 
 // ================= 영웅 선택 =================
-const preview = []; let podium = null, hoverCls = null;
+const preview = []; let podium = null, hoverCls = null, selectWait = null;
+function clearSelect() {
+  selectWait?.abort();selectWait=null;hoverCls=null;
+  preview.forEach(disposeHeroModel);preview.length=0;
+  if(podium){podium.removeFromParent();disposeOwned(podium);podium=null;}
+}
 function showSelect() {
+  clearSelect();G.chooseWait=null;selectWait=new AbortController();
   G.phase = 'select'; $('select').classList.remove('hidden');
   podium = new THREE.Group(); podium.position.set(0, 0, GH + 6); scene.add(podium);
   mk(new THREE.CylinderGeometry(6.2, 6.8, .7, 48), toon(0x6ab84a), 0, -.35, 0, podium, .04); mk(new THREE.CylinderGeometry(6.9, 7.2, .5, 48), toon(0x9a7a5a), 0, -.8, 0, podium, .04);
@@ -24,7 +30,7 @@ function showSelect() {
   const L = VISIBLE_HEROES, m = (L.length - 1) / 2;
   // 아직 안 불러온 영웅(지연 로딩)은 백그라운드로 모델이 도착하면 그 자리에 올림 (그 사이 선택 화면을 떠났으면 무시)
   const pd = podium, add = (cls, i) => { if (podium !== pd || !pd.parent) return; const ch = makeHeroModel(cls); ch.g.position.set((i - m) * 2.3, 0, Math.abs(i - m) < 1.5 ? -.45 : 0); ch.g.rotation.y = (m - i) * .18; pd.add(ch.g); ch.cls = cls; play(ch, 'Idle'); ch.mixer.update(i * .7); ch.nextCheer = 1.5 + i * 2.2; ch.cheerT = 0; preview.push(ch); };
-  L.forEach((cls, i) => { const need = heroAssets(cls); if (modelsReady(need)) add(cls, i); else whenModels(need).then(() => add(cls, i)); }); // 새로 받지는 않음 (인트로·마을은 백그라운드 로딩이 채움, 스테이지 출정은 안 받음)
+  L.forEach((cls, i) => { const need = heroAssets(cls); if (modelsReady(need)) add(cls, i); else whenModels(need,{signal:selectWait.signal}).then(() => add(cls, i)).catch(e=>{if(e.name!=='AbortError')console.warn('select model',cls,e);}); }); // 새로 받지는 않음 (인트로·마을은 백그라운드 로딩이 채움, 스테이지 출정은 안 받음)
   cam.target.set(0, 1.5, GH + 6); cam.r = 13.5; cam.phi = 1.3; cam.theta = 0;
   document.querySelectorAll('.card').forEach(c => { c.classList.toggle('hidden', isHidden(c.dataset.cls)); c.classList.toggle('locked', !heroOwned(c.dataset.cls)); c.onclick = () => { SFX.init(); if (!heroOwned(c.dataset.cls)) { Snd.play('error'); banner(`🔒 ${CLASSES[c.dataset.cls].nm}는 마을 상점에서 구매 후 사용할 수 있어요`, '#ffb0d4', 2200); return; } Snd.play('confirm'); choose(c.dataset.cls); }; c.onmouseenter = () => { hoverCls = c.dataset.cls; Snd.play('select'); const p = preview.find(p => p.cls === hoverCls); if (p) { play(p, 'Cheer', { once: true }); p.cheerT = 1.8; } }; c.onmouseleave = () => hoverCls = null; });
 }
@@ -40,8 +46,7 @@ function choose(cls) {
   const opt = G.adv && G.adv.h === cls ? advModels(G.adv).filter(k => !G.advModelFail) : []; // 전직 전용 모델(소총 로즈): 이 분기일 때만 받음 · 실패하면 기본 모델로 출전 (판은 막지 않음)
   if (!modelsReady(need) || !modelsReady(opt)) { G.chooseWait = cls; $('loading').classList.remove('hidden'); $('loadTxt').textContent = '모델 불러오는 중…'; Promise.all([ensureModels(need), ...opt.map(k => loadModel(k).catch(e => { console.warn('adv model', k, e); G.advModelFail = true; }))]).then(() => { $('loading').classList.add('hidden'); if (G.chooseWait === cls) { G.chooseWait = null; choose(cls); } }).catch(e => { console.warn(e); banner('모델을 불러오지 못했습니다. 새로고침 해주세요.', '#ff8a8a', 4000); }); return; }
   G.chooseWait = null;
-  preview.forEach(disposeHeroModel); preview.length = 0;
-  if (podium) { podium.removeFromParent(); disposeOwned(podium); podium = null; }
+  clearSelect();
   $('select').classList.add('hidden'); $('hud').classList.remove('hidden');
   spawnHero(cls); G.phase = 'build'; cam.target.set(0, 0, 1); cam.r = 58; cam.phi = .9; cam.theta = .22;
   computeDist(); setPhaseUI(); refreshHud(); banner(`${heroLabel(cls)} 출전!`, '#ffe066');

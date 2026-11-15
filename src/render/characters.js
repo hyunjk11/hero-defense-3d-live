@@ -24,18 +24,33 @@ const heroAssets = (cls, robot = false) => { const k = CLASSES[cls] && CLASSES[c
 // 숨긴 영웅(data/heroes.js hidden)의 모델은 불러오지 않음 — ASSETS = 실제로 불러올 수 있는 전체 목록
 const HIDDEN_ASSETS = [...HIDDEN_HEROES].flatMap(c => heroAssets(c, true)).filter(k => !HERO_KEYS.some(h => !isHidden(h) && heroAssets(h, true).includes(k)));
 const ASSETS = ALL_ASSETS.filter(k => !HIDDEN_ASSETS.includes(k));
-const LOADING = {}; let loader = null;
+const LOADING = {}, MODEL_ERRORS = {}; let loader = null;
 function loadModel(k) {
   if (LOADING[k]) return LOADING[k]; if (HIDDEN_ASSETS.includes(k)) return Promise.reject(new Error('숨긴 영웅 모델: ' + k)); if (!loader) { loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder); }
-  return (LOADING[k] = loader.loadAsync(`models/${k}.glb`).then(g => { prep(g); if (MESHY[k]) lockRoot(g.animations); if (MESHY[k]) extraClips(g.animations, MESHY[k]); GL[k] = g; for (let i = WAIT.length - 1; i >= 0; i--) if (modelsReady(WAIT[i][0])) { WAIT[i][1](); WAIT.splice(i, 1); } return g; })
-    .catch(e => { delete LOADING[k]; if (!FALLBACK[k]) throw e; // 대체 모델 (안정성 우선): 격투가 몸을 못 받으면 세라 몸 + 절차적 고양이 귀 후드·주황 색조 (makeHeroModel)
-      console.warn('model fallback', k, '→', FALLBACK[k], e); return loadModel(FALLBACK[k]).then(g => { FB[k] = FALLBACK[k]; GL[k] = g; G_FB.push(k); return g; }); }));
+  delete MODEL_ERRORS[k];
+  return (LOADING[k] = loader.loadAsync(`models/${k}.glb`).then(g => { prep(g); if (MESHY[k]) lockRoot(g.animations); if (MESHY[k]) extraClips(g.animations, MESHY[k]); GL[k] = g; notifyModels(k); return g; })
+    .catch(e => { delete LOADING[k]; if (!FALLBACK[k]) { MODEL_ERRORS[k]=e;notifyModels(k,e);throw e; } // 대체 모델 (안정성 우선): 격투가 몸을 못 받으면 세라 몸 + 절차적 고양이 귀 후드·주황 색조 (makeHeroModel)
+      console.warn('model fallback', k, '→', FALLBACK[k], e); return loadModel(FALLBACK[k]).then(g => { FB[k] = FALLBACK[k]; GL[k] = g; G_FB.push(k);notifyModels(k); return g; }).catch(error=>{MODEL_ERRORS[k]=error;notifyModels(k,error);throw error;}); }));
 }
 // 대체 모델 표 (지연 로딩 실패 시). FB[k] = 실제로 쓰인 대체 키, G_FB = 테스트용 목록
 const FALLBACK = { seoyun_meshy: 'warrior_meshy' }, FB = {}, G_FB = (globalThis.__hd3dModelFallback = []);
 const modelsReady = keys => keys.every(k => GL[k]);
 // 불러오기를 새로 시작하지 않고, (백그라운드 등으로) 다 도착하면 resolve — 영웅 단상처럼 '있으면 보여 주기'용
-const WAIT = []; const whenModels = keys => modelsReady(keys) ? Promise.resolve() : new Promise(r => WAIT.push([keys, r]));
+const WAIT = new Set();
+const abortWait = () => Object.assign(new Error('Model wait cancelled'),{name:'AbortError'});
+function notifyModels(key,error) {
+  for(const wait of [...WAIT]){if(error&&wait.keys.includes(key))wait.finish(error);else if(modelsReady(wait.keys))wait.finish();}
+}
+function whenModels(keys,{signal}={}) {
+  if(signal?.aborted)return Promise.reject(abortWait());
+  if(modelsReady(keys))return Promise.resolve();
+  const failed=keys.find(k=>MODEL_ERRORS[k]);if(failed)return Promise.reject(MODEL_ERRORS[failed]);
+  return new Promise((resolve,reject)=>{
+    const cancel=()=>wait.finish(abortWait());
+    const wait={keys:[...keys],finish(error){if(!WAIT.delete(wait))return;signal?.removeEventListener('abort',cancel);error?reject(error):resolve();}};
+    WAIT.add(wait);signal?.addEventListener('abort',cancel,{once:true});
+  });
+}
 const ensureModels = keys => Promise.all([...new Set(keys)].map(loadModel));
 async function loadAssets(keys = ASSETS) {
   keys = [...new Set(keys)]; let n = 0; const tx = $('loadTxt');
