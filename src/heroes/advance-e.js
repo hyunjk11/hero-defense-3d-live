@@ -111,7 +111,7 @@ export function castAdvanceE(s,target,FX){
   if(beam)beam.material.opacity=Math.max(0,beam.material.opacity-dt*8);
   const count=s.kind==='paw'?1:(s.ticks||1),interval=s.kind==='field'?s.duration/s.ticks:(s.interval||1);
   while(fired<count&&time>=s.cast+fired*interval){fire();fired++;}
-  burn?.step(G.t,(e,d)=>{G.legendDmg=(G.legendDmg||0)+d;hurt(e,d,txt,false,{x:origin.x,z:origin.z,kind:'ranged'});});
+  burn?.step(G.t,(e,d)=>{G.legendDmg=(G.legendDmg||0)+d;hurt(e,d,txt,false,{x:origin.x,z:origin.z,kind:'ranged'});},burn?.size?new Set(G.enemies):null);
   if(burn){
    for(const m of burnMarks.values())m.visible=false;
    burn.visit(e=>{

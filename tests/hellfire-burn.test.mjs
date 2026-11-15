@@ -46,3 +46,7 @@ test('100 targets and forced recasts remain bounded and dispose all transient ma
  const f=fixture();for(let i=0;i<100;i++)f.target();for(let i=0;i<6;i++){f.hero.lcd=0;cast(f);f.tick(.7);}f.tick(8);
  assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);assert(f.G.enemies.every(e=>!e.hellfireBurn));
 });
+
+test('removed but non-dead enemy receives no lingering damage',()=>{
+ const f=fixture(),e=f.target();cast(f);f.tick(.7);const before=total(f);f.G.enemies.length=0;f.tick(6);assert.equal(total(f),before);assert(!e.hellfireBurn);
+});

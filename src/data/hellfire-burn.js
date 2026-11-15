@@ -14,9 +14,9 @@ export function createHellfireBurn(owner) {
       const b={token,owner,dps,until:now+duration,next:old&&old.until>now?old.next:now+interval};
       entries.set(e,b);e.hellfireBurn=b;
     },
-    step(now,hit){
+    step(now,hit,active=null){
       for(const [e,b] of entries){
-        if(!live(e)||e.hellfireBurn!==b){remove(e,b);continue;}
+        if(!live(e)||e.hellfireBurn!==b||(active&&!active.has(e))){remove(e,b);continue;}
         while(b.next<=Math.min(now,b.until)+1e-8){b.next+=interval;hit(e,b.dps*interval);if(!live(e))break;}
         if(!live(e)||now>=b.until-1e-8)remove(e,b);
       }
