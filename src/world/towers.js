@@ -1,4 +1,5 @@
 import { retireTowerMeter } from '../combat/meter.js';
+import { towerShell } from '../render/tower-projectiles.js';
 import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
 import { rnd } from '../core/util.js';
@@ -40,7 +41,7 @@ function sellTower(tw) {
   const p = tw.m.g.position; debris(p.x, 1, p.z, 14, [0xe0dacb, 0x9e98ae, 0xa8703a], 6); popCoins(p.clone().setY(1.5), 4); dmgText(p.clone().setY(2.5), `+${v}G`, '#ffe066', true); select(null); computeDist(); refreshHud();
 }
 function removeTowerObj(tw) { disposeOwned(tw.m.g); tw.dead = true; retireTowerMeter(G.dmTowers, tw); G.towers.splice(G.towers.indexOf(tw), 1); tw.t.tower = null; refreshTile(tw.t); scene.remove(tw.anchor); tw.hb.dispose(); }
-// ---- 타워 체력 / 피해 / 파괴 / 수리 ----
+// ---- Ÿ�� ü�� / ���� / �ı� / ���� ----
 function damageTower(tw, dmg, src) {
   if (!tw || tw.dead || dmg <= 0) return; tw.hp -= dmg; tw.hb.set(Math.max(0, tw.hp / tw.max)); tw.hitT = .25; G.stats.towerDmg = (G.stats.towerDmg || 0) + dmg;
   const p = tw.anchor.position; dmgText(new THREE.Vector3(p.x, 3, p.z), Math.round(dmg), '#ff9a6a'); Snd.play('towerHit', { pos: p });
@@ -51,20 +52,20 @@ function destroyTower(tw) {
   const p = tw.m.g.position.clone(); scene.remove(tw.m.g); removeTowerObj(tw); G.stats.towersLost = (G.stats.towersLost || 0) + 1;
   debris(p.x, 1.4, p.z, 30, [0xe0dacb, 0x9e98ae, 0xa8703a, 0x6a6a7a], 8); emit(P, p.x, 1.5, p.z, 60, 0x9a9a9a, 5, 1.1, 1, 1.5); emit(PB, p.x, 1, p.z, 18, 0xff8a3a, 4, .6, 0, 1); ringFx(p, 3, 0xff6a3a, .5);
   G.shake = Math.max(G.shake, .45); Snd.play('towerBreak', { pos: p, force: true }); Snd.play('breakRock', { pos: p, force: true, rate: .8 });
-  banner(`${TOWERS[tw.type].n} 파괴됨!`, '#ff7a5a', 1200); if (G.sel === tw) select(null); computeDist(); refreshHud();
+  banner(`${TOWERS[tw.type].n} �ı���!`, '#ff7a5a', 1200); if (G.sel === tw) select(null); computeDist(); refreshHud();
 }
 const repairCost = tw => tw.hp >= tw.max ? 0 : Math.max(5, Math.ceil((1 - tw.hp / tw.max) * tw.invest * REPAIR_K));
 function repairTower(tw, quiet) {
-  const c = repairCost(tw); if (!c) return 0; if (G.gold < c) { if (!quiet) { Snd.play('error'); banner('골드가 부족합니다', '#ff8a8a', 700); } return -1; }
+  const c = repairCost(tw); if (!c) return 0; if (G.gold < c) { if (!quiet) { Snd.play('error'); banner('��尡 �����մϴ�', '#ff8a8a', 700); } return -1; }
   G.gold -= c; G.stats.repairSpent = (G.stats.repairSpent || 0) + c; tw.hp = tw.max; tw.hb.set(1); const p = tw.anchor.position;
-  emit(P, p.x, 1.5, p.z, 30, 0x7aff9a, 4, .8, -2, 1.5); ringFx(p, 2.2, 0x7aff9a, .45); dmgText(new THREE.Vector3(p.x, 3, p.z), `수리 -${c}G`, '#9affb0', true); Snd.play('repair', { pos: p }); refreshHud(); return c;
+  emit(P, p.x, 1.5, p.z, 30, 0x7aff9a, 4, .8, -2, 1.5); ringFx(p, 2.2, 0x7aff9a, .45); dmgText(new THREE.Vector3(p.x, 3, p.z), `���� -${c}G`, '#9affb0', true); Snd.play('repair', { pos: p }); refreshHud(); return c;
 }
 function repairAll() { let n = 0, spent = 0; const L = G.towers.filter(t => t.hp < t.max).sort((a, b) => a.hp / a.max - b.hp / b.max);
   for (const tw of L) { const c = repairTower(tw, true); if (c > 0) { n++; spent += c; } }
-  if (!L.length) banner('수리할 타워가 없습니다', '#ffffff', 700); else if (!n) { Snd.play('error'); banner('골드가 부족합니다', '#ff8a8a', 700); } return spent; }
+  if (!L.length) banner('������ Ÿ���� �����ϴ�', '#ffffff', 700); else if (!n) { Snd.play('error'); banner('��尡 �����մϴ�', '#ff8a8a', 700); } return spent; }
 function enemyAim(e) { return e.g.position.clone().setY(e.E.fly ? e.m.inner.position.y : e.E.h * .55 + e.g.position.y); }
-// 피해 미터: 타워 피해는 영웅이 아닌 공용 칸 (G.mWho = null)
-function updTowers(dt) { const w0 = G.mWho; G.mWho = null; try { updTowers0(dt); } finally { G.mWho = w0; G.mTw = null; } } // G.mTw = 지금 행동 중인 타워 (타워별 피해)
+// ���� ����: Ÿ�� ���ش� ������ �ƴ� ���� ĭ (G.mWho = null)
+function updTowers(dt) { const w0 = G.mWho; G.mWho = null; try { updTowers0(dt); } finally { G.mWho = w0; G.mTw = null; } } // G.mTw = ���� �ൿ ���� Ÿ�� (Ÿ���� ����)
 function updTowers0(dt) {
   if (G.grow) updGrowFx(dt);
   for (const tw of [...G.towers]) { G.mTw = tw;
@@ -74,16 +75,16 @@ function updTowers0(dt) {
       if (tw.poisonTick >= .5 || tw.poisonT <= 0) { damageTower(tw, tw.poisonDamage); tw.poisonTick = tw.poisonDamage = 0; }
       if (tw.dead) continue;
     }
-    const D = TOWERS[tw.type], L = tw.lvl - 1, m = tw.m, p = m.g.position, S = tw.S, B = tw.branch ? tw.B || BRANCH[tw.type][tw.branch] : null; if (tw.deco) updDeco(tw, dt); const canAct = towerCdStep(tw, dt, G.t); /* 챕터 몬스터 디버프: 속박·용암·저주(정지) · 빙결·한기(감속) — combat/towerstatus.js */ tw.pop = Math.min(1, tw.pop + dt * 3);
+    const D = TOWERS[tw.type], L = tw.lvl - 1, m = tw.m, p = m.g.position, S = tw.S, B = tw.branch ? tw.B || BRANCH[tw.type][tw.branch] : null; if (tw.deco) updDeco(tw, dt); const canAct = towerCdStep(tw, dt, G.t); /* é�� ���� �����: �ӹڡ���ϡ�����(����) �� ���ᡤ�ѱ�(����) ? combat/towerstatus.js */ tw.pop = Math.min(1, tw.pop + dt * 3);
     const s = tw.pop < 1 ? 1 + Math.sin(tw.pop * Math.PI) * .25 : 1; m.g.scale.set(s, tw.pop < 1 ? .4 + tw.pop * .6 : 1, s);
     if (m.anim.crys) { m.head.position.y = m.anim.baseY + Math.sin(G.t * 2.4 + tw.c) * .15; m.anim.crys.rotation.y += dt * 1.6; m.anim.rings.forEach((r, k) => { r.rotation.z += dt * (1.2 + k * .7) * (k % 2 ? -1 : 1); }); }
     if (m.anim.flag) m.anim.flag.rotation.y = Math.sin(G.t * 5 + tw.c) * .4; if (m.anim.gem) m.anim.gem.rotation.y += dt * 2;
     tw.recoil = Math.max(0, tw.recoil - dt * 4);
-    if (tw.hp < tw.max) { // 손상 연출: 피격 흔들림, 50% 이하 연기, 25% 이하 불꽃
+    if (tw.hp < tw.max) { // �ջ� ����: �ǰ� ��鸲, 50% ���� ����, 25% ���� �Ҳ�
       if (tw.hitT > 0) { tw.hitT -= dt; m.g.position.x = tileX(tw.c) + Math.sin(G.t * 70) * tw.hitT * .4; } else m.g.position.x = tileX(tw.c);
       tw.fxT -= dt; const k = tw.hp / tw.max; if (k < .5 && tw.fxT <= 0) { tw.fxT = k < .25 ? .08 : .2; emit(P, p.x + rnd(-.5, .5), 2.2, p.z + rnd(-.5, .5), 1, 0x5a5a62, .6, 1.4, 2.5, .3); if (k < .25) emit(P, p.x + rnd(-.4, .4), 1.6, p.z + rnd(-.4, .4), 2, 0xff8a2a, 1.2, .5, 3, .3); } }
-    if (!canAct) continue; // 속박·용암 웅덩이·저주 봉인: 조준·공격 정지
-    const rng = S.range; let best = null, bd = Infinity; const many = B && B.targets ? [] : null, byHp = B && B.prio === 'hp';
+    if (!canAct) continue; // �ӹڡ���� �����̡����� ����: ���ء����� ����
+    const rng = S.range; let best = null, bd = Infinity; const many = B && B.targets && tw.cd <= 0 ? [] : null, byHp = B && B.prio === 'hp';
     for (const e of G.enemies) { if (e.dead || (e.E.fly && !D.air) || e.immT > G.t) continue; const dx = e.g.position.x - p.x, dz = e.g.position.z - p.z; if (dx * dx + dz * dz > rng * rng) continue;
       const prog = byHp ? -e.hp : e.E.fly ? Math.hypot(core.position.x - e.g.position.x, core.position.z - e.g.position.z) : dAt(e.tile[0], e.tile[1]); if (many) many.push([prog, e]); if (prog < bd) { bd = prog; best = e; } }
     if (!best) continue;
@@ -94,11 +95,11 @@ function updTowers0(dt) {
       if (many) { many.sort((a, b) => a[0] - b[0]); for (const [, e] of many.slice(0, B.targets)) shoot('arrow', from, e, S.dmg, { spd: 36, color: 0x7affc0, tw }); }
       else shoot('arrow', from, best, S.dmg, B ? { spd: 60, color: 0xff7a9a, tw, ap: true, big: true } : { spd: 34, color: L >= 2 ? 0x9affff : 0xfff0c0, tw });
       Snd.play('arrow', { pos: from, rate: B && !many ? .8 : 1.15 }); }
-    else if (B && B.pierce) { const dir = new THREE.Vector3(best.g.position.x - from.x, 0, best.g.position.z - from.z).normalize(), shell = mk(new THREE.CapsuleGeometry(.14, .7, 4, 8), glow(0x9ad8ff, 2.2), from.x, from.y, from.z, scene, .02);
+    else if (B && B.pierce) { const dir = new THREE.Vector3(best.g.position.x - from.x, 0, best.g.position.z - from.z).normalize(), shell = towerShell('pierce', L, from, scene);
       shell.lookAt(from.clone().add(dir)); shell.rotateX(Math.PI / 2); G.projs.push({ kind: 'pierce', m: shell, dir, left: S.range + 2, spd: 30, dmg: S.dmg, hit: new Set(), tw });
       tw.recoil = 1.3; emit(P, from.x, from.y, from.z, 20, 0x9ad8ff, 5, .35, 0, .5); Snd.play('cannon', { pos: from, rate: .8 }); Snd.play('zap', { pos: from, vol: .5 }); }
     else if (tw.type === 'cannon') { const dest = best.g.position.clone(); if (best.next) { const v = new THREE.Vector3(tileX(best.next[0]) - dest.x, 0, tileZ(best.next[1]) - dest.z); if (v.length() > .01) dest.addScaledVector(v.normalize(), Math.min(1.5, best.E.spd * .6)); }
-      const ball = mk(new THREE.SphereGeometry(.22 + L * .04, 12, 8), toon(0x26282e), from.x, from.y, from.z, scene, .02); G.projs.push({ kind: 'ball', m: ball, from: from.clone(), dest, t: 0, dur: .7, dmg: S.dmg, r: S.splash, tw, cluster: B ? B : null });
+      const ball = towerShell('ball', L, from, scene); G.projs.push({ kind: 'ball', m: ball, from: from.clone(), dest, t: 0, dur: .7, dmg: S.dmg, r: S.splash, tw, cluster: B ? B : null });
       tw.recoil = 1; emit(P, from.x, from.y, from.z, 14, 0xffaa4a, 4, .35, 0, .5); emit(P, from.x, from.y, from.z, 8, 0x8a8a8a, 2, .8, 1.5, .5); Snd.play('cannon', { pos: from }); }
     else chainLightning(from, best, S.dmg, S.chain, S.slow, tw, S, B);
   }

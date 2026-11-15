@@ -1,3 +1,4 @@
+import { batchTowerBodies } from './tower-body-batch.js';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mk, toon, shareGeo, shareMat } from './toon.js';
@@ -152,5 +153,7 @@ export function towerModel(type, level) {
   foundation(g, level, type);
   ({ arrow: arrowTower, cannon: cannonTower, magic: magicTower })[type](g, head, muzzle, anim, level);
   head.name = 'aim-head'; muzzle.name = 'projectile-muzzle'; head.add(muzzle); g.add(head);
+  const excludeMeshes = new Set([anim.crys, anim.gem, ...(anim.rings || [])].filter(Boolean));
+  batchTowerBodies(g, { excludeMeshes, shareGeometry: shareGeo });
   return { g, head, muzzle, anim };
 }

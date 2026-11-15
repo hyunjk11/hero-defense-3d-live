@@ -8,8 +8,10 @@ const clean=s=>s.replace(/import[\s\S]*?from\s*['"][^'"]+['"];?/g,'').replace(/e
 const ctx=vm.createContext({...THREE,THREE,scene:new THREE.Scene()});
 vm.runInContext(clean(read('lib/addons/utils/BufferGeometryUtils.js')),ctx);
 vm.runInContext(clean(read('lib/addons/geometries/RoundedBoxGeometry.js')),ctx);
-vm.runInContext(clean(read('src/render/toon.js'))+';this.deps={mk,toon,shareGeo,shareMat,RoundedBoxGeometry};',ctx);
-const models=vm.createContext({THREE,...ctx.deps});
+vm.runInContext(clean(read('src/render/toon.js'))+';this.deps={mk,toon,shareGeo,shareMat,RoundedBoxGeometry,mergeGeometries};',ctx);
+const batch=vm.createContext({THREE,mergeGeometries:ctx.deps.mergeGeometries});
+vm.runInContext(clean(read('src/render/tower-body-batch.js'))+';this.batch=batchTowerBodies;',batch);
+const models=vm.createContext({THREE,...ctx.deps,batchTowerBodies:batch.batch});
 vm.runInContext(clean(read('src/render/tower-models.js'))+';this.factory=towerModel;',models);
 function setup(){const scene=new THREE.Scene();const env=vm.createContext({THREE,scene,towerModel:models.factory,G:{},GW:2,GH:2,S:2});vm.runInContext(clean(read('src/ui/preview.js'))+';this.api={setGhost,hidePreview,get:()=>({ghost,ghostType,ghostMats})};',env);return {scene,api:env.api};}
 test('120 tower preview changes dispose every owned clone once, preserving cached model resources',()=>{
