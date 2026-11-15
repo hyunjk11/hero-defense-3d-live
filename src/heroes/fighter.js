@@ -58,7 +58,7 @@ export function fighterTick(dt, tgt, moving) {
 function swing(tgt, moving) {
   const h = hero, F = h.ft, n = F.n, kick = isKick(n), mul = comboMul(n); F.n++; F.idle = 0; h.cd = 1 / stat.rate() * (kick ? FT.kickCd : 1);
   const nm = kick ? 'SpinK' : n % 3 === 0 ? 'JabLs' : 'JabRs', spd = h.C.atkSpd * Math.max(1, stat.rate() / h.C.rate); let hitD = .1;
-  if (!moving && h.ch.acts[nm]) { play(h.ch, nm, { once: true, force: true, speed: spd }); h.atkT = Math.min(LEN[nm] / spd, kick ? .7 : .45); hitD = HIT[nm] / spd; }
+  if (!moving && h.ch.acts[nm]) { if(!(h.qPoseT>0))play(h.ch, nm, { once: true, force: true, speed: spd }); h.atkT = Math.min(LEN[nm] / spd, kick ? .7 : .45); hitD = HIT[nm] / spd; }
   Snd.whoosh(h.g.position, kick ? .35 : .18, kick ? 400 : 900, kick ? 1800 : 2600, kick ? .35 : .22);
   const t0 = tgt; later(hitD, () => { if (hero.dead > 0) return; const hit = kick ? kickHit(mul, t0) : jabHit(t0, mul, n % 3); if (hit && hero.lsk && !t0.dead) legendProc(t0, { mode: 'melee' }); });
 }
