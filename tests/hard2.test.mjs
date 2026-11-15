@@ -15,5 +15,5 @@ for(const s of Object.values(HARD_STAGES)){
   samples++;
  }
 }
-assert.equal(samples,90);assert.equal(JSON.stringify(STAGES),before);
-console.log('PASS: 90 deterministic hard-stage samples; normal 60 definitions untouched');
+assert.equal(samples,108);assert.equal(JSON.stringify(STAGES),before);
+console.log('PASS: 108 deterministic hard-stage samples; normal 60 definitions untouched');

@@ -18,7 +18,7 @@ test('H5 six layouts retain normal economy, sequential locks and native chapter 
  for(const a of stages){for(const k of ['waves','core','spawns','q','bed','seed','walls','startGold','boss'])assert.deepEqual(a[k],STAGES[a.normalId][k]);
   assert.equal(a.rule,'spore-cross');assert.equal(hard.hardUnlocked(s,a.id),true);s.growth.hard.st[a.id]=3;
  }
- assert.equal(nextStage(s,'hard-5-6'),null);assert.equal(hard.hardUnlocked(s,'hard-6-1'),false);
+ assert.equal(nextStage(s,'hard-5-6'),'hard-6-1');assert.equal(hard.hardUnlocked(s,'hard-6-1'),true);
 });
 test('H5 real server settlement is atomic on first/repeat/partial, replay, codex and old chest preservation',async()=>{
  const user={id:'h5-resume',email:'h5@example.invalid'};let now=1793510400000;
@@ -41,5 +41,5 @@ test('H5 real server settlement is atomic on first/repeat/partial, replay, codex
   assert.deepEqual(P.clean(opened).inv,opened.inv);assert.equal(E.openChests(opened)[1].opened.length,0);
   const committed=structuredClone(store.tables);await rpc('progress',args);assert.deepEqual(store.tables,committed);
  }
- assert.equal((await rpc('start',{p_id:'h6-not-made-yet',p_mode:'campaign',p_stage:'hard-6-1',p_hero:'mage'})).reason,'locked');
+ assert.equal((await rpc('start',{p_id:'h7-not-made-yet',p_mode:'campaign',p_stage:'hard-7-1',p_hero:'mage'})).reason,'locked');
 });

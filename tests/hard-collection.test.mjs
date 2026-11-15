@@ -6,7 +6,7 @@ import { seeded } from '../src/account/rewarditems.js';
 import * as E from '../src/account/equip.js';
 import * as P from '../src/account/progress.js';
 
-test('all 30 hard stages append exactly two on repeat completion, preserving every existing draw',()=>{
+test('all released hard stages append exactly two on repeat completion, preserving every existing draw',()=>{
  for(const s of Object.values(HARD_STAGES))for(const hero of ['archer','mage','warrior','gunner','fighter'])for(const target of [null,'gunner','armor']){
   const before=hardReward(s,s.waves,true,false,hero,seeded(s.id+hero),target);
   const after=hardReward(s,s.waves,true,false,hero,seeded(s.id+hero),target,2);
@@ -25,7 +25,7 @@ test('every stage/wave boundary: partial, loss, first clear, legacy and future s
   assert.equal((b.items?.length||0)-(a.items?.length||0),extra);
   if(win&&first)assert.equal(b.items.at(-1).g,3);
  }
- assert.equal(collectionCount({hard:true,ch:6,waves:10},10,true,false,2),0);
+ assert.equal(collectionCount({hard:true,ch:7,waves:10},10,true,false,2),0);
  assert.equal(collectionCount({hard:false,ch:5,waves:10},10,true,false,2),0);
  for(const v of [undefined,1,3,'2',null])assert.equal(collectionCount(HARD_STAGES['hard-5-1'],HARD_STAGES['hard-5-1'].waves,true,false,v),0);
 });
@@ -62,7 +62,7 @@ test('chest capacities 195..200 preserve older boxes and existing rewards before
 });
 
 test('optional white collection never expands or revokes existing codex completion/claim conditions',()=>{
- for(const ch of [3,4,5]){
+ for(const ch of [3,4,5,6]){
   let s=P.empty();s.codex[ch]=Object.fromEntries(P.codexRows().map(row=>[row,30]));
   const before=P.codexState(s,ch);assert.equal(before.total,28);assert.equal(before.all.done,true);
   [s]=P.claimCodex(s,ch+':all');const claimed=structuredClone(s.codexRw),souls=s.souls;
@@ -72,7 +72,7 @@ test('optional white collection never expands or revokes existing codex completi
   assert.equal(P.codexBits(P.clean(JSON.parse(JSON.stringify(next))),ch,'mage'),31);
   assert.equal(optionalCollectionGrade(ch,0),true);
  }
- assert.equal(optionalCollectionGrade(6,0),false);assert.equal(optionalCollectionGrade(2,0),false);assert.equal(optionalCollectionGrade(5,1),false);
+ assert.equal(optionalCollectionGrade(7,0),false);assert.equal(optionalCollectionGrade(2,0),false);assert.equal(optionalCollectionGrade(5,1),false);
 });
 
 test('full inventory blocks opening without losing optional boxes or falsely registering codex',()=>{

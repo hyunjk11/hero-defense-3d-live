@@ -27,7 +27,7 @@ test('all 20 distinct owned public pairs receive server-derived separate loadout
 });
 test('partner, mode, future hard stage and ownership cannot be forged',async()=>{
  const f=fixture();for(const [i,p] of ['mage','mechanic','missing',null,{},['warrior']].entries())assert.equal((await f.start('invalid-pair-'+i,'mage',p)).reason,'invalid_party');
- for(const s of ['1-1','hard-6-1',null])assert.equal((await f.start('mode-invalid-'+String(s),'mage','warrior',s)).ok,false);
+ for(const s of ['1-1','hard-7-1',null])assert.equal((await f.start('mode-invalid-'+String(s),'mage','warrior',s)).ok,false);
  assert.equal((await f.start('invalid-version','mage','warrior','hard-1-1',{p_partyVersion:2})).ok,false);
  f.db.tables.hd3d_owned=[];assert.equal((await f.start('unowned-partner','mage','fighter')).ok,false);
  assert.equal((await f.start('unowned-main','fighter','mage')).ok,false);

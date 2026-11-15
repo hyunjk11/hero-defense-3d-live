@@ -55,11 +55,11 @@ test('legacy unfinished run, legacy completed receipt and forged fields do not a
  await f.start('old-client-new-run');f.tick();const fresh=await f.finish('old-client-new-run');assert.equal(fresh.hardReward.chests,r.hardReward.chests+2);
 });
 
-test('failed, partial and non-finishing wins cannot claim collection extras; H6 remains locked',async()=>{
+test('failed, partial and non-finishing wins cannot claim collection extras; H7 remains locked',async()=>{
  const f=fixture();for(const [i,args] of [{p_completed:5,p_win:false},{p_win:false},{p_finish:false}].entries()){
   const id='non-clear-'+i;await f.start(id);f.tick();const r=await f.finish(id,'hard-5-1',args);assert.equal(r.hardReward.chests,Math.floor((args.p_completed??HARD_STAGES['hard-5-1'].waves)/5));
  }
- assert.equal((await f.start('future-hard-six','hard-6-1')).reason,'locked');
+ assert.equal((await f.start('future-hard-seven','hard-7-1')).reason,'locked');
  assert.equal((await f.start('normal-contract','1-1')).ok,true);assert.equal(f.db.tables.hd3d_growth_runs.at(-1).hardRewardVersion,undefined);
 });
 

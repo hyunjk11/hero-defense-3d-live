@@ -13,7 +13,7 @@ test('only seven public codex rows; no grades, hidden heroes, prototypes or arbi
   for(const x of ['mechanic','legend',4,{},[], '__proto__','weapon',undefined])assert.equal(cleanTarget(x),null);
 });
 
-test('all normal60 and hard30 stages: target row preserves grade, quantity, other boxes and codex identity',()=>{
+test('all normal60 and hard36 stages: target row preserves grade, quantity, other boxes and codex identity',()=>{
   const oldNow=Date.now;Date.now=()=>1793500000000;
   let cases=0;
   try{
@@ -30,7 +30,7 @@ test('all normal60 and hard30 stages: target row preserves grade, quantity, othe
       const opened=P.applyMail(P.empty(),101,next)[0];E.openChests(opened);assert.ok(P.codexBits(opened,s.ch,row)&(1<<next.items[0].g));cases++;
     }
   }finally{Date.now=oldNow;}
-  assert.equal(cases,630);
+  assert.equal(cases,672);
 });
 
 test('first-clear guarantee, failed/partial runs and legacy requests remain identical',()=>{

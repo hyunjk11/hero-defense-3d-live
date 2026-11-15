@@ -17,7 +17,7 @@ export function hardTick(e,dt) {
   if(event?.kind==='warn'){if(hardShape(event))chapterWarning(event,e);else warning(event);}
   if(event?.kind==='hit'){
     if(hardShape(event))chapterWarning(event,null);else ringFx(event.p,event.rule==='ash-eruption'?3.6:3.2,0xffc55a,.25);
-    for(const h of heroes)if(hardHit(event,h.g.position)){heroDamage(e.E.dps*(hardShape(event)?1.2:event.rule==='ash-eruption'?1.5:1.4),h);if(event.rule==='ice-fracture')h.hardSlowUntil=Math.max(h.hardSlowUntil||0,G.t+1.5);}
+    for(const h of heroes)if(hardHit(event,h.g.position)){heroDamage(e.E.dps*(event.rule==='desert-twin'?.55:hardShape(event)?1.2:event.rule==='ash-eruption'?1.5:1.4),h);if(event.rule==='ice-fracture')h.hardSlowUntil=Math.max(h.hardSlowUntil||0,G.t+1.5);}
     G.hardPulseHits=(G.hardPulseHits||0)+1;
   }
   return !!e.hardCast;
@@ -40,11 +40,21 @@ function warning(event){
 // Each mesh belongs to G.fxs; cancelled/dead casters release it on the next fx update.
 function chapterWarning(event,owner){
  const shape=hardShape(event),live=owner?()=>!owner.dead&&owner.dying===undefined&&!(owner.stunT>0)&&!!owner.hardCast:undefined;
- const angles=shape.kind==='cross'?[shape.angle,shape.angle+Math.PI/2]:[0];
- for(const angle of angles){
+ const angles=shape.kind==='cross'?[shape.angle,shape.angle+Math.PI/2]:[shape.angle||0];
+ const footprints=shape.kind==='lanes'?shape.offsets.map(offset=>({angle:shape.angle,offset})):angles.map(angle=>({angle,offset:0}));
+ for(const {angle,offset} of footprints){
   const geometry=shape.kind==='annulus'?new THREE.RingGeometry(shape.inner,shape.outer,64):new THREE.PlaneGeometry(shape.width,shape.length);
   const material=new THREE.MeshBasicMaterial({color:shape.color,transparent:true,opacity:.5,side:THREE.DoubleSide,depthWrite:false,depthTest:false,toneMapped:false});
-  const m=new THREE.Mesh(geometry,material);m.renderOrder=20;m.rotation.set(-Math.PI/2,0,angle);m.position.set(event.p.x,.24,event.p.z);scene.add(m);
+  const m=new THREE.Mesh(geometry,material);m.renderOrder=20;m.rotation.set(-Math.PI/2,0,angle);m.position.set(event.p.x+Math.cos(angle)*offset,.24,event.p.z+Math.sin(angle)*offset);scene.add(m);
   G.fxs.push({m,t:0,dur:owner?shape.dur:.25,kind:'hard-'+shape.kind,live});
+  if(shape.kind==='lanes'){
+   // An inward border keeps the visible outer edge exactly on the collision footprint.
+   const w=shape.width/2,l=shape.length/2,b=.09;
+   const frame=new THREE.Shape([new THREE.Vector2(-w,-l),new THREE.Vector2(w,-l),new THREE.Vector2(w,l),new THREE.Vector2(-w,l)]);
+   frame.holes.push(new THREE.Path([new THREE.Vector2(-w+b,-l+b),new THREE.Vector2(-w+b,l-b),new THREE.Vector2(w-b,l-b),new THREE.Vector2(w-b,-l+b)]));
+   const edge=new THREE.Mesh(new THREE.ShapeGeometry(frame),new THREE.MeshBasicMaterial({color:0xb83112,transparent:true,opacity:.95,side:THREE.DoubleSide,depthWrite:false,depthTest:false,toneMapped:false}));
+   edge.rotation.copy(m.rotation);edge.position.copy(m.position);edge.position.y+=.002;edge.renderOrder=21;scene.add(edge);
+   G.fxs.push({m:edge,t:0,dur:owner?shape.dur:.25,kind:'hard-lane-edge',live});
+  }
  }
 }
