@@ -1,8 +1,8 @@
-import { updateQFeedback } from './render/q-feedback.js';
 import { updateMachineDeco } from './render/machine-environment.js';
 import { updateStormDeco } from './render/storm-environment.js';
 import './ui/saveconflict.js';
 import './ui/settings.js'; // Q-11b 설정 칸 DOM (다른 UI 모듈보다 먼저)
+import { initQFeedback, updateQFeedback } from './render/q-feedback.js';
 import { updateHardParty } from './heroes/hard-party.js';
 import { Snd } from './audio/audio.js';
 import * as THREE from 'three';
@@ -34,7 +34,7 @@ import { updLoot } from './render/loot.js';
 import { damageTower, repairAll, repairTower, sellTower, updTowers, upgradeTower } from './world/towers.js';
 import { updProjs } from './combat/projectiles.js';
 import { hurt, spawnEnemy } from './monsters/enemy.js';
-import { separate, updEnemies, updLod } from './monsters/ai.js';
+import { separate, updEnemies, updLod, groundY } from './monsters/ai.js';
 import { Q } from './render/quality.js';
 import './ui/gfx.js';
 import './ui/speed.js';
@@ -78,6 +78,7 @@ function updLighting(dt) {
   const nl = n * LIGHT.nightK; sun.intensity = (2.6 * (1 - nl) + .25) * LIGHT.sun; moon.intensity = 1.4 * nl; hemi.intensity = (1.35 - .75 * nl) * LIGHT.hemi; stars.material.opacity = n;
   sun.color.setHSL(LIGHT.sunH, .6 - n * .3, .88 - n * .2); bloom.strength = (.32 + n * .22) * LIGHT.bloomK; portalLight.intensity = 20 + n * 60 + Math.sin(G.t * 6) * 8; coreLight.intensity = 3 + n * 5;
 }
+initQFeedback(scene,groundY,()=>G,()=>Q.perf);
 const heroRange = createHeroRange(scene);
 let lastT = performance.now(), hudT = 0;
 function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)

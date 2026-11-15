@@ -1,8 +1,4 @@
 import * as THREE from 'three';
-import { G } from '../core/state.js';
-import { scene } from './scene.js';
-import { Q } from './quality.js';
-import { groundY } from '../monsters/ai.js';
 
 // Caster signatures, not damage areas. Fixed meshes and deterministic geometry:
 // no random draws, timers, particles, combat state writes or per-cast allocations.
@@ -49,6 +45,9 @@ export function createQFeedback(scene, ground, state, perf, capacity=6) {
     dispose(){for(const s of slots){clear(s);s.mat.dispose();s.echo.dispose();s.rim.dispose();}for(const g of Object.values(geos))g.dispose();ring.dispose();}
   };
 }
-const qCues=createQFeedback(scene,groundY,()=>G,()=>Q.perf);
-export const qFeedback=(h,target)=>qCues.show(h,target);
-export const updateQFeedback=dt=>qCues.update(dt);
+// Boot injects dependencies after settings DOM and scene modules are ready.
+// Importing this module from skills must not initialize input/audio UI early.
+let qCues=null;
+export function initQFeedback(scene,ground,state,perf){qCues?.dispose();qCues=createQFeedback(scene,ground,state,perf);}
+export const qFeedback=(h,target)=>qCues?.show(h,target)??false;
+export const updateQFeedback=dt=>qCues?.update(dt);

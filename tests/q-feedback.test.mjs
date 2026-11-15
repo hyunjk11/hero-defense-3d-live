@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
 import * as THREE from '../lib/three.module.js';
-const src=fs.readFileSync(new URL('../src/render/q-feedback.js',import.meta.url),'utf8').split('const qCues=')[0].replace(/^import .*;.*$/gm,'').replace(/\bexport (?=(?:const|function|let))/g,'');
+const src=fs.readFileSync(new URL('../src/render/q-feedback.js',import.meta.url),'utf8').split('let qCues=')[0].replace(/^import .*;.*$/gm,'').replace(/\bexport (?=(?:const|function|let))/g,'');
 const env=vm.createContext({THREE});vm.runInContext(src+';this.create=createQFeedback;',env);
 function fixture(perf=false){const scene=new THREE.Scene(),G={phase:'wave',screen:'game',tiles:[],heroes:[]},pool=env.create(scene,()=>1,()=>G,()=>perf);const hero=cls=>{const h={cls,g:new THREE.Group(),dead:0,face:0};scene.add(h.g);G.heroes.push(h);return h};return{scene,G,pool,hero};}
 test('six Q classes have distinct signature geometry, with no runtime RNG or gameplay mutation',()=>{
@@ -13,3 +13,8 @@ test('performance mode uses one visible mesh per Q, caps simultaneous casts and 
 });
 for(const reason of ['death','warp','town','map','removed','over'])test(`Q signature cleans on ${reason}`,()=>{const f=fixture(),h=f.hero('warrior');f.G.hero=h;f.pool.show(h);if(reason==='death')h.dead=1;if(reason==='warp')h.warpT=1;if(reason==='town')f.G.screen='town';if(reason==='map')f.G.tiles=[];if(reason==='removed'){f.G.hero=null;f.G.heroes=[];}if(reason==='over')f.G.phase='over';f.pool.update(.1);assert.equal(f.pool.active(),0);assert.equal(f.scene.children.filter(o=>o.name==='q-signature').length,0);f.pool.dispose();});
 test('caster-linked signature follows caster, target signature stays at target; no state writes',()=>{const f=fixture(),h=f.hero('fighter'),m=f.hero('mage');f.pool.show(h);f.pool.show(m,{x:8,z:9});h.g.position.set(3,4,5);m.g.position.set(9,8,7);f.pool.update(.1);const gs=f.scene.children.filter(o=>o.name==='q-signature');assert.deepEqual(gs.map(g=>[g.position.x,g.position.y,g.position.z]),[[3,1.28,5],[8,1.28,9]]);f.pool.dispose();});
+
+test('Q feedback import stays free of eager game/UI dependencies and main initializes after settings',()=>{
+ const code=fs.readFileSync(new URL('../src/render/q-feedback.js',import.meta.url),'utf8'),main=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ const imports=code.match(/^import .*$/gm)||[];assert.deepEqual(imports,["import * as THREE from 'three';"]);assert.ok(main.indexOf("import './ui/settings.js'")<main.indexOf("import { initQFeedback"));assert.ok(main.includes('initQFeedback(scene,groundY,()=>G,()=>Q.perf)'));assert.ok(!code.includes('const qCues=createQFeedback('));
+});
