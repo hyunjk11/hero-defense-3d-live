@@ -108,7 +108,7 @@ export function castAdvanceE(s,target,FX){
   }
   if(s.kind==='field'&&time>=s.cast+s.duration&&!ended){ended=true;if(s.freeze)for(const e of eligible())if(distance(e.g.position,aim)<=s.area*radius){e.stunT=Math.max(e.stunT||0,Math.min(e.E.boss?.25:.75,(e.E.boss?s.bossFreeze:s.freeze)*(s.cc||1)));e.frozen=true;}}
   const duration=s.kind==='field'?s.cast+s.duration:s.kind==='shield'?s.cast+Math.min(8,s.duration*(s.durationMul||1)):s.cast+(count-1)*interval+.3;
-  if(s.kind!=='paw'&&(s.kind==='shield'&&shield&&h.eShield!==shield||time>=duration&&bolts.length===0)){close();return false;}
+  if(s.kind!=='paw'&&(s.kind==='shield'&&shield&&h.eShield!==shield||time>=duration&&bolts.length===0&&!skillCues.has(root))){close();return false;}
   return true;
  });
  return true;

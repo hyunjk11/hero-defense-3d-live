@@ -37,6 +37,8 @@ export function createSkillCues(scene, capacity = 24) {
       }
     },
     clear,
+    // A completed cast must retain only its own presentation tail.
+    has: owner => slots.some(s => s.owner === owner),
     active: () => slots.filter(s => s.owner).length,
     dispose() { for (const s of slots) { s.group.removeFromParent(); s.material.dispose(); } ring.dispose(); ray.dispose(); star.dispose(); }
   };
