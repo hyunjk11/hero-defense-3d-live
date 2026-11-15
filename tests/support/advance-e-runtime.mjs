@@ -22,7 +22,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
     stat:{dmg:()=>100,skillMul:()=>1,range:()=>10},heroTip:()=>hero.g.position.clone(),mouseGround:new THREE.Vector3(),passAt:()=>true,groundY:()=>0,
     hurt0:(e,d)=>{if(e.dead)return;const loss=Math.min(e.hp,d*(1-(e.E.armor||0)));e.hp-=loss;hits.push({target:e.id,loss});if(e.hp<=0)e.dead=true;},
     glow:c=>new THREE.MeshBasicMaterial({color:c}),disposeOwned:o=>o.traverse(n=>{n.geometry?.dispose();n.material?.dispose();}),
-    makeArrow:()=>new THREE.Group(),P:{},PB:{},emit:no,ringFx:no,debris:no,play:()=>true,banner:no,Snd:{play:no,whoosh:no},
+    makeArrow:()=>new THREE.Group(),P:{},PB:{},emit:no,ringFx:no,debris:no,play:()=>true,banner:no,Snd:{play:no,whoosh:no,gun:no},
     ricochet:no,overdrill:no,pawstorm:no,pawCanProc:(t,a)=>!!t&&!t.dead&&(!t.E.fly||a?.mode==='ranged'),
     rosebarrage:s=>casts.push(s.key),gigahammer:s=>casts.push(s.key),tigerdash:s=>casts.push(s.key),updGun:no,updMechFx:no,updFtFx:no,gunFlash:no});
   const toon=vm.createContext({THREE,scene,mergeVertices:g=>g});

@@ -179,7 +179,8 @@ function updHero(dt) {
     if (h.spinTick <= 0) { h.spinTick = .25; G.mK = 1; aoe(h.g.position, h.spinR || 3.6, stat.dmg(h.skillFocus) * 1.3 * stat.skillMul(h.skillFocus)*(h.treeMods?.qMul||1), h.spinCol ? h.spinCol[0] : '#ffb07a', { groundOnly: true }); G.mK = 0; emit(P, h.g.position.x, 1.2, h.g.position.z, 20, h.spinCol ? h.spinCol[1] : 0xffa04a, 7, .4, 0, 4); }
     h.swirl.rotation.z += dt * 15; if (h.spinT <= 0) { h.swirl.visible = false; play(h.ch, 'Idle'); } }
   else { let d = h.face - h.g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); h.g.rotation.y += d * Math.min(1, dt * 14); }
-  if (h.roseT > 0) { /* ShootCharged 재생 중 */ } else if (h.gunT > 0) play(h.ch, moving ? 'ShootWalk' : 'ShootStand', { speed: moving ? 1.3 : 1, fade: .12 });
+  if (h.cls === 'gunner' && h.eCastT > 0) play(h.ch, moving ? 'ShootWalk' : 'ShootStand', { speed: moving ? 1.3 : 1, fade: .12 });
+  else if (h.roseT > 0) { /* ShootCharged 재생 중 */ } else if (h.gunT > 0) play(h.ch, moving ? 'ShootWalk' : 'ShootStand', { speed: moving ? 1.3 : 1, fade: .12 });
   else if (h.spinT <= 0) { if (moving) play(h.ch, 'Running_A', { speed: h.ch.runSpd || 1.1 }); else if (h.atkT <= 0) play(h.ch, 'Idle', { fade: .25 }); }
   if(h.cls==='gunner')h.ch.aimWeapons?.(h.face); // visual pose only, after movement/rotation
   h.ch.ring.material.opacity = .5 + Math.sin(G.t * 4) * .2;

@@ -11,8 +11,8 @@ test('pooled cues cap simultaneous effects, consume no runtime RNG, expire and c
  assert.equal(pool.show(a,'aim',{x:0,y:0,z:0},1),false);assert.equal(pool.active(),8);pool.clear(a);assert.equal(pool.active(),4);pool.update(b,1);assert.equal(pool.active(),0);assert.equal(scene.children.length,0);assert.equal(calls,0);
  }finally{Math.random=random;pool.dispose();}
 });
-test('nine E accents match real fire count; frost/flame onset and final tick only; cat cue remains separate',()=>{
- for(const [h,b,count] of [['archer','wind',1],['archer','hawk',1],['mage','flame',2],['mage','frost',2],['warrior','paladin',1],['warrior','berserk',2],['gunner','duel',6],['gunner','thorn',1],['fighter','tiger',3],['fighter','dragon',0]]){
+test('E accents match real fire count (thorn uses gun report); frost/flame onset and final tick only; cat cue remains separate',()=>{
+ for(const [h,b,count] of [['archer','wind',1],['archer','hawk',1],['mage','flame',2],['mage','frost',2],['warrior','paladin',1],['warrior','berserk',2],['gunner','duel',6],['gunner','thorn',0],['fighter','tiger',3],['fighter','dragon',0]]){
   const f=fixture(h,b),calls=[];f.env.Snd.skill=k=>calls.push(k)&&(()=>{});f.target(0,2);f.api.castLegend(new THREE.Vector3(0,0,2));f.tick(9);assert.equal(calls.length,count,b);assert.ok(calls.every(k=>k===b));assert.equal(f.cues.active(),0);assert.equal(f.scene.children.length,1);
  }
 });

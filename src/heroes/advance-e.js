@@ -23,6 +23,19 @@ function mesh(geo,color,opacity=.8){return new THREE.Mesh(geo,new THREE.MeshBasi
 function ring(root,p,r,color){const m=mesh(new THREE.RingGeometry(Math.max(.01,r-.1),r,48),color,.65);m.rotation.x=-Math.PI/2;m.position.set(p.x,groundY(p.x,p.z)+.18,p.z);root.add(m);return m;}
 function bolt(color,branch){const gun=branch==='thorn',sniper=branch==='hawk',length=gun?2.8:sniper?2.4:1.7,g=new THREE.Group(),shaft=mesh(new THREE.CylinderGeometry(gun?.035:.055,gun?.14:.09,length,8),color,gun?.45:.65),head=mesh(new THREE.ConeGeometry(gun?.12:sniper?.28:.2,gun?.38:sniper?.95:.7,8),color,.95);shaft.rotation.x=head.rotation.x=Math.PI/2;head.position.z=length/2+.2;g.add(shaft,head);return g;}
 
+// Presentation only: use the casting owner, not the currently selected hero.
+// No gunner-module import (which would add a circular initialization dependency).
+function thornShotFeedback(h){
+ const ch=h.ch;ch.aimWeapons?.(h.face);h.g.updateMatrixWorld(true);
+ const from=ch.muz?.[0]?.getWorldPosition(new THREE.Vector3())||h.g.position.clone().setY(1.5);
+ const f=ch.flashes?.[0];
+ if(f){f.t=.07*2.4;f.big=2.4;f.g.visible=true;f.g.rotation.y=h.face;}
+ ch.recoil=Math.max(ch.recoil||0,1.2);
+ h.gunT=Math.max(h.gunT||0,.24);
+ play(ch,'ShootStand',{speed:1,fade:.05});
+ Snd.gun(from,{big:true,rate:.6,vol:1.2});
+}
+
 export function castAdvanceE(s,target,FX){
  const h=hero,origin=h.g.position.clone(),dir=target.clone().sub(origin).setY(0);
  if(dir.lengthSq()<.001)dir.set(Math.sin(h.face),0,Math.cos(h.face));dir.normalize();
@@ -58,12 +71,12 @@ export function castAdvanceE(s,target,FX){
  const fire=()=>{
   if(s.kind!=='paw'){
    // Field accents on onset/final pulse; other skills accent their real shots/strikes.
-   if(s.kind!=='field'||fired===0||fired===s.ticks-1){const stop=Snd.skill?.(s.b,s.kind==='field'?aim:h.g.position);if(stop)voices.push(stop);}
+   if(s.b!=='thorn'&&(s.kind!=='field'||fired===0||fired===s.ticks-1)){const stop=Snd.skill?.(s.b,s.kind==='field'?aim:h.g.position);if(stop)voices.push(stop);}
    if(s.kind==='field'||s.kind==='shield')cue('pulse',s.kind==='field'?aim:h.g.position,s.area*radius,.32);
    else cue('pulse',h.g.position,s.kind==='cone'?1.8:1.25,.32);
   }
   if(s.kind==='fan')for(const k of [-1,0,1])shoot(angle+k*s.spread*radius,sharedHits,99);
-  else if(s.kind==='line')shoot(angle);
+  else if(s.kind==='line'){if(s.b==='thorn')thornShotFeedback(h);shoot(angle);}
   else if(s.kind==='paw'){
    cat=createCatSpirit();cat.scale.setScalar(1.9*radius);root.add(cat);flight=catFlight(origin,dir,s);
    cat.position.set(origin.x,groundY(origin.x,origin.z)+1.2,origin.z);cat.rotation.y=angle;stopVoice=Snd.meow?.(origin)||null;
