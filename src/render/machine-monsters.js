@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {batchMachineParts} from './machine-batch.js';
 import {G} from '../core/state.js';
 import {mk,toon,shareGeo} from './toon.js';
 const box=shareGeo(new THREE.BoxGeometry(1,1,1)),orb=shareGeo(new THREE.SphereGeometry(1,10,8)),rod=shareGeo(new THREE.CylinderGeometry(1,1,1,10)),cone=shareGeo(new THREE.ConeGeometry(1,1,6)),torus=shareGeo(new THREE.TorusGeometry(1,.13,6,20));
@@ -51,6 +52,7 @@ export function makeMachineEnemy(E){
   head=group(inner,0,2.57,.07);part(head,'silver',0,0,0,.52,.4,.47);eye(head,0,.03,.26);part(head,'brass',0,.24,0,.65,.13,.52);for(const s of [-1,1])beam(head,[s*.24,.2,0],[s*.36,.55,0],.045);part(head,'core',0,.4,0,.08,.2,.1,cone);for(const s of [-1,1])part(inner,'brass',s*.3,2,-.5,.1,.8,.1,rod);
  }
  inner.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(inner),scale=E.h/Math.max(.1,b.max.y-b.min.y),y=E.fly?3:-b.min.y*scale;inner.scale.setScalar(scale);inner.position.y=y;
+ batchMachineParts(inner);
  const rest=barrels.map(n=>n.position.clone()),m={g,inner,mats,legs,arms,panels,wheels,rotors,wings,core,proc:'machine',form:E.form,mixer:null,acts:null,phase:0,speed:0};
  m.anim=(e,dt)=>{const last=m.last||=e.g.position.clone(),v=dt?Math.min(8,e.g.position.distanceTo(last)/dt):0;last.copy(e.g.position);m.speed+=(v-m.speed)*Math.min(1,dt*8);m.phase+=dt*(2+m.speed*3);
   if(e.dying!==undefined){inner.rotation.z=Math.min(1,(1.6-e.dying)/.7)*.85;return;}

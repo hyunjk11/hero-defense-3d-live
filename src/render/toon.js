@@ -39,6 +39,7 @@ function disposeObj(root) {
   // Meshes and their outlines can refer to the same skeleton/geometry.
   const geometries = new Set(), skeletons = new Set();
   root.traverse(o => {
+    if (o.isInstancedMesh && o.userData.machineBatch) o.dispose(); // Only batches owned by this teardown path.
     const s = o.isSkinnedMesh && o.skeleton;
     if (s && !skeletons.has(s)) { skeletons.add(s); s.dispose(); }
     const g = o.geometry;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {batchMachineParts} from './machine-batch.js';
 import {scene} from './scene.js';
 import {IM,mk,toon,setI,hideI,shareGeo,shareMat} from './toon.js';
 import {STAGE,T,GH,GW,NT,tileX,tileZ} from '../core/grid.js';
@@ -14,5 +15,6 @@ export function machineDeco(){if(!MACHINE)return;const g=new THREE.Group();g.nam
   const fan=new THREE.Group();fan.position.set(x,h-.95,z+1.7);g.add(fan);fans.push(fan);for(let k=0;k<4;k++)block(fan,brass,0,.08,0,2,.06,.2).rotation.y=k*Math.PI/4;
  }
  for(const z of [-GH-3,GH+3]){block(g,dark,0,-.15,z,GW*2+9,.65,1.4);for(let x=-GW-4;x<GW+5;x+=3){const stripe=block(g,brass,x,.2,z,1,.025,1.4);stripe.rotation.y=.5;}for(const s of [-1,1]){const pipe=mk(cylinder,steel,s*(GW+2),.5,z,g,.01);pipe.scale.set(.45,4,.45);pipe.rotation.z=Math.PI/2;}}
+ batchMachineParts(g);
 }
 export function updateMachineDeco(t){for(const f of fans)f.rotation.y=t*.8;}
