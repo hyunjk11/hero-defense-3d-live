@@ -1,0 +1,26 @@
+name: Verify basic analytics
+on:
+  push:
+    branches:
+      - verify/basic-analytics-20261116
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Run existing analytics unit tests
+        run: node --test tests/analytics.test.mjs
+      - name: Install isolated browser test runtime
+        run: npm install --prefix .analytics-qa --no-package-lock --no-audit --no-fund playwright@1.65.1
+      - name: Install Chromium
+        run: .analytics-qa/node_modules/.bin/playwright install --with-deps chromium
+      - name: Verify blocked loader, intercepted collection, and basic Google receipt
+        run: node tests/analytics-browser-verification.mjs
