@@ -1,4 +1,4 @@
-name: Verify basic analytics
+name: Verify production analytics deployment
 on:
   push:
     branches:
@@ -8,7 +8,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v6
         with:
@@ -16,11 +16,5 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-      - name: Run existing analytics unit tests
-        run: node --test tests/analytics.test.mjs
-      - name: Install isolated browser test runtime
-        run: npm install --prefix .analytics-qa --no-package-lock --no-audit --no-fund playwright@1.65.1
-      - name: Install Chromium
-        run: .analytics-qa/node_modules/.bin/playwright install --with-deps chromium
-      - name: Verify blocked loader, intercepted collection, and basic Google receipt
-        run: node tests/analytics-browser-verification.mjs
+      - name: Check production HTML and exact verified analytics source
+        run: node tests/analytics-deployment-verification.mjs
