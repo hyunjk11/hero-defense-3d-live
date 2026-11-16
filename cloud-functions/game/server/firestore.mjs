@@ -73,7 +73,9 @@ export class FirestoreTransaction{
     const found=(Array.isArray(data)?data:[data]).find(x=>x.found)?.found,row=fromDocument(found);
     this.cache.set(name,row);return structuredClone(row);
   }
-  async list(table,filter={}){
+  async list(table,filter={},unbounded=false){
+    if(!unbounded&&table==='hd3d_dungeon_runs'&&typeof filter.user_id==='string'&&Object.keys(filter).length===2&&
+       ['day','status'].some(k=>typeof filter[k]==='string'))return this.dungeonWindow(filter);
     this.check();
     documentName(table,'check',this.root);for(const k of Object.keys(filter))if(!indexed.includes(k)||filter[k]===undefined)throw new Error('Invalid query filter');
     // Equality queries use only needed indexes; server operations perform bounded projection afterward.
@@ -83,6 +85,79 @@ export class FirestoreTransaction{
     const rows=new Map();for(const item of response||[]){if(!item.document)continue;const row=fromDocument(item.document);if(row)rows.set(item.document.name,row);if(!this.cache.has(item.document.name))this.cache.set(item.document.name,row);}
     for(const [name,w]of this.writes){if(!name.startsWith(this.root+'/'+table+'/'))continue;const row=this.cache.get(name);if(row&&matches(row,filter))rows.set(name,row);else rows.delete(name);}
     return structuredClone([...rows.values()]);
+  }
+  historyBase(table,uid){return {from:[{collectionId:table}],where:{fieldFilter:{field:{fieldPath:'user_id'},op:'EQUAL',value:scalar(uid)}}};}
+  async historyProbe(base){
+    this.historyProbes||=new Map();const key=JSON.stringify(base);
+    if(!this.historyProbes.has(key))this.historyProbes.set(key,this.read(`${this.root}:runQuery`,{structuredQuery:{...base,limit:128},transaction:this.token})
+      .then(response=>(response||[]).filter(x=>x.document).map(x=>x.document)));
+    return this.historyProbes.get(key);
+  }
+  async historyCount(query){
+    this.historyCounts||=new Map();const key=JSON.stringify(query);
+    if(!this.historyCounts.has(key))this.historyCounts.set(key,this.read(`${this.root}:runAggregationQuery`,{structuredAggregationQuery:{structuredQuery:query,aggregations:[{alias:'total',count:{}}]},transaction:this.token}).then(response=>{
+      const rows=Array.isArray(response)?response:[response],value=rows.find(x=>x.result?.aggregateFields?.total)?.result.aggregateFields.total.integerValue;
+      const total=Number(value);if(value===undefined||!Number.isSafeInteger(total)||total<0)throw new Error('Invalid history count');return total;
+    }));
+    return this.historyCounts.get(key);
+  }
+  async dungeonWindow(filter){
+    const key=Object.hasOwn(filter,'day')?'day':'status',base=this.historyBase('hd3d_dungeon_runs',filter.user_id);
+    const fallback=async()=> (await this.list('hd3d_dungeon_runs',{user_id:filter.user_id},true)).filter(r=>r[key]===filter[key]);
+    if([...this.writes.keys()].some(n=>n.startsWith(this.root+'/hd3d_dungeon_runs/')))return fallback();
+    const probe=await this.historyProbe(base);
+    if(probe.length<128)return probe.map(fromDocument).filter(r=>r&&r[key]===filter[key]);
+    try{
+      const typed={...base,where:{compositeFilter:{op:'AND',filters:[base.where,{fieldFilter:{field:{fieldPath:key},op:'GREATER_THAN_OR_EQUAL',value:{stringValue:''}}}]}},orderBy:[{field:{fieldPath:key},direction:'ASCENDING'}]};
+      const [all,indexed]=await Promise.all([this.historyCount(base),this.historyCount(typed)]);
+      if(all!==indexed)return fallback();
+      return this.list('hd3d_dungeon_runs',filter,true);
+    }catch(e){if(['FAILED_PRECONDITION','UNIMPLEMENTED'].includes(e.code))return fallback();throw e;}
+  }
+  // Mail only: small accounts keep one query. Large accounts use a bounded
+  // ordered scan. Archive state stays in payload so legacy unmarked mail remains
+  // visible; never filter on a newly introduced field or rewrite old documents.
+  async mailWindow(filter,{limit,archived}){
+    this.check();
+    if(Object.keys(filter).length!==1||typeof filter.user_id!=='string'||!Number.isInteger(limit)||limit<1||limit>1000||
+       [...this.writes.keys()].some(n=>n.startsWith(this.root+'/hd3d_mail/')))return null;
+    const base=this.historyBase('hd3d_mail',filter.user_id);
+    const fetch=async q=>{
+      const response=await this.read(`${this.root}:runQuery`,{structuredQuery:q,transaction:this.token});
+      return (response||[]).filter(x=>x.document).map(x=>x.document);
+    };
+    const visible=row=>archived===undefined||!!row.archived_at===archived;
+    const finish=docs=>docs.map(fromDocument).filter(Boolean).filter(visible)
+      .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,limit);
+    const pageSize=128;
+    const probe=await this.historyProbe(base);
+    if(probe.length<pageSize)return finish(probe);
+    const orderBy=[{field:{fieldPath:'created_at'},direction:'DESCENDING'},{field:{fieldPath:'__name__'},direction:'ASCENDING'}];
+    try{
+      // orderBy excludes missing fields. Compare within this same transaction
+      // snapshot before using it, otherwise legacy mail could silently disappear.
+      const [all,ordered]=await Promise.all([this.historyCount(base),this.historyCount({...base,where:{compositeFilter:{op:'AND',filters:[base.where,{fieldFilter:{field:{fieldPath:'created_at'},op:'GREATER_THAN_OR_EQUAL',value:{stringValue:''}}}]}},orderBy})]);
+      if(all!==ordered)return null;
+      let cursor=null,scanned=0;const rows=[];
+      while(scanned<all&&rows.length<limit){
+        const docs=await fetch({...base,orderBy,limit:pageSize,...(cursor?{startAt:{values:cursor,before:false}}:{})});
+        if(!docs.length)throw new Error('Incomplete mail page');
+        for(const doc of docs){const row=fromDocument(doc);if(row&&visible(row))rows.push(row);}
+        scanned+=docs.length;
+        const last=docs.at(-1),field=last.fields?.created_at;
+        // Current server writes ISO strings. Do not impose new semantics on
+        // unusual legacy field types; use the original complete-list path.
+        if(!field||typeof field.stringValue!=='string')return null;
+        cursor=[field,{referenceValue:last.name}];
+        if(docs.some(d=>!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(d.fields?.created_at?.stringValue||'')||fromDocument(d)?.created_at!==d.fields.created_at.stringValue))return null;
+      }
+      return rows.slice(0,limit);
+    }catch(e){
+      // Index rollout must not break access. Permission, network and transaction
+      // failures still propagate; only unsupported/not-ready query plans fall back.
+      if(['FAILED_PRECONDITION','UNIMPLEMENTED'].includes(e.code))return null;
+      throw e;
+    }
   }
   async put(table,row){this.requireWrite();const doc=toDocument(table,row,this.root);this.cache.set(doc.name,structuredClone(row));this.writes.set(doc.name,{update:doc});return structuredClone(row);}
   async remove(table,id){this.requireWrite();const name=documentName(table,id,this.root);this.cache.set(name,null);this.writes.set(name,{delete:name});}

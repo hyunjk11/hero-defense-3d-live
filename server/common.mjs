@@ -38,6 +38,7 @@ export async function context(tx, user, { now = Date.now(), random = Math.random
   const c = { tx, uid, user, now, iso, random, uuid, day: day(now), week: week(now),
     get: (t, id) => tx.get(table(t), String(id)),
     list: (t, filters = {}) => tx.list(table(t), filters),
+    mailWindow: tx.mailWindow ? (filters,options) => tx.mailWindow(filters,options) : null,
     put: (t, row) => tx.put(table(t), row),
     insert: (t, row) => tx.insert(table(t), { created_at: iso, ...row }),
     remove: (t, id) => tx.remove(table(t), String(id)),

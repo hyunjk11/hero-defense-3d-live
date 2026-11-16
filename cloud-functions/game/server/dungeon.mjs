@@ -12,16 +12,23 @@ export const dungeonItems = {
 for (const h of ['warrior','archer','mage','gunner','fighter']) dungeonItems['dg_morvia_' + h] = { price: 45, name: '모르비아의 무기', reward: { items: [{ k: 'gear', s: 'weapon', g: 3, set: 'morvia', h }] } };
 for (const [s, price] of [['armor',40],['acc',35]]) dungeonItems['dg_morvia_' + s] = { price, name: '모르비아의 장비', reward: { items: [{ k: 'gear', s, g: 3, set: 'morvia' }] } };
 export async function dungeon(c, name, a) {
-  const runs = () => c.list('dungeon_runs', { user_id: c.uid });
+  const runs = async (filter={}) => {
+    try{return await c.list('dungeon_runs', { user_id: c.uid, ...filter });}
+    catch(e){
+      if(e.code!=='FAILED_PRECONDITION'||!Object.keys(filter).length)throw e;
+      // Equality-index rollout must not prevent daily entry or hide old records.
+      return (await c.list('dungeon_runs',{user_id:c.uid})).filter(r=>Object.entries(filter).every(([k,v])=>r[k]===v));
+    }
+  };
   if (name === 'status') {
-    const [r, w] = await Promise.all([runs(), c.wallet()]); const used = r.filter(x => x.day === c.day).length;
+    const [r, w] = await Promise.all([runs({day:c.day}), c.wallet()]); const used = r.filter(x => x.day === c.day).length;
     return { ok: true, day: c.day, maxFloors: 10, floors_limit: 10, limit: 1, used, left: Math.max(0, 1 - used), medals: w.medals, titles: w.titles, banned: !!c.ban };
   }
   c.requirePlayer();
   if (name === 'start') {
-    const r = await runs(), used = r.filter(x => x.day === c.day).length;
+    const today = await runs({day:c.day}), used = today.length;
     if (used >= 1) return failure('daily_limit', { limit: 1, used, left: 0 });
-    for (const old of r.filter(x => x.status === 'active')) await c.put('dungeon_runs', { ...old, status: 'abandoned', finished_at: c.iso, floors: 0, win: false });
+    for (const old of await runs({status:'active'})) await c.put('dungeon_runs', { ...old, status: 'abandoned', finished_at: c.iso, floors: 0, win: false });
     if(a.p_growth===1)await growthWallet(c);
     const token = c.uuid(), maxFloors = a.p_max_floors === 10 ? 10 : 5;
     await c.insert('dungeon_runs', { user_id: c.uid, day: c.day, token, floors_limit: maxFloors, growth: a.p_growth===1, status: 'active', started_at: c.iso, finished_at: null, floors: null, win: null, medals: 0, uq: null, boss_reward: null, soul_reward: null });

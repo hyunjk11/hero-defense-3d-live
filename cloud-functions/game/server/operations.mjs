@@ -22,7 +22,11 @@ export async function query(c,q){
     if(table==='admin_log')c.requireAdmin();const own=['profiles','progress','bans'].includes(table)||!c.admin&&!['notices','admin_log'].includes(table);
     if('archived' in filters && (table!=='mail'||typeof filters.archived!=='boolean'))denied('invalid archive filter','23514');
     const scoped={...filters};delete scoped.archived;if(own){const field=table==='profiles'?'id':'user_id';if(field in filters&&filters[field]!==c.uid)return {data:q.single?null:[],error:null};scoped[field]=c.uid;}
-    let rows=await c.list(table,scoped);
+    const limit=integer(q.limit??200,1,1000);
+    let rows=null;
+    if(table==='mail'&&q.order?.field==='created_at'&&!q.order.ascending&&c.mailWindow)
+      rows=await c.mailWindow(scoped,{limit,archived:filters.archived});
+    if(rows===null)rows=await c.list(table,scoped);
     if(table==='mail'&&'archived' in filters)rows=rows.filter(m=>!!m.archived_at===filters.archived);
     if(table==='notices'&&!c.admin)rows=rows.filter(n=>n.active&&(!n.starts_at||Date.parse(n.starts_at)<=c.now)&&(!n.ends_at||Date.parse(n.ends_at)>c.now));
     if(q.order){if(!['created_at','updated_at','id'].includes(q.order.field))denied('invalid sort','23514');const factor=q.order.ascending?1:-1;rows.sort((a,b)=>typeof a[q.order.field]==='number'?factor*(a[q.order.field]-b[q.order.field]):factor*String(a[q.order.field]||'').localeCompare(String(b[q.order.field]||'')));}

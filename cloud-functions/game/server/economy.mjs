@@ -19,6 +19,7 @@ const ownHero=async(c,h)=>!paidHeroes.includes(h)||!!await c.get('owned',c.uid+'
 // save format; the transport/database namespace and transactions remain intact.
 export function economyStore(store,{rejectBalanceTruncation=false}={}){
  const adapt=tx=>({
+  ...(tx.mailWindow?{mailWindow:(filter,options)=>tx.mailWindow(filter,options)}:{}),
   get:async(t,id)=>{const r=await tx.get(t,id);return t==='hd3d_progress'&&r?{...r,data:P.clean(r.data)}:r;},
   list:async(t,f)=>{const rows=await tx.list(t,f);return t==='hd3d_progress'?rows.map(r=>({...r,data:P.clean(r.data)})):rows;},
   put:async(t,r)=>{if(t==='hd3d_progress'){
