@@ -113,6 +113,7 @@ export function startFlow() {
   bindUI();
   if (DUNGEON && QS.has('run')) { startDungeonRun(); return; } // 던전 원정 (마을 던전 건물에서 새로고침으로 진입)
   if (STAGE && QS.has('run')) { startStageRun(); return; } // 스테이지 출정 (원정 지도에서 새로고침으로 진입)
+  if (!STAGE && !DUNGEON && QS.has('challenge') && QS.has('run')) { startChallengeRun(); return; }
   if (QS.has('town')) { resume(); return; } // 출정 후 귀환: 바로 마을
   showSelect(); $('select').classList.add('hidden'); show('intro'); // 인트로: 세 영웅이 포즈를 취하는 3D 무대 재사용
 }
@@ -195,9 +196,21 @@ function refreshTown() {
     if (b._h !== h) { b._h = h; b.innerHTML = h; } const dis = max || s.souls < c; if (b.disabled !== dis) b.disabled = dis; });
 }
 export async function depart() {
-  if (!Acc.saveAllowed() || departing || G.phase !== 'town') return; departing = true; const s = Acc.load(); s.hero = Sh.usableHero(s.hero); Snd.play('meteorCast', { force: true }); Snd.play('confirm');
-  if (!await prepareGrowth(null, s.hero)) { departing=false; return; } $('fade').classList.add('on'); setTimeout(() => { hideAll(); closeBless(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); town.visible = false; G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = STAGE ? STAGE.ch : P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.phase = 'select'; choose(s.hero); $('retreat').classList.remove('hidden'); $('fade').classList.remove('on');
-    const bt = equipLine(G.equip); if (bt) setTimeout(() => banner(bt, '#ffe08a', 2200), 900); }, 650);
+  if (!Acc.saveAllowed() || departing || G.phase !== 'town') return;
+  departing = true; Snd.play('meteorCast', { force: true }); Snd.play('confirm');
+  // A fresh document owns the new terrain and GPU resources. Do not rebuild over an old map.
+  await go({ challenge: true }, 650);
+}
+async function startChallengeRun() {
+  await Acc.autoLogin().catch(() => {});
+  if (!Acc.A.user && Acc.A.mode !== 'guest') { show('login'); refreshLogin(); return; }
+  const saved = Acc.load();
+  if (CLASSES[saved.hero]?.paid) await Sh.verifyOwned();
+  const s = Acc.load(); s.hero = Sh.usableHero(s.hero);
+  if (!await prepareGrowth(null, s.hero)) { enterTown(); return; }
+  showSelect(); $('select').classList.add('hidden'); hideAll();
+  G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.phase = 'select'; choose(s.hero); $('retreat').classList.remove('hidden'); $('fade').classList.remove('on');
+  const bt = equipLine(G.equip); if (bt) setTimeout(() => banner(bt, '#ffe08a', 2200), 900);
 }
 
 // ---------- UI 바인딩 ----------
@@ -220,7 +233,7 @@ function bindUI() {
   initStageSel({ challenge: () => depart(), start: (id) => departStage(id) }); $('twMenu').onclick = () => { Snd.play('ui'); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); if (th) { disposeHeroModel(th); th = null; } town.visible = false; G.phase = 'menu'; cam.target.set(0, 1.5, 22); cam.r = 13.5; cam.phi = 1.3; toMenu(); };
   $('retreat').onclick = async () => { if (G.phase !== 'build') { Snd.play('error'); return; } if (!(await askConfirm({ title: '마을로 귀환', icon: '🏠', body: '지금까지의 보상을 가지고 마을로 귀환할까요?', ok: '귀환' }))) return; if (G.phase !== 'build') { Snd.play('error'); return; } onRunEnd('retreat'); };
   $('overTown').onclick = () => goTown();
-  $('overRetry').onclick = () => { if (STAGE) departStage(STAGE.id); else reload(); }; // Q-6: 스테이지 판은 같은 스테이지 재도전 (보상은 onRunEnd 에서 이미 저장)
+  $('overRetry').onclick = () => { if (STAGE) departStage(STAGE.id); else if (DUNGEON) reload(); else go({ challenge: true }); }; // Q-6: 스테이지 판은 같은 스테이지 재도전 (보상은 onRunEnd 에서 이미 저장)
   if (STAGE) $('overRetry').textContent = '🔁 재도전';
   addEventListener('keydown', e => { if (G.screen === 'town' && !typing(e)) tKeys[e.key.toLowerCase()] = true; }); addEventListener('keyup', e => tKeys[e.key.toLowerCase()] = false);
   renderer.domElement.addEventListener('pointerdown', e => { if (G.screen !== 'town' || e.button !== 0 || !th) return; const m = new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1), rc = new THREE.Raycaster(); rc.setFromCamera(m, camera);
