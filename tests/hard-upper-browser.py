@@ -3,7 +3,7 @@ Run: python tests/hard-upper-browser.py [hard-7-1,...] [output suffix]
 Injected synthetic progression is documented by the existing party fixture; combat,
 costs, waves, damage and 1/60 simulation remain production code.
 """
-import sys,json,time,threading,http.server,functools,pathlib
+import sys,json,time,threading,http.server,functools,pathlib,os
 from playwright.sync_api import sync_playwright
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/'tests'/'logs';OUT.mkdir(exist_ok=True)
@@ -24,11 +24,11 @@ INIT='''async()=>{
  G.choose('mage');
  const run={party:['mage','fighter'],loadouts:{mage:{perm:{hp:0,atk:0}},fighter:{perm:{hp:0,atk:0}}}};
  await HP.prepareHardParty(run);HP.startHardParty(run);
- window.driver=await import('/tests/hard-party-balance.mjs');
+ window.driver=await import('/tests/hard-upper-progression-qa.mjs');
  return G.heroes.length;
 }'''
 with sync_playwright() as pw:
- browser=pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=no-user-gesture-required'])
+ browser=pw.chromium.launch(executable_path=os.environ.get('BROWSER_EXECUTABLE','/usr/bin/chromium'),headless=True,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--autoplay-policy=no-user-gesture-required'])
  for sid in STAGES:
   page=browser.new_page(viewport={'width':1280,'height':800});errors=[];blocked=[]
   page.on('pageerror',lambda e:errors.append(str(e)))

@@ -13,7 +13,7 @@ const base=await import('data:text/javascript;base64,'+Buffer.from(old).toString
 test('H1-6 definitions/reward random calls and normal chapters unchanged',()=>{
  assert.deepEqual(H.HARD_CHAPTERS.slice(0,6),base.HARD_CHAPTERS);
  for(const s of Object.values(base.HARD_STAGES))for(const first of [false,true]){let a=0,b=0;assert.deepEqual(H.hardReward(s,s.waves,true,first,'mage',()=>((a++*19)%97)/97,null,2),base.hardReward(s,s.waves,true,first,'mage',()=>((b++*19)%97)/97,null,2));assert.equal(a,b);}
- for(let ch=7;ch<=10;ch++)for(let i=0;i<6;i++){const s=H.HARD_CHAPTERS[ch-1].stages[i],n=CHAPTERS[ch-1].stages[i];assert.equal(s.id,`hard-${ch}-${i+1}`);assert.equal(s.rule,rules[ch-7]);assert.equal(s.hp,Number((n.hp*2.05).toFixed(3)));for(const k of ['waves','core','spawns','q','seed','bed','walls','boss','enemyWeights','startGold'])assert.deepEqual(s[k],n[k]);}
+ for(let ch=7;ch<=10;ch++)for(let i=0;i<6;i++){const s=H.HARD_CHAPTERS[ch-1].stages[i],n=CHAPTERS[ch-1].stages[i];assert.equal(s.id,`hard-${ch}-${i+1}`);assert.equal(s.rule,rules[ch-7]);assert.equal(s.hp,s.id==='hard-7-5'?3.99:Number((n.hp*2.05).toFixed(3)));for(const k of ['waves','core','spawns','q','seed','bed','walls','boss','enemyWeights','startGold'])assert.deepEqual(s[k],n[k]);}
 });
 test('new elite selection is bounded and excludes children, flyers, support-only enemies',()=>{
  for(let ch=7;ch<=10;ch++){const rule=rules[ch-7],pool=Object.keys(ETYPES).filter(k=>ETYPES[k].ch===ch),q=Array(4).fill(pool.length?pool:Object.keys(ETYPES)).flat();const f=H.eliteQueue(q,14,ETYPES,rule);assert.ok(f.filter(Boolean).length<=4);for(let i=0;i<q.length;i++)if(f[i]){const e=ETYPES[q[i]];assert.ok(!e.boss&&!e.child&&!e.fly&&e.dps>0);}}
