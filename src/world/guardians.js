@@ -30,7 +30,7 @@ function release(s){releaseGuard(s.target,s);s.target=null;}
 function dropModel(s){if(s.m){scene.remove(s.m.g);disposeOwned(s.m.g);s.hb?.dispose();s.m=null;s.hb=null;}}
 export function clearGuardians(tw){for(const s of tw.guards||[]){release(s);dropModel(s);}tw.guards=[];}
 function makeModel(s){ const old=s.m?.g.position.clone(), ratio=s.max? s.hp/s.max:1;dropModel(s);s.m=guardianModel({level:s.tw.lvl,branch:s.tw.branch,giant:s.tw.lvl>=5&&s.tw.branch==='guardian_bulwark'&&s.index===0});
-  s.max=s.tw.S.soldierHp;s.hp=Math.max(0,ratio*s.max);const p=old||new THREE.Vector3(tileX(s.home[0]),0,tileZ(s.home[1]));s.m.g.position.copy(p);scene.add(s.m.g);s.hb=hpBar(s.m.g,2.35,1.0,0x80dfff,{auto:true,h:.12});s.skin=`${s.tw.lvl}:${s.tw.branch}`; }
+  s.max=s.tw.S.soldierHp;s.hp=Math.max(0,ratio*s.max);const p=old||new THREE.Vector3(tileX(s.home[0]),0,tileZ(s.home[1]));s.m.g.position.copy(p);scene.add(s.m.g);s.hb=hpBar(s.m.g,1.95*s.m.g.scale.y,1.0,0x80dfff,{auto:true,h:.12});s.skin=`${s.tw.lvl}:${s.tw.branch}`; }
 function hit(s,e,k=1){hurt(e,s.tw.S.dmg*k,'#bceaff',k>1,{x:s.m.g.position.x,z:s.m.g.position.z,kind:'melee'});s.tw.shots++;s.swing=.3;}
 function signature(s){const tw=s.tw,p=s.m.g.position,B=tw.B;
   if(B?.guardianPulse&&s.index===0&&s.sig<=0){s.sig=8;ringFx(p,3.1,0x8edbff,.65);emit(P,p.x,1,p.z,18,0xc2edff,4,.45,1,.6);Snd.play('block',{pos:p});
