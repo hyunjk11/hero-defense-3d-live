@@ -47,7 +47,7 @@
   "src/data/chapters/machine.js": "b3f4382ae8a67f6eeba6055a75f78faec17c39a9c6ac219f4f8d8fac96de19b0",
   "src/data/chapters/storm.js": "a2a5abad84c59e5b12387d33b0eec9abddcda550421bfeb684aca600822db4e3",
   "src/data/chapters/swamp.js": "b3b2d70414b23cc957d76a7e4119c53c7664e19ee8fe99fce0952a255a529feb",
-  "src/data/growth.js": "d93c42c0dfe00304660734f2b7c06e757d698ff1e953c089edd04464057bbd16",
+  "src/data/growth.js": "c200a88e04191fce7447aa24028238ce2da973e67a4c2ba804337d31837076aa",
   "src/data/hard-collection.js": "09fdf35a5034586bf2a23dae0931441fbbe3f1de7607c9c69098c201e429a0ac",
   "src/data/hard-party.js": "44bc23be3fdc4f8ab93aa19fbfd9286f97a024d27e09236b3654b3bde1fa9dd6",
   "src/data/hard.js": "2751f9169e3713317692300fecba11573d40128e7ee2b22b94169017056a0886",
@@ -59,5 +59,5 @@
   "src/data/repeat-target.js": "e0f63bfa3eeaaeda0922862730279e48b030a050eadc1f1e710da993332534f8",
   "src/data/skill-tree.js": "544868e93d3ce4eaa60b24117e8c82ca09ff644a71d882ac9c6bf7a31acce7ad",
   "src/data/stages.js": "96f2aa6a06145dacdaa064f62fce8cfb6726cec21d29572467ed61c01f3cf772",
-  "src/data/towers.js": "c27c176c7ccd2ddd138cee873d5fba518806cc2c1925a350593369a8a4cfb8a8"
+  "src/data/towers.js": "942a24efbb8cf1d11881283a483a32cce32e2e263ddb2cb8f2d25c7ebb0c7243"
 }
