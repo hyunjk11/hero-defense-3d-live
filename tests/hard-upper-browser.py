@@ -39,7 +39,7 @@ with sync_playwright() as pw:
   try:
    page.goto(f'http://127.0.0.1:8990/?test=1&stage={sid}&rng=12345',timeout=120000)
    page.wait_for_function('()=>window.G?.ready&&G.phase==="select"',timeout=120000)
-   page.evaluate(INIT)
+   page.evaluate(INIT.replace('hard-upper-progression-qa.mjs',os.environ.get('QA_FIXTURE','hard-upper-progression-qa.mjs')))
    result=page.evaluate('async()=>driver.runCase({count:2,seed:12345})')
    result['errors']=errors;result['blockedExternal']=blocked;result['wallSeconds']=round(time.time()-start,2)
    print(sid,result['clear'],result['core'],result['wave'],result['wallSeconds'],errors,flush=True)
