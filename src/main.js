@@ -82,11 +82,11 @@ function updLighting(dt) {
 initQFeedback(scene,groundY,()=>G,()=>Q.perf);
 const heroRange = createHeroRange(scene);
 let lastT = performance.now(), hudT = 0;
-function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
+function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt, i === 0 ? raw : 0); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
   Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
 G.Snd = Snd; G.sim = (sec, h = .05) => { for (let t = 0; t < sec; t += h) step(h); };
-function step(dt) {
-  updatePractice(dt);
+function step(dt, practiceClockDt = dt) {
+  updatePractice(dt, practiceClockDt);
   if (G.slowT > 0) { dt *= G.slowF || .4; G.slowT -= dt; } // 메카닉 변신 연출: 잠깐 슬로 모션 (변신할 때만)
   G.t += dt;
   for (let i = G.timers.length - 1; i >= 0; i--) { const tm = G.timers[i]; tm.t -= dt; if (tm.t <= 0) { G.timers.splice(i, 1); runTimer(tm); } }

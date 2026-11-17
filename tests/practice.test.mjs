@@ -71,9 +71,10 @@ const saves = ['flame', {b:'flame',n:1}].map(adv => ({hero:'mage',heroLv:{mage:{
 const outputs=[];
 for (const save of saves) {
   const before=JSON.stringify(save), mem=storage();
-  const c={HG:{viewSave:()=>save,level:()=>20,available:()=>true},E:{bonus:()=>({}),legendOf:()=>null,equippedItems:()=>[]},AD,SX:{barLv:()=>0,barMul:()=>1},treeBuild,readPartner:()=>null,sessionStorage:mem};
+  const c={HG:{viewSave:()=>save,level:()=>20,available:()=>true},E:{bonus:()=>({}),legendOf:()=>null,equippedItems:()=>[]},AD,SX:{barLv:()=>0,barMul:()=>1},treeBuild,readPartner:()=>{throw Error('Practice must not read a partner preference');},sessionStorage:mem};
   vm.createContext(c);vm.runInContext(src+';globalThis.prepare=preparePractice;',c);c.prepare();
   const snapshot=JSON.parse(mem.getItem('hd3d_live_practice_snapshot_v1'));
+  assert.deepEqual(snapshot.party,['mage']);assert.deepEqual(Object.keys(snapshot.loadouts),['mage']);
   assert.equal(snapshot.loadouts.mage.heroTree.branch,'flame');
   assert.equal(snapshot.loadouts.mage.heroTree.preset,1);
   assert.equal(snapshot.loadouts.mage.heroTree.choices[15],'dense');
@@ -85,3 +86,23 @@ console.log('legacy/current advancement snapshots retain identical active tree c
 // Settings mount must precede practice's select/input module dependency graph.
 const main=read('src/main.js');
 assert(main.indexOf("import './ui/settings.js'")<main.indexOf("import { updatePractice }"));
+
+// A retry from the previous two-hero release is also solo, without mutating its stored snapshot.
+const legacy={party:['mage','archer'],loadouts:{mage:{heroLevel:20},archer:{heroLevel:10}},growthEnabled:true};
+const legacyCtx={CLASSES:{mage:{},archer:{}},isHidden:()=>false};
+vm.createContext(legacyCtx);vm.runInContext(src+';globalThis.solo=soloRun;',legacyCtx);
+const beforeLegacy=JSON.stringify(legacy),one=legacyCtx.solo(legacy);
+assert.deepEqual(Array.from(one.party),['mage']);assert.deepEqual(Object.keys(one.loadouts),['mage']);assert.equal(JSON.stringify(legacy),beforeLegacy);
+assert.equal(legacyCtx.solo({party:['missing'],loadouts:{missing:{}}}),null);
+assert(!practice.includes('startHardParty'));assert(!practice.includes('readPartner'));
+// The production clock uses real active-frame time, not capped simulation time or speed multipliers.
+const clockG={practice:true,phase:'build',hero:{},enemies:[],stats:{kills:{}},spawnEnemy(){}};
+const clockContext={...rctx,G:clockG};vm.createContext(clockContext);vm.runInContext(src+';run={party:["mage"]};globalThis.tick=updatePractice;',clockContext);
+clockContext.tick(.05,1);assert.equal(node('practiceSeconds').textContent,'29');
+clockContext.tick(.05,0);assert.equal(node('practiceSeconds').textContent,'29');
+clockContext.tick(.05,4);assert.equal(node('practiceSeconds').textContent,'25');
+clockContext.tick(.05,25);assert.equal(clockG.phase,'over');assert.match(node('practicePanel').innerHTML,/id="practiceSeconds">0/);
+assert.match(main,/step\(dt, i === 0 \? raw : 0\)/);assert.match(main,/updatePractice\(dt, practiceClockDt\)/);
+assert.match(read('style.css'),/#practicePanel\{position:fixed;top:/);
+assert.match(read('style.css'),/#practiceSeconds\{font-size:36px/);
+console.log('solo snapshots, legacy retry, visible countdown and real-time speed-independent clock: passed');
