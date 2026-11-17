@@ -3,7 +3,7 @@ export const XP_NEED = [0, 600, 2400], KILL_XP = 15;
 export const STAR = [{ dmg: 1, rate: 1, rng: 1 }, { dmg: 1.2, rate: 1.08, rng: 1.05 }, { dmg: 1.45, rate: 1.15, rng: 1.1 }];
 export const starsFor = xp => xp >= XP_NEED[2] ? 3 : xp >= XP_NEED[1] ? 2 : 1;
 export const canSpecialize = tw => !!tw && !tw.dead && tw.lvl >= 3 && !tw.branch && starsFor(tw.xp || 0) >= 3;
-export const TTYPES = ['arrow', 'cannon', 'magic'];
+export const TTYPES = ['arrow', 'cannon', 'magic', 'guardian'];
 export const BRANCH = {
   arrow: {
     multi: { n: '연발 사수', icon: '🏹', c: '#7affc0', d: '대상 3명 동시 사격 (각 피해 75%) · 공격속도 +15%', dmg: .75, rate: 1.15, targets: 3 },
@@ -12,6 +12,10 @@ export const BRANCH = {
   cannon: {
     blast: { n: '광역 폭발', icon: '💥', c: '#ffa04a', d: '폭발 반경 +60% · 피해 +10% · 착탄 후 집속탄 3발 (각 40%, 반경 1.6)', dmg: 1.1, splash: 1.6, cluster: 3, clusterK: .4, clusterR: 1.6 },
     pierce: { n: '단일 관통', icon: '➶', c: '#9ad8ff', d: '관통 철갑탄: 사거리 끝까지 직선 위 모든 지상 적 관통 · 피해 ×2 · 방어력 무시 · 폭발 없음', dmg: 2, pierce: true, pierceArmor: true },
+  },
+  guardian: {
+    guardian_bulwark: { n: '철벽 수호대', icon: '🛡', c: '#8edbff', d: '수호병 체력 +70% · 저지 시간 +40%', soldierHp: 1.7, blockTime: 1.4 },
+    guardian_assault: { n: '돌격 수호대', icon: '⚔', c: '#ffba77', d: '피해 +40% · 공격속도 +15% · 짧은 돌진', dmg: 1.4, rate: 1.15, guardianCharge: true },
   },
   magic: {
     storm: { n: '폭풍 연쇄', icon: '⚡', c: '#c8a0ff', d: '연쇄 +4 · 연쇄 감쇠 15%→5% · 연쇄 거리 3.8→5.5', chainAdd: 4, falloff: .95, hop: 5.5 },
@@ -49,6 +53,8 @@ export function branchFor(type, branch, mods, lvl = 3) { let B = branch && BRANC
 
 export const MAX_TOWER_LEVEL = 5;
 export const SIGNATURE = {
+  guardian_bulwark: { n: '거대 수호자', d: '거대 방패 · 주기적 충격파', effects: { guardianPulse: true, soldierHp: 2.0 } },
+  guardian_assault: { n: '수호기사단', d: '돌진 후 주변 적 베기', effects: { guardianCharge: true, guardianCleave: true, dmg: 1.6 } },
   multi: { n: '화살 폭풍', d: '동시 사격 3 → 5명', effects: { targets: 5 } },
   snipe: { n: '거인 사냥', d: '단일 피해 ×2.3 → ×3.0 · 보스 우선', effects: { dmg: 3, prio: 'hp' } },
   blast: { n: '융단 폭격', d: '집속탄 3 → 5발', effects: { cluster: 5 } },
@@ -63,6 +69,7 @@ export function towerStats(type, lvl, branch = null, mods = null, stars = 1) {
   const o = { dmg: D.dmg[L] * X.dmg * (B.dmg || 1) * M.dmg, rate: D.rate[L] * X.rate * (B.rate || 1) * M.rate, range: D.range[L] * X.rng * (B.rng || 1) * M.rng };
   if (D.splash && !B.pierce) o.splash = D.splash[L] * (B.splash || 1) * (M.splash || 1);
   if (D.chain) { o.chain = B.chainSet || D.chain[L] + (B.chainAdd || 0); o.slow = (B.slowSet || D.slow[L]) + (M.slowAdd || 0); o.falloff = B.falloff || .85; o.hop = B.hop || 3.8; }
+  if (D.soldiers) Object.assign(o, { soldiers: D.soldiers, soldierHp: D.soldierHp[L] * (B.soldierHp || 1), respawn: D.respawn[L], blockTime: D.blockTime[L] * (B.blockTime || 1), bossBlockTime: D.bossBlockTime, blockCooldown: D.blockCooldown, meleeRange: D.meleeRange });
   return o;
 }
 export function upgradeCost(type, lvl, mods) {
