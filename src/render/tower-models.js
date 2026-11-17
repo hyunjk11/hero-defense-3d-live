@@ -147,11 +147,38 @@ function magicTower(g, head, muzzle, anim, level) {
     crystal(g, .16, 2, x, top + 1.35, z); beam(g, [x, top, z], [x, top + 1.06, z], .12, 'gold');
   }
 }
+function guardianTower(g, head, muzzle, anim, level) {
+  const top = 1.25 + level * .23;
+  box(g, 1.38, top - .35, 1.25, 0, (top + .35) / 2, 0, 'violet');
+  // A dark gate and twin watch posts distinguish the barracks from attack turrets.
+  box(g, .6, .85, .06, 0, .79, .66, 'dark');
+  for (const x of [-.65, .65]) {
+    cyl(g, .25, .31, top + .15, x, (top + .15) / 2 + .3, .45, 'stone', 6);
+    cyl(g, .29, .29, .13, x, top + .42, .45, level >= 3 ? 'gold' : 'steel', 6);
+    for (const z of [.3, .6]) box(g, .18, .2, .16, x, top + .56, z, 'stone');
+  }
+  box(g, 1.55, .16, 1.36, 0, top + .08, 0, level >= 4 ? 'gold' : 'steel');
+  for (const x of [-.57, 0, .57]) box(g, .28, .28, .25, x, top + .28, -.55, 'stone');
+  head.position.y = top + .55;
+  // Floating crest is the summon point, not a projectile weapon.
+  const crest = box(head, .5, .65, .13, 0, .12, 0, 'gold'); crest.rotation.z = Math.PI / 4;
+  crystal(head, .2, 1.2, 0, .12, .13); muzzle.position.set(0, .4, .2);
+  if (level >= 2) for (const x of [-.5, .5]) box(g, .26, .63, .04, x, top - .45, -.64, 'blue');
+  if (level >= 3) {
+    cyl(g, .025, .025, 1.05, -.55, top + .9, -.45, 'iron', 5);
+    const flag = new THREE.Group(); flag.position.set(-.55, top + 1.12, -.45); g.add(flag);
+    box(flag, .55, .34, .035, .27, 0, 0, level === 5 ? 'gold' : 'blue'); anim.flag = flag;
+  }
+  if (level === 5) for (const x of [-.75, .75]) {
+    crystal(g, .19, 2, x, top + .92, .45);
+    ring(g, .23, .035, x, top + .62, .45, 'gold').rotation.x = Math.PI / 2;
+  }
+}
 export function towerModel(type, level) {
-  if (!['arrow', 'cannon', 'magic'].includes(type) || !Number.isInteger(level) || level < 1 || level > 5) throw new Error('Invalid tower model');
+  if (!['arrow', 'cannon', 'magic', 'guardian'].includes(type) || !Number.isInteger(level) || level < 1 || level > 5) throw new Error('Invalid tower model');
   const g = new THREE.Group(), head = new THREE.Group(), muzzle = new THREE.Object3D(), anim = {};
   foundation(g, level, type);
-  ({ arrow: arrowTower, cannon: cannonTower, magic: magicTower })[type](g, head, muzzle, anim, level);
+  ({ arrow: arrowTower, cannon: cannonTower, magic: magicTower, guardian: guardianTower })[type](g, head, muzzle, anim, level);
   head.name = 'aim-head'; muzzle.name = 'projectile-muzzle'; head.add(muzzle); g.add(head);
   const excludeMeshes = new Set([anim.crys, anim.gem, ...(anim.rings || [])].filter(Boolean));
   batchTowerBodies(g, { excludeMeshes, shareGeometry: shareGeo });
