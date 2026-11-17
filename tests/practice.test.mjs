@@ -26,12 +26,17 @@ assert.match(read('src/core/waves.js'),/function endWave\(\) \{ if \(G.practice\
 assert.match(read('src/ui/result.js'),/export function onRunEnd\(reason\) \{\s*if \(G.practice/);
 // Exercise active timer, spawn cap, 30-second terminal state, repeated finish, and no-state invalid entry.
 let src=practice.replace(/^import .*;\n/gm,'').replaceAll('export ','');
-const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{id,textContent:'',classList:{add(){},remove(){}},style:{}});return nodes.get(id);};
+const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{id,textContent:'',classList:{values:new Set(),add(k){this.values.add(k)},remove(k){this.values.delete(k)},contains(k){return this.values.has(k)}},style:{}});return nodes.get(id);};
 const G={practice:true,phase:'build',hero:{},enemies:[],stats:{kills:{golem:2}},spawnEnemy(){G.spawns=(G.spawns||0)+1;}};
 const rctx={CORE:[22,7],tileX:x=>x,tileZ:z=>z,G,$:node,document:{createElement:()=>({style:{}}),body:{appendChild(){}}},Object,Math,Set,JSON,CLASSES:{mage:{}},isHidden:()=>false,startHardParty:()=>{},go:()=>{},reload:()=>{}};
 vm.createContext(rctx);vm.runInContext(src+';run={party:["mage"]};globalThis.tick=updatePractice;globalThis.finish=finish;',rctx);
-for(let i=0;i<601;i++)rctx.tick(.05);
-assert.equal(G.phase,'over');assert(G.spawns>0);assert.equal(G.wave,1);const count=G.spawns;rctx.finish();rctx.tick(1);assert.equal(G.spawns,count);
+rctx.tick(.05);
+assert.equal(node('phase').textContent,'연습 중 · 무보상');
+assert.equal(node('startWave').disabled,true);
+assert.equal(node('startWave').classList.contains('hidden'),true);
+assert.equal(node('wavePrev').classList.contains('hidden'),true);
+for(let i=0;i<600;i++)rctx.tick(.05);
+assert.equal(G.phase,'over');assert.equal(node('phase').textContent,'연습 종료');assert.equal(node('startWave').disabled,true);assert(G.spawns>0);assert.equal(G.wave,1);const count=G.spawns;rctx.finish();rctx.tick(1);assert.equal(G.spawns,count);
 console.log('practice isolation, URL precedence, API boundary, timer and repeated exit: passed');
 // Execute production reward guards rather than just checking their spelling.
 let rewardWrites=0, storageWrites=0;

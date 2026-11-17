@@ -37,6 +37,11 @@ function panel(message, finished = false) {
   if ($('practiceRetry')) $('practiceRetry').onclick = () => reload();
   box.onpointerdown = e => e.stopPropagation();
 }
+function practiceHud(finished = false) {
+  $('startWave').classList.add('hidden'); $('startWave').disabled = true;
+  $('wavePrev')?.classList.add('hidden');
+  $('phase').textContent = finished ? '연습 종료' : '연습 중 · 무보상';
+}
 export async function startPractice() {
   G.practice = true; G.grow = false; G.growthEnabled = false; G.xpRun = null;
   G.onXPWave = null; G.onRunEnd = finish; G.onStageClear = finish; G.endPractice = finish;
@@ -51,12 +56,12 @@ export async function startPractice() {
     showSelect(); $('select').classList.add('hidden');
     Object.assign(G, run.loadouts[run.party[0]], {growthEnabled:!!run.growthEnabled,focus:0,research:run.research,barRes:run.barRes,runDrops:[],runBossKills:[],gold:500,coreHp:999999,coreMax:999999,advBar:AD.advBarMul(run.loadouts[run.party[0]].adv)});
     choose(run.party[0]);
-    $('startWave').hidden = true; $('retreat').classList.add('hidden');
+    practiceHud(); $('retreat').classList.add('hidden');
   } catch { G.phase = 'over'; panel('모델을 불러오지 못했습니다. 다시 시도해 주세요.',true); }
 }
 export function updatePractice(dt) {
   if (!G.practice || !run || G.phase === 'over' || !G.hero || G.chooseWait) return;
-  if (!started) { if (G.phase !== 'build') return; started = true; if (run.party.length === 2) startHardParty(run); G.phase = 'wave'; G.wave=1; }
+  if (!started) { if (G.phase !== 'build') return; started = true; if (run.party.length === 2) startHardParty(run); G.phase = 'wave'; G.wave=1; practiceHud(); }
   elapsed += dt; spawn -= dt;
   if (elapsed >= 30) { finish(); return; }
   if (spawn <= 0 && G.enemies.filter(e => !e.dead).length < 8) { spawn = 1.5; G.spawnEnemy('golem', 5, {x:tileX(CORE[0]-4),z:tileZ(CORE[1]),tile:[CORE[0]-4,CORE[1]]}); }
@@ -64,6 +69,6 @@ export function updatePractice(dt) {
 }
 function finish() {
   if (!G.practice || G.phase === 'over') return;
-  G.phase = 'over'; G.spawnQ=[];
+  G.phase = 'over'; G.spawnQ=[]; practiceHud(true);
   panel(`연습 종료 · ${Math.min(30, Math.floor(elapsed))}초 · 처치 ${Object.values(G.stats.kills).reduce((a,b)=>a+b,0)}`, true);
 }
