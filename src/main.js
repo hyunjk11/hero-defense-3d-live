@@ -1,8 +1,8 @@
-import { updatePractice } from './ui/practice.js';
 import { updateMachineDeco } from './render/machine-environment.js';
 import { updateStormDeco } from './render/storm-environment.js';
 import './ui/saveconflict.js';
 import './ui/settings.js'; // Q-11b 설정 칸 DOM (다른 UI 모듈보다 먼저)
+import { updatePractice } from './ui/practice.js';
 import { initQFeedback, updateQFeedback } from './render/q-feedback.js';
 import { updateHardParty } from './heroes/hard-party.js';
 import { Snd } from './audio/audio.js';

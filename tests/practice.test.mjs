@@ -76,3 +76,7 @@ for (const save of saves) {
 }
 assert.deepEqual(outputs[0],outputs[1]);
 console.log('legacy/current advancement snapshots retain identical active tree choices');
+
+// Settings mount must precede practice's select/input module dependency graph.
+const main=read('src/main.js');
+assert(main.indexOf("import './ui/settings.js'")<main.indexOf("import { updatePractice }"));
