@@ -11,6 +11,8 @@ export function hardDefinition(base, elite, summoned) {
 }
 export function hardTick(e,dt) {
   if(!STAGE?.hard||!(e.E.hardElite||e.E.boss))return false;
+  // Skill-only minibosses (e.g. storm sentinel) retain their native attack cycle.
+  if(['storm-ring','machine-grid','abyss-cross','citadel-seal'].includes(STAGE.rule)&&!(e.E.dps>0))return false;
   const heroes=(G.heroes.length?G.heroes:[G.hero]).filter(h=>h&&h.dead<=0);
   const h=heroes.reduce((a,h)=>!a||h.g.position.distanceToSquared(e.g.position)<a.g.position.distanceToSquared(e.g.position)?h:a,null);
   const event=pulseStep(e,dt,h?.g.position,e.E.boss,STAGE.rule);

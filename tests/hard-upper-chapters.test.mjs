@@ -31,3 +31,7 @@ test('new visible footprints agree with collision and dispose after cancellation
   owner.hardCast=null;assert.ok(G.fxs.every(f=>!f.live()));let disposed=0;for(const f of G.fxs)f.m.geometry.addEventListener('dispose',()=>disposed++);const count=G.fxs.length;const fx=fs.readFileSync(new URL('../src/render/vfx.js',import.meta.url),'utf8');vm.runInContext(fx.slice(fx.indexOf('function updFx('),fx.indexOf('export {',fx.indexOf('function updFx(')))+';this.fx=updFx;',ctx);ctx.fx(.01);assert.equal(G.fxs.length,0);assert.equal(scene.children.length,0);assert.equal(disposed,count);
  }
 });
+
+test('skill-only minibosses never pause for a zero-damage hard attack',()=>{
+ for(const rule of rules){const ctx=vm.createContext({THREE,G:{},STAGE:{hard:true,rule},...H});vm.runInContext(fs.readFileSync(new URL('../src/monsters/hard.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export ','')+';this.tick=hardTick;',ctx);assert.equal(ctx.tick({E:{boss:true,dps:0}},.1),false);}
+});
