@@ -42,6 +42,7 @@ function genMap() {
     const dS = Math.abs(c - SPAWN[0]) + Math.abs(r - SPAWN[1]), dC = Math.abs(c - CORE[0]) + Math.abs(r - CORE[1]);
     if (R() < (STAGE ? STAGE.bed : .04) && dS > 4 && dC > 4 && SPAWNS.every(s => Math.abs(c - s[0]) + Math.abs(r - s[1]) > 4)) t = T.BEDROCK;
     if ((c <= 1 && Math.abs(r - SPAWN[1]) <= 1) || (Math.abs(c - CORE[0]) <= 1 && Math.abs(r - CORE[1]) <= 1) || (STAGE && SPAWNS.some(s => Math.abs(c - s[0]) <= 1 && Math.abs(r - s[1]) <= 1))) t = T.GRASS;
+    if (new URLSearchParams(location.search).get('practice') === '1' && dC <= 6) t = T.GRASS;
     const hp = BLK[t] ? BLK[t].hp : 0;
     G.tiles[c][r] = { c, r, t, hp, max: hp, tower: null, bar: null, s: R(), s2: R(), s3: R(), shk: 0, ck: (c + r) % 2 ? .03 : 0 };
   } }

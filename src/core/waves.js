@@ -18,10 +18,11 @@ const SEEN_KEY = 'hd3d_live_seenMon';
 function seenSet() { if (!G.seenMon) { let a = []; try { a = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'); } catch (e) {} G.seenMon = new Set(Array.isArray(a) ? a : []); } return G.seenMon; }
 function markSeen(list) { const s = seenSet(); list.forEach(t => s.add(t)); try { localStorage.setItem(SEEN_KEY, JSON.stringify([...s])); } catch (e) {} }
 
-function gameOver() { if (G.phase === 'over') return; G.phase = 'over'; if (G.onRunEnd) setTimeout(() => G.onRunEnd('defeat'), 0); Snd.setMusic('none'); Snd.play('gameOver', { force: true, exact: true }); Snd.play('breakRock', { force: true }); Snd.play('glass', { force: true }); $('over').classList.remove('hidden'); $('overTxt').textContent = STAGE ? `스테이지 ${STAGE.no} · 웨이브 ${G.wave}/${STAGE.waves}에서 코어가 파괴되었습니다` : `웨이브 ${G.wave}에서 코어가 파괴되었습니다 · 최고 기록 ${Math.max(G.wave, +localStorage.getItem('hd3d_live_best') || 0)}`;  if (G.endStatsShow) G.endStatsShow('over'); /* 📊 통계 (ui/endstats.js) */ }
+function gameOver() { if (G.practice) { G.endPractice?.(); return; } if (G.phase === 'over') return; G.phase = 'over'; if (G.onRunEnd) setTimeout(() => G.onRunEnd('defeat'), 0); Snd.setMusic('none'); Snd.play('gameOver', { force: true, exact: true }); Snd.play('breakRock', { force: true }); Snd.play('glass', { force: true }); $('over').classList.remove('hidden'); $('overTxt').textContent = STAGE ? `스테이지 ${STAGE.no} · 웨이브 ${G.wave}/${STAGE.waves}에서 코어가 파괴되었습니다` : `웨이브 ${G.wave}에서 코어가 파괴되었습니다 · 최고 기록 ${Math.max(G.wave, +localStorage.getItem('hd3d_live_best') || 0)}`;  if (G.endStatsShow) G.endStatsShow('over'); /* 📊 통계 (ui/endstats.js) */ }
 
 // ================= 웨이브 =================
 function startWave() {
+  if (G.practice) return;
   if (G.phase !== 'build') return; G.wave++; G.phase = 'wave'; G.nightTarget = 1; select(null); waveStart(G.waveLog, G.wave, G.t); // 웨이브 시간 기록 (결과 통계)
   const n = G.wave, boss = n % 5 === 0, hpMul = Math.pow(1.16, n - 1), q = [], count = 8 + n * 3;
   for (let i = 0; i < count; i++) { let t = 'grunt'; const r = rand(); if (r < .32) t = 'imp'; else if (n >= 3 && r > .86) t = 'golem'; else if (n >= 4 && r > .73 && r <= .86) t = 'bat'; q.push(t); }
@@ -50,7 +51,7 @@ function mixNewTypes(q, n) {
   for (const t of intro) { let have = q.filter(x => x === t).length; for (let i = 2; have < 2 && i < q.length; i += 3) if (q[i] === 'grunt' || q[i] === 'imp') { q[i] = t; have++; } }
   return intro;
 }
-function endWave() { waveEnd(G.waveLog, G.t); G.completedWaves = G.wave; if (G.onXPWave) G.onXPWave();
+function endWave() { if (G.practice) return; waveEnd(G.waveLog, G.t); G.completedWaves = G.wave; if (G.onXPWave) G.onXPWave();
   G.phase = 'build'; G.nightTarget = 0; const bonus = Math.round((25 + G.wave * 6) * rules.waveGold); G.gold += bonus; G.stats.goldEarned += bonus; Snd.play('waveClear', { force: true, exact: true }); Snd.play('coins', { delay: .3 }); Snd.duck(.4, 1.6); banner(`웨이브 ${G.wave} 클리어! +${bonus}G`, '#ffe066');
   if (hero && hero.dead <= 0) { hero.hp = hero.max; play(hero.ch, 'Cheer', { once: true }); hero.atkT = 1.5; } computeDist(); setPhaseUI();
   if (STAGE && G.wave >= STAGE.waves && G.onStageClear) { G.onStageClear(); return; }

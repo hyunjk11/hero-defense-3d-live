@@ -6,7 +6,7 @@ const code=fs.readFileSync(new URL('../src/ui/result.js',import.meta.url),'utf8'
 function setup(fail=false){
  const elements=new Map(),memory=new Map(),calls=[];const el=id=>{if(!elements.has(id))elements.set(id,{classList:{add(){},remove(){}},disabled:false,textContent:'',innerHTML:''});return elements.get(id);};
  const G={xpRun:{token:'challenge-ui-token',mode:'challenge',stage:null},wave:21,completedWaves:20,stats:{kills:{grunt:200}},hero:{cls:'mage'},runDrops:[],runBossKills:[5,10,20],phase:'wave',endStatsShow:x=>calls.push(['stats',x])};
- const context={G,STAGE:null,Acc:{A:{user:{id:'test'}},sessionId:()=>1,SAVE_WAIT_MESSAGE:'pending'},HG:{onGrowth(){},HG:{rewardXP:{},hardRewards:{}}},directGearEnabled:()=>true,
+ const context={URLSearchParams,location:{search:'?challenge=1&run=1'},G,STAGE:null,Acc:{A:{user:{id:'test'}},sessionId:()=>1,SAVE_WAIT_MESSAGE:'pending'},HG:{onGrowth(){},HG:{rewardXP:{},hardRewards:{}}},directGearEnabled:()=>true,
   runDirectNormal:async input=>{calls.push(['settle',structuredClone(input)]);if(fail)throw Error('lost response');return {ok:true,kind:'challenge',souls:234,best:true,loot:[{chest:true},{src:'essence',essence:1}]};},
   Snd:{play(){},setMusic(){}},ST:{starsFor:()=>0},$:el,go:(x,delay)=>calls.push(['go',x,delay]),sessionStorage:{setItem:(k,v)=>memory.set(k,v)},setTimeout,alert:()=>assert.fail('Unexpected alert'),document:{getElementById:el}};
  vm.createContext(context);vm.runInContext(code,context);return {context,G,el,memory,calls};

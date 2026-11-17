@@ -5,18 +5,19 @@ import {CHSET,CH_KEYS,CODEX_RW} from '../src/data/items.js';
 import {collectionOdds,optionalCollectionGrade} from '../src/data/hard-collection.js';
 import {MORVIA,BOSS_SETS,MORVIA_HEROES} from '../src/data/boss-sets.js';
 import {setStatuses,setDefinition} from '../src/account/set-status.js';
+import {farmingRoute} from '../src/data/farming-route.js';
 const ui=new URL('../src/ui/',import.meta.url);
 function fixture(features={hardCollection:1}){
- const body={innerHTML:''},buttons=[];let tip='';
- const deps={P,E,ST,CLASSES,heroLabel,MORVIA,BOSS_SETS,MORVIA_HEROES,setStatuses,setDefinition,SLOTS:E.SLOTS,STAT:E.STAT,CHSET,CH_KEYS,CODEX_RW,optionalCollectionGrade,HG:{available:()=>true,HG:{features}},
-  $:()=>body,document:{querySelectorAll:s=>s.endsWith('.cxC')?buttons:[]},Acc:{update(){}},Snd:{play(){}},
+ const body={innerHTML:''},route={innerHTML:'',textContent:'',scrollIntoView(){}},go={onclick:null},buttons=[];let tip='',save=null;
+ const deps={P,E,ST,CLASSES,heroLabel,MORVIA,BOSS_SETS,MORVIA_HEROES,setStatuses,setDefinition,SLOTS:E.SLOTS,STAT:E.STAT,CHSET,CH_KEYS,CODEX_RW,optionalCollectionGrade,farmingRoute,HG:{available:()=>true,viewSave:()=>save,HG:{features}},
+  $:id=>id==='codexRoute'?route:id==='codexRouteGo'?go:body,document:{querySelectorAll:s=>s.endsWith('.cxC')?buttons:[]},Acc:{update(){}},Snd:{play(){}},
   esc:s=>s,iconKey:s=>s,weaponIcon:s=>s,icon:()=>'<i>item</i>',clsN:s=>s,GC:g=>'#fff',card:it=>'card '+it.g,
-  showTip:(_b,s)=>tip=s,hideTip(){}};
+  showTip:(_b,s)=>tip=s,hideTip(){},closeInv(){},openStageSel(){},openDungeon(){},writeTarget(){return true;}};
  const view=fs.readFileSync(new URL('setview.js',ui),'utf8').replace(/^import .*;[^\r\n]*\r?\n/gm,'').replace(/\bexport /g,'');
  Object.assign(deps,new Function(...Object.keys(deps),view+';return {setCard};')(...Object.values(deps)));
  const source=fs.readFileSync(new URL('codex.js',ui),'utf8').replace(/^import .*;[^\r\n]*\r?\n/gm,'').replace(/\bexport /g,'');
  const {renderCodex}=new Function(...Object.keys(deps),source+';return {renderCodex};')(...Object.values(deps));
- return {render(s,ch){buttons.length=0;const b={dataset:{ch,row:'mage',g:0,extra:optionalCollectionGrade(ch,0)&&(features.hardCollection||P.codexBits(s,ch,'mage')&1)?'1':'0'},classList:{contains:c=>c==='seen'?!!(P.codexBits(s,ch,'mage')&1):c==='na'&&!(features.hardCollection&&ch<=5)}};buttons.push(b);renderCodex(s,{ui:{cxTab:ch},tipLater(){}});b.onclick();return {html:body.innerHTML,tip};}};
+ return {render(s,ch){save=s;buttons.length=0;const b={dataset:{ch,row:'mage',g:0,extra:optionalCollectionGrade(ch,0)&&(features.hardCollection||P.codexBits(s,ch,'mage')&1)?'1':'0'},classList:{contains:c=>c==='seen'?!!(P.codexBits(s,ch,'mage')&1):c==='na'&&!(features.hardCollection&&ch<=5)}};buttons.push(b);renderCodex(s,{ui:{cxTab:ch},tipLater(){}});b.onclick();return {html:body.innerHTML,tip};}};
 }
 test('chapter 3..10 white slots are hidden without changing records or completion rewards',()=>{
  for(const features of [{hardCollection:1},{}])for(const ch of [3,4,5,6,7,8,9,10]){

@@ -1,3 +1,4 @@
+import { cleanLoadouts } from './loadouts.js';
 import { targetGear } from '../data/repeat-target.js';
 import { cleanGrowth } from '../data/hero-growth.js';
 import { cleanGuestDungeon } from './dungeon-local.js';
@@ -20,6 +21,9 @@ const int = (v, lo = 0, hi = 1e9) => Math.max(lo, Math.min(hi, Math.floor(num(v)
 export function empty() { return { v: 4, hero: 'mage', souls: 0, bestWave: 0, heroLv: Object.fromEntries(HEROES.map(h => [h, { hp: 0, atk: 0 }])), stats: Object.fromEntries(STATS.map(k => [k, 0])), settings: {}, nick: '', inv: [], stor: [], eq: Object.fromEntries(HEROES.map(h => [h, {}])), mat: { steel: 0, crystal: 0 }, chests: [], st: {}, starRw: 0, research: GR.emptyResearch(), mailLog: [], codex: {}, codexRw: [], adv: {}, hq: {} }; }
 export function clean(d) {
   d = obj(d); const e = empty();
+  if(Array.isArray(d.lockedGear))e.lockedGear=[...new Set(d.lockedGear.filter(id=>typeof id==='string'&&id.length<=100))].slice(0,360);
+  if(Array.isArray(d.battlePresets))e.battlePresets=cleanLoadouts(d.battlePresets);
+  if(VISIBLE_HEROES.includes(d.battlePartner))e.battlePartner=d.battlePartner;
   if(Number.isSafeInteger(d.hardRewardSeq)&&d.hardRewardSeq>0)e.hardRewardSeq=d.hardRewardSeq;
   const growth = cleanGrowth(d.growth); if (growth) e.growth = growth;
   e.hero = HEROES.includes(d.hero) ? (isHidden(d.hero) ? DEFAULT_HERO : d.hero) : e.hero; /* 숨긴 영웅이 선택돼 있으면 기본 영웅으로 (heroLv·장비·소유권은 유지) */ e.souls = int(d.souls); e.bestWave = int(d.bestWave, 0, 9999);

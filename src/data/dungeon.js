@@ -101,6 +101,8 @@ export function nextFloorHp(hp, max, down) { return down ? Math.round(max * REVI
 // ---------- 축복 (층 사이 3택1, 이번 원정에서만) ----------
 // role: 그 역할 영웅이 파티에 있을 때만 후보. max: 같은 축복을 몇 번까지 고를 수 있는지
 export const BLESS = [
+  { id: 'rally', icon: '💨', n: '진격의 함성', d: '합동 공격 후 6초간 이동 속도 +30% · 재사용 12초', max: 1 },
+  { id: 'rescue', icon: '💚', n: '구원의 맥박', d: '체력 30% 이하 아군 주변 4m를 8% 회복 · 파티 공용 재사용 12초', max: 1 },
   { id: 'haste', icon: '⚡', n: '질풍의 축복', d: '전원 공격 속도 +15%', max: 3 },
   { id: 'might', icon: '⚔', n: '힘의 축복', d: '전원 공격력 +12%', max: 3 },
   { id: 'crit', icon: '🎯', n: '예리함의 축복', d: '치명타 확률 +12% · 치명타 피해 +25%', max: 2 },

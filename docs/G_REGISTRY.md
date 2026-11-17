@@ -139,6 +139,8 @@
 | `nudgeN` | monsters/ai.js | 3 | 계측/카운터 (테스트·통계용) |
 | `onDungeonBossKilled` | dungeon/run.js | 0 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `onHeroDown` | dungeon/run.js | 0 | 함수 훅 (다른 모듈·테스트가 호출) |
+| `endPractice` | ui/practice.js | 0 | 무보상 연습 종료 훅. 실전 보상 정산 대신 연습 결과만 표시 |
+| `practice` | ui/practice.js | 0 | 저장소 격리된 무보상 연습 페이지 여부. 전투·결과 저장 가드 |
 | `onRunEnd` | ui/flow.js | 0 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `onStageClear` | ui/result.js | 0 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `onXPWave` | ui/flow.js | 0 | 함수 훅 (다른 모듈·테스트가 호출) |

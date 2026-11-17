@@ -41,7 +41,10 @@ async function saveProgress(store,user,op,options){
   const old=await c.get('progress',c.uid);
   if(insert&&old)denied('save already exists','23505');
   if(!insert&&(!old||typeof f.updated_at!=='string'||f.updated_at!==old.updated_at))return {data:[],error:null};
-  const before=P.clean(old?.data||P.empty()),after=P.clean(v.data),wanted=stable(economicState(after));
+  const before=P.clean(old?.data||P.empty()),after=P.clean(v.data);
+  // Old clients do not know these server-owned preferences. Omission is not deletion.
+  for(const k of ['lockedGear','battlePresets','battlePartner'])if(!Object.hasOwn(v.data,k)&&Object.hasOwn(before,k))after[k]=structuredClone(before[k]);
+  const wanted=stable(economicState(after));
   // Growth cache is never an authority supplied by the caller.
   if(before.growth)after.growth=before.growth;else delete after.growth;
   let allowed=wanted===stable(economicState(before));

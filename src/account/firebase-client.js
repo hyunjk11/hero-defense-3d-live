@@ -1,6 +1,7 @@
 // Transport adapter keeps existing save CAS, mail receipts and gameplay account APIs intact.
 import {resolveFunctionsConfig} from './functions-config.js';
 export async function createFirebaseClient(config, options = {}) {
+  if(new URLSearchParams(globalThis.location?.search || '').get('practice') === '1') throw new Error('연습장에서는 계정 연결을 사용하지 않습니다.');
   // A misspelled/unreleased direct profile must not silently use the Sites API.
   if(config.storageMode && !['worker','firestore-direct-prototype','firestore-direct','functions','functions-prototype'].includes(config.storageMode))
     throw Object.assign(new Error('Unsupported storage profile; no fallback connection was made'),{code:'STORAGE_MODE_UNSUPPORTED'});
@@ -28,21 +29,47 @@ export async function createFirebaseClient(config, options = {}) {
   const marker = value => { try { if (value) localStorage.setItem(config.authStorageKey, '1'); else localStorage.removeItem(config.authStorageKey); } catch {} };
   const ensureAccount=async user=>{if(direct&&user){const {ensureDirectAccount}=await import('./direct-bootstrap.js');await ensureDirectAccount(config,{auth,user,fetcher});}};
   const authResult = async action => { try { const credential = await action(); await ensureAccount(credential.user); marker(true); return { data: { user: userOf(credential.user), session: { user: userOf(credential.user) } }, error: null }; } catch (e) { return { data: null, error: { code: e.code, message: e.message } }; } };
-  const writes = new Map();
+  const writes = new Map(), writeGeneration = new Map();
+  // Bound token acquisition, headers AND body reads. A timeout is an unknown
+  // outcome, never proof that the server did not commit. Recovery stays with
+  // the existing durable journals/CAS; the transport never replays a write.
+  const requestTimeoutMs = Number.isFinite(options.requestTimeoutMs) && options.requestTimeoutMs > 0
+    ? options.requestTimeoutMs : 30000;
+  const timedOut = () => ({ data: null, error: { code: 'REQUEST_TIMEOUT', message: '서버 응답 확인이 지연되고 있습니다. 저장 상태를 다시 확인해 주세요.', status: 0, uncertain: true }, status: 0 });
   const readonly = op => op.kind === 'query' && op.action === 'select' || op.kind === 'rpc' && ['hd3d_my_status','hd3d_is_admin','hd3d_is_owner','hd3d_is_banned'].includes(op.name);
   const changed = () => ({ data: null, error: { code: 'ACCOUNT_CHANGED', message: 'Account session changed' }, status: 0 });
-  async function dispatch(body, user) {
+  async function dispatch(body, user, writing = false) {
+    let timer, expired = false;
+    const controller = new AbortController();
     try {
       if (auth.currentUser !== user) return changed();
+      // The archived direct transport owns its transaction lifecycle separately.
       if (direct) return await direct(JSON.parse(body), user);
-      const token = await user.getIdToken();
+      const deadline = new Promise(resolve => { timer = setTimeout(() => {
+        expired = true;
+        // Do not dispatch writes already queued behind an uncertain operation.
+        // Their callers retain inputs and recover before explicitly trying again.
+        if (writing) writeGeneration.set(user.uid, (writeGeneration.get(user.uid) || 0) + 1);
+        controller.abort();
+        resolve(auth.currentUser === user ? timedOut() : changed());
+      }, requestTimeoutMs); });
+      const request = (async () => {
+        const token = await user.getIdToken();
+        // A late token must not launch a request after the deadline/session end.
+        if (expired) return timedOut();
+        if (auth.currentUser !== user) return changed();
+        const response = await fetcher(config.apiUrl, { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + token }, body, signal: controller.signal });
+        const result = await response.json();
+        if (expired) return timedOut();
+        if (auth.currentUser !== user) return changed();
+        if (!response.ok && !result.error) return { data: null, error: { message: 'Server request failed', status: response.status }, status: response.status };
+        return { ...result, status: response.status };
+      })();
+      return await Promise.race([request, deadline]);
+    } catch (e) {
       if (auth.currentUser !== user) return changed();
-      const response = await fetcher(config.apiUrl, { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + token }, body });
-      const result = await response.json();
-      if (auth.currentUser !== user) return changed();
-      if (!response.ok && !result.error) return { data: null, error: { message: 'Server request failed', status: response.status }, status: response.status };
-      return { ...result, status: response.status };
-    } catch (e) { return { data: null, error: { message: e.message || String(e), code: e.code || 'NETWORK_ERROR', status: 0 }, status: 0 }; }
+      return expired ? timedOut() : { data: null, error: { message: e.message || String(e), code: e.code || 'NETWORK_ERROR', status: 0 }, status: 0 };
+    } finally { clearTimeout(timer); }
   }
   async function send(operation) {
     // Snapshot the operation/session before a queue wait. Never reuse a queued A
@@ -51,7 +78,12 @@ export async function createFirebaseClient(config, options = {}) {
     if (!user) return { data: null, error: { code: '42501', message: 'not authenticated' }, status: 401 };
     const body = JSON.stringify(operation);
     if (readonly(operation)) return dispatch(body, user);
-    const task = (writes.get(user.uid) || Promise.resolve()).then(() => dispatch(body, user));
+    const generation = writeGeneration.get(user.uid) || 0;
+    const task = (writes.get(user.uid) || Promise.resolve()).then(() => {
+      if (auth.currentUser !== user) return changed();
+      if ((writeGeneration.get(user.uid) || 0) !== generation) return timedOut();
+      return dispatch(body, user, true);
+    });
     writes.set(user.uid, task);
     const cleanup = () => { if (writes.get(user.uid) === task) writes.delete(user.uid); };
     task.then(cleanup, cleanup);

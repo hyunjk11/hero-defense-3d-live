@@ -1,3 +1,4 @@
+import { applyLoadout } from '../../server/loadouts.mjs';
 import {context,denied} from '../../server/common.mjs';
 import * as E from './equip.js';
 import * as S from './storage.js';
@@ -7,18 +8,21 @@ import {CHSET,CODEX_RW} from '../data/items.js';
 import {unpackItem} from './storpack.js';
 import {TOWN_ACTIONS,townArgs,applyTown} from './direct-town.js';
 const fail=code=>{throw Object.assign(new Error(code),{code});};
-const actions=new Set(['open','dismantle','store','take','expand','equip','unequip','enhance','codex','run_return','craft','reroll','reroll_apply',...TOWN_ACTIONS]);
+const actions=new Set(['lock','preset_save','preset_apply','open','dismantle','store','take','expand','equip','unequip','enhance','codex','run_return','craft','reroll','reroll_apply',...TOWN_ACTIONS]);
 export function gearArgs(args) {
-  if(!args||typeof args!=='object'||Object.keys(args).some(k=>!['p_id','p_action','p_item','p_hero','p_slot','p_pay','p_wave','p_kills','p_ch','p_recipe','p_source','p_type','p_stat','p_count','p_branch'].includes(k))||
+  if(!args||typeof args!=='object'||Object.keys(args).some(k=>!['p_id','p_action','p_item','p_hero','p_slot','p_pay','p_wave','p_kills','p_ch','p_recipe','p_source','p_type','p_stat','p_count','p_branch','p_locked','p_partner','p_expected'].includes(k))||
     !/^[A-Za-z0-9_-]{8,64}$/.test(args.p_id||'')||!actions.has(args.p_action))fail('INVALID_ARGUMENT');
   if(args.p_action!=='run_return'&&('p_wave' in args||'p_kills' in args))fail('INVALID_ARGUMENT');
   if(args.p_action==='run_return'&&(!Number.isInteger(args.p_wave)||args.p_wave<0||args.p_wave>=5||!Number.isInteger(args.p_kills)||args.p_kills<0||args.p_kills>1000000||args.p_id!=='run-'+args.p_item))fail('INVALID_ARGUMENT');
   if(args.p_action==='craft'&&(!Number.isInteger(args.p_ch??0)||(args.p_ch??0)<0||(args.p_ch??0)>10||!E.RECIPES.some(r=>r.k===args.p_recipe)||!E.SLOT_KEYS.includes(args.p_slot)))fail('INVALID_ARGUMENT');
   if(args.p_action==='reroll_apply'&&(!/^[A-Za-z0-9_-]{8,64}$/.test(args.p_source||'')||args.p_id!=='apply-'+args.p_source))fail('INVALID_ARGUMENT');
-  return {action:args.p_action,item:args.p_item||'',hero:args.p_hero||'',slot:args.p_slot||'',pay:args.p_pay||'',...(args.p_action==='run_return'?{wave:args.p_wave,kills:args.p_kills}:{}),...(args.p_action==='craft'?{ch:args.p_ch||0,recipe:args.p_recipe}:{}),...(args.p_action==='reroll_apply'?{source:args.p_source}:{}),...(TOWN_ACTIONS.includes(args.p_action)?townArgs(args):{})};
+  if(args.p_action==='lock'&&typeof args.p_locked!=='boolean')fail('INVALID_ARGUMENT');
+  if(args.p_action.startsWith('preset_')&&(![0,1].includes(args.p_count)||typeof args.p_expected!=='string'||args.p_expected.length>10000))fail('INVALID_ARGUMENT');
+  return {...(args.p_action==='lock'?{locked:args.p_locked}:{}),...(args.p_action.startsWith('preset_')?{count:args.p_count,partner:args.p_partner||'',expected:args.p_expected}:{}),action:args.p_action,item:args.p_item||'',hero:args.p_hero||'',slot:args.p_slot||'',pay:args.p_pay||'',...(args.p_action==='run_return'?{wave:args.p_wave,kills:args.p_kills}:{}),...(args.p_action==='craft'?{ch:args.p_ch||0,recipe:args.p_recipe}:{}),...(args.p_action==='reroll_apply'?{source:args.p_source}:{}),...(TOWN_ACTIONS.includes(args.p_action)?townArgs(args):{})};
 }
 export function applyGear(save,args,random=Math.random) {
   const s=structuredClone(save),a=args.action,id=args.item;
+  if(a==='lock'){const ok=E.lockItem(s,id,args.locked);return {save:s,result:{ok,reason:ok?'ok':'none'}};}
   if(a==='run_return'){
     const got=reward(args.wave,args.kills);s.souls+=got;
     s.stats={...s.stats,runs:(s.stats?.runs||0)+1,kills:(s.stats?.kills||0)+args.kills,waves:(s.stats?.waves||0)+args.wave,souls:(s.stats?.souls||0)+got};
@@ -71,7 +75,7 @@ export async function directGear(store,user,args,options) {
     if(input.action==='craft'&&input.ch&&!(p.data.st?.[input.ch+'-6']>0))denied('chapter crafting locked');
     let evaluated=input;
     if(input.action==='reroll_apply'){const source=await c.get('growth_investments',c.uid+'~gear~'+input.source);if(source?.result?.action!=='reroll'||source.result.item!==input.item||!source.result.ok)denied('paid reroll missing');evaluated={...input,sub:source.result.sub};}
-    const {save,result}=TOWN_ACTIONS.includes(input.action)?applyTown(p.data,evaluated,{now:c.now,growth:input.action==='advance'?await c.get('growth_wallet',c.uid):undefined}):applyGear(p.data,evaluated,c.random);
+    const {save,result}=input.action.startsWith('preset_')?await applyLoadout(c,p.data,input):TOWN_ACTIONS.includes(input.action)?applyTown(p.data,evaluated,{now:c.now,growth:input.action==='advance'?await c.get('growth_wallet',c.uid):undefined}):applyGear(p.data,evaluated,c.random);
     if(!result.ok)return {data:result,error:null};
     const updated_at=new Date(Math.max(c.now,Date.parse(p.updated_at)+1)).toISOString();
     await c.put('progress',{...p,data:save,updated_at});

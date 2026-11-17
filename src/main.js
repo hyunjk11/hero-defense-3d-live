@@ -1,3 +1,4 @@
+import { updatePractice } from './ui/practice.js';
 import { updateMachineDeco } from './render/machine-environment.js';
 import { updateStormDeco } from './render/storm-environment.js';
 import './ui/saveconflict.js';
@@ -85,6 +86,7 @@ function loop() { requestAnimationFrame(loop); const now = performance.now(), ra
   Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
 G.Snd = Snd; G.sim = (sec, h = .05) => { for (let t = 0; t < sec; t += h) step(h); };
 function step(dt) {
+  updatePractice(dt);
   if (G.slowT > 0) { dt *= G.slowF || .4; G.slowT -= dt; } // 메카닉 변신 연출: 잠깐 슬로 모션 (변신할 때만)
   G.t += dt;
   for (let i = G.timers.length - 1; i >= 0; i--) { const tm = G.timers[i]; tm.t -= dt; if (tm.t <= 0) { G.timers.splice(i, 1); runTimer(tm); } }
@@ -121,5 +123,5 @@ function bootPlan() {
   return { first, bg: uniq(order).filter(k => !first.includes(k)) };
 }
 const PLAN = bootPlan(); G.loadPlan = PLAN;
-loadAssets(PLAN.first).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) startFlow(); else showSelect(); })
+loadAssets(PLAN.first).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) startFlow(); else showSelect(); })
   .catch(err => { console.warn(err); $('loadTxt').textContent = '모델을 불러오지 못했습니다. 새로고침 해주세요.'; });

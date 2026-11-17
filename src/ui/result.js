@@ -18,6 +18,7 @@ export function initResult(h) { H = h; }
 // 출정 시 장비 보너스 배너: 큰 값 3개만 + '외 N개' (전부 나열하면 화면 밖으로 넘쳤음)
 export function equipLine(eq) { const e = Object.entries(eq || {}).sort((a, b) => b[1] - a[1]); if (!e.length) return ''; return '⚔ 장비 · ' + e.slice(0, 3).map(([k, v]) => `${E.STAT[k]} +${v}%`).join(' · ') + (e.length > 3 ? ` 외 ${e.length - 3}개` : ''); }
 G.onStageClear = () => {
+  if (G.practice || new URLSearchParams(location.search).get('practice') === '1') return;
   if(STAGE?.hard){hardClear();return;}
   if(directGearEnabled()){void directReturn('clear');return;}
   if (G.runSaved) return; G.runSaved = true; G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves || 0, true, true); G.phase = 'over'; const wave = G.wave, kills = sumKills(), stars = ST.starsFor(G.coreHp, G.coreMax); let got = 0, loot = [], info = null, best = false;
@@ -63,6 +64,7 @@ export function lootLines(L) { const ch = L.filter(x => x.chest), ess = L.reduce
 const sumKills = () => Object.values(G.stats.kills || {}).reduce((a, b) => a + b, 0);
 // 판 종료(패배/귀환) → 보상 저장 후 마을로
 export function onRunEnd(reason) {
+  if (G.practice || new URLSearchParams(location.search).get('practice') === '1') return;
   if(STAGE?.hard){hardEnd(reason);return;}
   if(directGearEnabled()){void directReturn(reason);return;}
   if (G.runSaved) return; G.runSaved = true; G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves || 0, false, true); const wave = G.wave, kills = sumKills(); let got = 0, best = false, loot = [];

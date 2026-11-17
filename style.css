@@ -1032,3 +1032,5 @@ body:not(.dungeonRun) #heroEffects .heroEffect{flex:0 0 18px;width:18px;height:1
 @media(max-width:480px){#scr_town #stagePanel{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:12px 10px}#stagePanel .stMap{height:240px}#stagePanel .chtab b{font-size:12px}#stagePanel .snode .nm{max-width:56px}}
 
 @media(max-width:600px){body:not(.dungeonRun) #heroEffects{max-width:calc(100% - 204px)}}
+
+.itile .gearLock{position:absolute;left:2px;top:17px;font-size:11px;line-height:1;background:#171324cc;border-radius:3px;pointer-events:none}

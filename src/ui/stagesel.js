@@ -32,7 +32,8 @@ const LAST = 'hd3d_live_lastStage';
 export function initStageSel(h) { hooks = { ...hooks, ...h }; $('stClose').onclick = () => closeStageSel(); }
 function current(s) { for (const ch of ST.CHAPTERS) for (const st of ch.stages) if (ST.stageUnlocked(s, st.id) && !ST.stars(s, st.id)) return st.id; return null; }
 export function rememberStage(id) { try { localStorage.setItem(LAST, JSON.stringify({ id })); } catch (_) {} }
-export function openStageSel() {
+export function openStageSel(id = null) {
+  if (ST.getStage(id)) ui.sel = id;
   const s = HG.viewSave(); if (!ui.open) Snd.play('confirm');
   if (!ui.sel) { try { const last = JSON.parse(localStorage.getItem(LAST) || 'null'); if (last && ST.stageUnlocked(s, last.id)) ui.sel = ST.stars(s, last.id) ? ST.nextStage(s, last.id) || last.id : last.id; } catch (_) {} }
   ui.sel ||= current(s) || '1-1'; ui.hard=!!ST.getStage(ui.sel)?.hard;ui.ch = ST.getStage(ui.sel)?.ch||1; ui.open = true; SP.show(); render(); stageOverlay(true);

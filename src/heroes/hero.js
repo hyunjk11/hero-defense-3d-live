@@ -147,7 +147,7 @@ function updHero(dt) {
   if (mv.lengthSq() > 0) h.path = [];
   else if (h.path.length) { fromPath = true; mv.subVectors(h.path[0], h.g.position).setY(0); if (mv.length() < .15) { h.path.shift(); if (!h.path.length) mv.set(0, 0, 0); } }
   let moving = false; const treeX=h.g.position.x,treeZ=h.g.position.z;
-  if (mv.lengthSq() > 0) { const want = mv.length(), stp = h.C.speed * (h.treeMods?.move||1) * (h.hardSlowUntil>G.t?.8:1) * dt * (h.spinT > 0 ? h.spinSpd || .7 : h.roseT > 0 ? .7 : 1) * (h.robo ? .9 : 1); mv.normalize().multiplyScalar(fromPath ? Math.min(stp, want) : stp); const p = h.g.position; // 경로 지점을 지나치며 왕복하던 떨림 방지 const p = h.g.position;
+  if (mv.lengthSq() > 0) { const want = mv.length(), stp = h.C.speed * (G.dungeon && h.blessHasteUntil>G.t?1.3:1) * (h.treeMods?.move||1) * (h.hardSlowUntil>G.t?.8:1) * dt * (h.spinT > 0 ? h.spinSpd || .7 : h.roseT > 0 ? .7 : 1) * (h.robo ? .9 : 1); mv.normalize().multiplyScalar(fromPath ? Math.min(stp, want) : stp); const p = h.g.position; // 경로 지점을 지나치며 왕복하던 떨림 방지 const p = h.g.position;
     // 근본 원인 수정: 현재 위치가 이미 막힌 칸과 겹쳐 있으면(타워/바리케이드가 옆에 생기거나 밀려서) 4모서리 검사가 모든 이동을 거부해 영구히 갇혔음.
     // 겹친 상태에서는 '덜 겹치는' 방향(중심 칸이 통과 가능)으로의 이동을 허용해 빠져나오게 함
     const ok = (x, z) => passAt(x, z) || (!passAt(p.x, p.z) && heroPassXZ(x, z) && overlap(x, z) <= overlap(p.x, p.z));

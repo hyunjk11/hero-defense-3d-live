@@ -146,7 +146,7 @@ const afford = (s, c) => s.souls >= c.souls && s.mat.steel >= c.steel && s.mat.c
 const pay = (s, c) => { s.souls -= c.souls; s.mat.steel -= c.steel; s.mat.crystal -= c.crystal; };
 // 반환 [save, 결과]  결과: 'ok' | 'fail' | 'max' | 'poor' | 'none'
 export function enhance(save, id, r = Math.random) { const it = save.inv.find(x => x.id === id); if (!it) return [save, 'none']; if (it.e >= MAXE) return [save, 'max']; const c = enhCost(it); if (!afford(save, c)) return [save, 'poor']; pay(save, c); if (r() * 100 < ENH_RATE[it.e]) { it.e++; return [save, 'ok']; } return [save, 'fail']; }
-export function dismantle(save, ids) { const got = { steel: 0, crystal: 0 }; let n = 0; for (const id of ids) { const i = save.inv.findIndex(x => x.id === id); if (i < 0 || isEquipped(save, id) || save.inv[i].uq) continue; /* 고유는 분해 불가 */ const y = dismantleYield(save.inv[i]); got.steel += y.steel; got.crystal += y.crystal; save.inv.splice(i, 1); n++; } save.mat.steel += got.steel; save.mat.crystal += got.crystal; return [save, got, n]; }
+export function dismantle(save, ids) { const got = { steel: 0, crystal: 0 }; let n = 0; for (const id of ids) { const i = save.inv.findIndex(x => x.id === id); if (i < 0 || isEquipped(save, id) || save.inv[i].uq || isLocked(save,id)) continue; /* 고유는 분해 불가 */ const y = dismantleYield(save.inv[i]); got.steel += y.steel; got.crystal += y.crystal; save.inv.splice(i, 1); n++; } save.mat.steel += got.steel; save.mat.crystal += got.crystal; return [save, got, n]; }
 // 제작: ch(클리어한 챕터)를 고르면 그 챕터 세트 (비용 +20%). ch 없으면 예전 그대로
 export const SET_COST = 1.2;
 export const craftCost = (R, ch) => (ch ? Object.fromEntries(Object.entries(R.cost).map(([k, v]) => [k, Math.ceil(v * SET_COST)])) : R.cost);
@@ -218,4 +218,13 @@ export function mergeEquip(a, b, m, heroes) {
   const chests = [...(b.chests || [])]; for (const c of a.chests || []) if (!chests.some(x => x.id === c.id)) chests.push(c);
   const codex = {}; for (const c of [a.codex || {}, b.codex || {}]) for (const ch in c) for (const r in c[ch]) (codex[ch] ||= {})[r] = ((codex[ch] || {})[r] || 0) | c[ch][r];
   return cleanEquip({ inv, stor, storX: Math.max(fin(a.storX, 0, STOR_STEPS, 0), fin(b.storX, 0, STOR_STEPS, 0)), eq, chests, mat: { steel: Math.max(a.mat.steel, b.mat.steel), crystal: Math.max(a.mat.crystal, b.mat.crystal), essence: Math.max(a.mat.essence || 0, b.mat.essence || 0) }, codex, codexRw: [...(a.codexRw || []), ...(b.codexRw || [])] }, m, heroes);
+}
+
+export const isLocked=(save,id)=>(save.lockedGear||[]).includes(id);
+export function lockItem(save,id,locked){if(!allItems(save).some(it=>(typeof it==='string'?unpackItem(it):it)?.id===id))return false;save.lockedGear=[...new Set((save.lockedGear||[]).filter(x=>x!==id))];if(locked)save.lockedGear.push(id);return true;}
+export function compareEquipped(save,hero,item){
+ if(!canEquip(item,hero))return null;const next=structuredClone(save);equip(next,hero,item.id);
+ const before=bonus(save,hero),after=bonus(next,hero),delta={};for(const k of new Set([...Object.keys(before),...Object.keys(after)])){const v=Math.round(((after[k]||0)-(before[k]||0))*10)/10;if(v)delta[k]=v;}
+ const key=b=>(b.set||b.ch)+':'+b.pieces,old=setBonuses(save,hero),now=setBonuses(next,hero);
+ return {delta,gained:now.filter(b=>!old.some(x=>key(x)===key(b))),lost:old.filter(b=>!now.some(x=>key(x)===key(b)))};
 }

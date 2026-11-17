@@ -17,7 +17,7 @@ import { refreshHud } from '../ui/hud.js';
 import { typing, openLayers } from '../ui/keys.js';
 import { cam } from '../render/scene.js';
 
-const active = () => !!G.hardParty && !!G.stage?.hard && G.heroes.length === 2;
+const active = () => !!G.hardParty && (!!G.stage?.hard || !!G.practice) && G.heroes.length === 2;
 const battle = () => active() && ['build', 'wave'].includes(G.phase) && !G.paused && !G.navigating;
 const pos = h => ({ x: h.g.position.x, z: h.g.position.z });
 const goal = new THREE.Vector3();
@@ -28,7 +28,7 @@ export async function prepareHardParty(run) {
   for (const h of run.party) for (const model of advModels(run.loadouts[h].adv)) await loadModel(model).catch(() => { G.advModelFail = true; });
 }
 export function startHardParty(run) {
-  if (!G.stage?.hard || !run?.party || run.party.length !== 2 || G.hardParty || G.heroes.length !== 1 || G.hero?.cls !== run.party[0]) return false;
+  if ((!G.stage?.hard && !G.practice) || !run?.party || run.party.length !== 2 || G.hardParty || G.heroes.length !== 1 || G.hero?.cls !== run.party[0]) return false;
   const main = G.hero, sub = spawnHero(run.party[1], run.loadouts[run.party[1]], true);
   sub.g.position.set(tileX(CORE[0] - 1), 0, tileZ(CORE[1]) + 1.4);
   for (const h of G.heroes) { h.hardHold = false; clearOrders(h); }

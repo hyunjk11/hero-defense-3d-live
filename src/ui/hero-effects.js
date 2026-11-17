@@ -35,6 +35,7 @@ export function heroEffects(h, context = {}) {
   }
   const d = context.dungeon ? context.dungeonMods : null;
   if (d) {
+    timed('bless-rally','진격의 함성','이속 +30%',h.blessHasteUntil-now);
     for (const [key,name,detail] of [['dmg','축복: 공격',`+${pct((d.dmg||1)-1)}%`],['rate','축복: 공속',`+${pct((d.rate||1)-1)}%`],['range','축복: 사거리',`+${pct((d.range||1)-1)}%`]])
       if (d[key]>1) add('bless-'+key,name,detail);
     if (context.dungeonDamage && d.taken < 1) add('bless-guard','축복: 수호',`피해 −${pct(1-d.taken)}%`);
@@ -54,7 +55,7 @@ export function heroEffects(h, context = {}) {
 const views = new WeakMap();
 const duration = t => Number.isFinite(t) && t > 0 ? `${(Math.max(1,Math.ceil(t*10-1e-8))/10).toFixed(1)}초` : '';
 const EFFECT_ICONS = {
- shield:'🛡',sanctuary:'✚','tiger-guard':'🐯','ice-slow':'❄',weave:'✦',pursuit:'➤','pursuit-ranged':'↗',flow:'☯',
+ 'bless-rally':'💨',shield:'🛡',sanctuary:'✚','tiger-guard':'🐯','ice-slow':'❄',weave:'✦',pursuit:'➤','pursuit-ranged':'↗',flow:'☯',
  fury:'🔥','lastguard':'⬟',mobile:'➶',stack:'▥',sustain:'⤳',focus:'◎',
  'bless-dmg':'⚔','bless-rate':'⚡','bless-range':'🏹','bless-guard':'🛡','bless-cd':'⏱','bless-crit':'🎯','bless-regen':'🌿',
  resisted:'⛨',curse:'☠',invulnerable:'◇','mech-shield':'▣',robot:'🤖'

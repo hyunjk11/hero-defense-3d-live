@@ -2,7 +2,7 @@
 import { navQuery, MODE_KEYS } from '../src/core/nav.js';
 let fail = 0; const ok = (n, c, d = '') => { console.log((c ? 'OK ' : 'FAIL ') + n + (c ? '' : ' ' + d)); if (!c) fail = 1; };
 const P = s => Object.fromEntries(new URLSearchParams(s));
-ok('keys', MODE_KEYS.join() === 'town,stage,run,hard,dungeon,spire,challenge');
+ok('keys', MODE_KEYS.join() === 'town,stage,run,hard,dungeon,spire,challenge,practice');
 let r = P(navQuery('?town=1&rng=7&sb=mock', { stage: 's3', hard: true }));
 ok('legacy_difficulty_request_ignored', r.stage === 's3' && r.run === '1' && !r.hard && !r.town && r.rng === '7' && r.sb === 'mock', JSON.stringify(r));
 r = P(navQuery('?town=1&hard=1', { stage: 's1' })); ok('stage_normal_clears_hard', r.stage === 's1' && !r.hard && !r.town, JSON.stringify(r));

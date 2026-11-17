@@ -12,7 +12,12 @@ import { MORVIA_HEROES, BOSS_SETS } from '../data/boss-sets.js';
 import { setStatuses, setDefinition } from '../account/set-status.js';
 import { setCard } from './setview.js';
 import { iconKey, weaponIcon, icon, clsN, GC, card } from './itemview.js';
-import { showTip, hideTip } from './gear.js'; // 순환 import — 호출 시점에만 씀
+import { showTip, hideTip, closeInv } from './gear.js';
+import { openStageSel } from './stagesel.js';
+import { openDungeon } from './dungeon.js';
+import { farmingRoute } from '../data/farming-route.js';
+import { writeTarget } from '../account/repeat-target.js';
+import * as HG from '../account/hero-growth.js'; // 순환 import — 호출 시점에만 씀
 // 도감 (가방 패널의 '도감' 탭) ----------
 export const cxRowIcon = row => (row === 'armor' || row === 'acc' ? iconKey(row) : weaponIcon(row));
 export const cxRowN = row => (row === 'armor' ? '방어구' : row === 'acc' ? '장신구' : `${(CLASSES[row] || {}).nm || clsN(row)} 무기`);
@@ -39,16 +44,26 @@ export function renderCodex(s, X) { const ui = X.ui;
         + `<div class="cxRw">${r.got ? '✓' : r.done ? `<button class="gbtn sm main cxGet" data-k="${r.key}">받기</button>` : `${r.n}/${r.max}`}</div>`).join('') + '</div></div>'
       + `<div class="cxFoot"><span>${SC.n} · 도감 수집 <b>${C.seen}/${C.total}</b>${un ? '' : ' · 🔒 아직 열리지 않은 챕터'}</span><span class="cxAllRw">행 완성 ${rwTxt(CODEX_RW.row)} · 전부 완성 ${rwTxt(CODEX_RW.all)}</span>${C.all.got ? '<b class="cxDone">✓ 완성 보상 받음</b>' : C.all.done ? `<button class="gbtn main cxGet" data-k="${C.all.key}">🏆 완성 보상 받기</button>` : ''}</div>`;
   }
-  $('codexBody').innerHTML = h;
+  $('codexBody').innerHTML = h + '<div id=codexRoute role=status></div>';
+  const route = (ch,row,grade) => {
+    const save=HG.viewSave(), r=farmingRoute(save,ch,row,grade,{hard:HG.HG.features.hard===1,repeat:HG.HG.features.repeatTarget===1});
+    const el=$('codexRoute'); if(!r){el.textContent='이 등급은 획득 경로가 없습니다.';return;}
+    el.innerHTML=`<span>${esc(r.label)}</span> <button class="gbtn sm" id=codexRouteGo>${r.locked?'해금 확인':'찾으러 가기'}</button>`;
+    el.scrollIntoView({block:'nearest'});
+    $('codexRouteGo').onclick=()=>{
+      if(r.target && !writeTarget(r.id,row)){el.textContent='목표를 저장하지 못했습니다. 다시 시도해 주세요.';return;}
+      closeInv(); if(r.dungeon)openDungeon();else openStageSel(r.id);
+    };
+  };
   document.querySelectorAll('#codexBody .cxTabs .ftab').forEach(b => b.onclick = () => { ui.cxTab = BOSS_SETS[b.dataset.c] ? b.dataset.c : +b.dataset.c; Snd.play('ui'); hideTip(); X.renderInv(); });
   document.querySelectorAll('#codexBody .cxGet').forEach(b => b.onclick = async () => { let rw;try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'codex',p_item:b.dataset.k}]);rw=r.reward;}else Acc.update(d => { const o = P.claimCodex(d, b.dataset.k); rw = o[1]; return o[0]; });}catch(e){showTip(b,esc(e.message));return;} if (rw) { Snd.play('levelUp', { force: true }); Snd.play('coins'); X.hooks().cheer(); } else Snd.play('error'); X.hooks().onChange(true); X.renderInv(); });
   document.querySelectorAll('#codexBody [data-boss-row]').forEach(b => {
     const tip = () => card(sampleItem(ui.cxTab, b.dataset.bossRow, BOSS_SETS[ui.cxTab].grade));
     b.onpointerenter = e => { if (e.pointerType === 'mouse') showTip(b, tip()); };
     b.onpointerleave = e => { if (e.pointerType === 'mouse') hideTip(); };
-    b.onclick = () => { showTip(b, tip()); X.tipLater(); Snd.play('select'); };
+    b.onclick = () => { showTip(b, tip()); X.tipLater(); Snd.play('select'); route(ui.cxTab,b.dataset.bossRow,BOSS_SETS[ui.cxTab].grade); };
   });
   const tipOf = b => { if (+b.dataset.ch >= 3 && +b.dataset.g === 0) return '<div class="cxUnseen">도감 표시 제외 · 완성 보상에 필요 없음</div>';  const it = sampleItem(+b.dataset.ch, b.dataset.row, +b.dataset.g), na = b.classList.contains('na'); return (b.dataset.extra==='1' ? `<div class="cxUnseen">추가 수집 · 완성 보상 제외${b.classList.contains('seen')?'':' · 미획득'}</div>` : na ? `<div class="cxUnseen">${CHSET[+b.dataset.ch].n} 세트는 ${E.GRADES[+b.dataset.g].n} 등급이 나오지 않아요 · 도감 완성에 필요 없음${b.classList.contains('seen') ? ' (특별 획득)' : ''}</div>` : b.classList.contains('seen') ? '' : '<div class="cxUnseen">아직 얻지 못한 장비 (견본)</div>') + card(it); };
   document.querySelectorAll('#codexBody .cxC').forEach(b => { b.onpointerenter = e => { if (e.pointerType === 'mouse') showTip(b, tipOf(b)); }; b.onpointerleave = e => { if (e.pointerType === 'mouse') hideTip(); };
-    b.onclick = () => { showTip(b, tipOf(b)); X.tipLater(); Snd.play('select'); }; });
+    b.onclick = () => { showTip(b, tipOf(b)); X.tipLater(); Snd.play('select'); route(+b.dataset.ch,b.dataset.row,+b.dataset.g); }; });
 }

@@ -20,7 +20,7 @@ export function autoBlessChoice(choices, taken = {}, heroes = [], pendingHeal = 
   const scores = {
     heal: recovery * 120 + (recovery > .05 && low < .5 ? 35 : 0),
     regen: 24 + (1 - mean(hp)) * 18,
-    haste: 22, might: 20, crit: 23, ult: 18,
+    haste: 22, might: 20, crit: 23, ult: 18, rally: 18, rescue: 20 + (1 - mean(hp)) * 18,
     tank: 16 + (party.some(h => ROLE[h.cls] === 'tank' && (h.dead > 0 || h.hp < h.max * .5)) ? 22 : 0),
     ranged: 12 + share('ranged') * 32,
     caster: 12 + share('caster') * 32,

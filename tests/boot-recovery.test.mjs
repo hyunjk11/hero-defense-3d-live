@@ -3,7 +3,16 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const source=html.match(/<script id="bootRecovery">([\s\S]*?)<\/script>/)[1];
-assert.ok(html.indexOf('id="bootRecovery"')<html.indexOf('type="module" src="src/main.js"'));
+const loader=html.match(/<script type="module">\s*(if \(new URLSearchParams[\s\S]*?)<\/script>/)?.[1];
+assert.ok(loader, 'guarded module loader exists');
+assert.ok(html.indexOf('id="bootRecovery"') < html.indexOf(loader), 'recovery is installed before main import');
+assert.ok(html.indexOf('src="./src/practice-storage.js"') < html.indexOf(loader), 'storage isolation runs before main import');
+for (const [search,ready,expected] of [['?town=1',false,1],['?practice=1',true,1],['?practice=1',false,0]]) {
+  let imports=0;const links=[];const loading={appendChild:a=>links.push(a)},text={textContent:''};
+  vm.runInNewContext(loader.replace("import('./src/main.js')",'loadMain()'),{URLSearchParams,location:{search,pathname:'/game/'},window:{practiceStorageReady:ready},loadMain:()=>imports++,document:{getElementById:id=>id==='loading'?loading:text,createElement:()=>({})}});
+  assert.equal(imports,expected);
+  if (!expected) { assert.equal(links[0].href,'/game/?town=1'); assert.match(text.textContent,/격리/); }
+}
 assert.ok(!/fetch|localStorage|sessionStorage|Math\.random|import\(/.test(source));
 function fixture(hidden=false){
  const classes=()=>({values:new Set(),contains(v){return this.values.has(v);},add(v){this.values.add(v);},remove(v){this.values.delete(v);}});

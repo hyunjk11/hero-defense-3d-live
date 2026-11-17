@@ -10,7 +10,7 @@ function render(save,hard=false){
  const Acc={A:{user:null},sessionId:()=>1,load:()=>structuredClone(current),update:fn=>{writes++;current=fn(current);},flush:()=>Promise.resolve(true)};
  const HG={HG:{rewardXP:{},hardRewards:{}},checkpoint:()=>Promise.resolve(true),onGrowth:fn=>callbacks.push(fn)};
  const progress={...P,applyRun:(s,args)=>{const r=P.applyRun(s,args,seeded('capacity-normal'));loot=r[2];return r;},applyStage:(...args)=>{const r=P.applyStage(...args);loot=[...loot,...(r[1]?.loot||[])];return r;}};
- new Function('directGearEnabled','targetLabel','Snd','$','go','G','HG','Acc','P','E','ST','STAGE','sessionStorage','setTimeout','document',source)(()=>false,targetLabel,{play(){},setMusic(){}},$,()=>{},G,HG,Acc,progress,E,ST,ST.getStage(hard?'hard-1-1':'1-1'),{setItem(){}},()=>{}, {getElementById:id=>$(id)});
+ new Function('directGearEnabled','targetLabel','Snd','$','go','G','HG','Acc','P','E','ST','STAGE','sessionStorage','setTimeout','document','location',source)(()=>false,targetLabel,{play(){},setMusic(){}},$,()=>{},G,HG,Acc,progress,E,ST,ST.getStage(hard?'hard-1-1':'1-1'),{setItem(){}},()=>{}, {getElementById:id=>$(id)}, {search:hard?'?stage=hard-1-1&run=1':'?stage=1-1&run=1'});
  return{G,HG,$,clear:()=>G.onStageClear(),save:()=>current,loot:()=>loot,writes:()=>writes,receipt(reward){HG.HG.rewardXP['cap-run-001']=400;HG.HG.hardRewards['cap-run-001']=reward;callbacks.forEach(fn=>fn());}};
 }
 for(const n of [199,200])test(`normal actual result renderer matches capacity ${n}, opening/codex and old chests`,()=>{

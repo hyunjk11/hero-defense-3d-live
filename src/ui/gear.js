@@ -1,3 +1,4 @@
+import { mountLoadouts } from './loadouts.js';
 // ================= 장비 UI: 가방(장착/비교) · 대장간(강화/분해/제작) · 보상 상자 개봉 =================
 import { Snd } from '../audio/audio.js';
 import { $, esc } from '../core/util.js';
@@ -19,7 +20,7 @@ import * as CX from './codex.js';
 import { renderStorage } from './storage.js';
 import { codexClaimable } from './codex.js';
 export { codexClaimable, sampleItem } from './codex.js';
-import { iconKey, weaponIcon, icon, setOf, GCi, clsN, GC, eqOf, sorted, tile, lskHtml, card, bonusHtml } from './itemview.js';
+import { iconKey, weaponIcon, icon, setOf, GCi, clsN, GC, eqOf, sorted, tile, lskHtml, card, bonusHtml, comparisonHtml } from './itemview.js';
 export { iconKey, weaponIcon, icon, lskHtml, card, bonusHtml, heroDots } from './itemview.js'; // 기존 import 경로 호환
 import { reveal, revealing, chestCount, openChestUI, lastChestBatch, initChest } from './chest.js';
 export { reveal, revealing, chestCount, openChestUI, lastChestBatch } from './chest.js'; // 기존 import 경로 호환
@@ -33,10 +34,10 @@ export function closeInv() { if (ui.inv) Snd.play('ui'); ui.inv = false; IP.hide
 const IP = definePanel('inv', { id: 'invPanel', z: 41, isOpen: () => ui.inv, close: () => closeInv() });
 function renderInv() {
   if (!ui.inv) return; const s = S(), h = s.hero, eq = s.eq[h] || {};
-  $('invTabs').innerHTML = [['bag', '🎒 가방'], ['stor', '📦 창고'], ['codex', '📖 도감']].map(([k, n]) => `<button class="ftab ${ui.invTab === k ? 'on' : ''}" data-v="${k}">${n}${k === 'codex' && codexClaimable(s) ? ' <i class="newDot"></i>' : ''}</button>`).join('');
+  $('invTabs').innerHTML = [['bag', '🎒 가방'], ['stor', '📦 창고'], ['codex', '📖 도감'], ['presets', '편성']].map(([k, n]) => `<button class="ftab ${ui.invTab === k ? 'on' : ''}" data-v="${k}">${n}${k === 'codex' && codexClaimable(s) ? ' <i class="newDot"></i>' : ''}</button>`).join('');
   document.querySelectorAll('#invTabs .ftab').forEach(b => b.onclick = () => { ui.invTab = b.dataset.v; ui.stoMsg = ''; Snd.play('ui'); hideTip(); renderInv(); });
-  const cx = ui.invTab === 'codex', so = ui.invTab === 'stor'; for (const id of ['invTopW', 'invFilt', 'invMidW', 'invMsg']) $(id).classList.toggle('hidden', cx || so); $('codexBody').classList.toggle('hidden', !cx); $('storBody').classList.toggle('hidden', !so); $('invPanel').classList.toggle('wide', so); $('invPanel').classList.toggle('codexMode', cx);
-  if (so) { renderStorage(s, STC); return; } if (cx) { $('invHead').innerHTML = `📖 장비 도감 · <span style="color:#ffe08a">${heroLabel(h)}</span>`; renderCodex(s); return; }
+  const cx = ui.invTab === 'codex' || ui.invTab === 'presets', so = ui.invTab === 'stor'; for (const id of ['invTopW', 'invFilt', 'invMidW', 'invMsg']) $(id).classList.toggle('hidden', cx || so); $('codexBody').classList.toggle('hidden', !cx); $('storBody').classList.toggle('hidden', !so); $('invPanel').classList.toggle('wide', so); $('invPanel').classList.toggle('codexMode', cx);
+  if (so) { renderStorage(s, STC); return; } if(ui.invTab==='presets'){$('invHead').textContent='전투 편성';mountLoadouts($('codexBody'),s,renderInv,()=>hooks.onChange(),()=>ui.inv&&ui.invTab==='presets');return;} if (cx) { $('invHead').innerHTML = `📖 장비 도감 · <span style="color:#ffe08a">${heroLabel(h)}</span>`; renderCodex(s); return; }
   const list = sorted(s.inv.filter(x => ui.invF === 'all' || x.s === ui.invF), s);
   const sel = s.inv.find(x => x.id === ui.invSel), cur = sel ? s.inv.find(x => x.id === eq[sel.s]) : null;
   $('invHead').innerHTML = `🎒 가방 <b class="${s.inv.length >= E.CAP ? 'full' : ''}">${s.inv.length}/${E.CAP}</b> · <span style="color:#ffe08a">${heroLabel(h)}</span>`;
@@ -47,13 +48,14 @@ function renderInv() {
   const full = s.inv.length >= E.CAP; $('invMsg').innerHTML = full ? '⚠ 가방이 가득 찼어요! 보상 상자를 열 수 없어요 — 대장간에서 분해해 공간을 만드세요. <button class="gbtn sm" id="invToDis">⚒ 분해하러 가기</button>' : s.inv.length >= E.CAP - 5 ? `가방이 거의 찼어요 (${E.CAP - s.inv.length}칸 남음)` : ''; if ($('invToDis')) $('invToDis').onclick = () => { Snd.play('ui'); ui.smTab = 'dis'; openSmith(); }; // Q-10 가방 가득 → 대장간 분해 탭
   let act = '';
   if (sel) { const who = eqOf(s, sel.id); act = !E.canEquip(sel, h) ? `<div class="warn">${clsN(sel.h)} 전용 무기예요</div>` : who === h ? `<button class="gbtn" id="invUneq">해제</button>` : `<button class="gbtn main" id="invEq">장착${who ? ` (${clsN(who)}에게서 가져오기)` : ''}</button>${pwrLine(cur && cur.id !== sel.id ? cur : null, sel)}`; }
-  $('invDetail').innerHTML = sel ? card(sel, cur && cur.id !== sel.id ? cur : null) + `<div class="acts">${act}</div>` : '<div class="hintS">장비를 눌러 자세히 보기 · 마우스를 올리면 비교</div>';
+  $('invDetail').innerHTML = sel ? card(sel, cur && cur.id !== sel.id ? cur : null) + comparisonHtml(s,h,sel) + `<div class="acts">${act}<button class="gbtn" id="invLock">${E.isLocked(s,sel.id)?'🔒 잠금 해제':'🔓 분해 잠금'}</button></div>` : '<div class="hintS">장비를 눌러 자세히 보기 · 마우스를 올리면 비교</div>';
   document.querySelectorAll('#invPanel .itile[data-id]').forEach(b => { b.onclick = () => { ui.invSel = b.dataset.id; Snd.play('select'); renderInv(); };
     b.onpointerenter = e => { if (e.pointerType !== 'mouse') return; const it = S().inv.find(x => x.id === b.dataset.id); if (!it) return; const c = S().inv.find(x => x.id === (S().eq[h] || {})[it.s]); showTip(b, card(it, c && c.id !== it.id ? c : null)); }; b.onpointerleave = e => { if (e.pointerType === 'mouse') hideTip(); }; });
   document.querySelectorAll('#invFilt .ftab').forEach(b => b.onclick = () => { ui.invF = b.dataset.f; Snd.play('ui'); renderInv(); });
   if ($('invEq')) $('invEq').onclick = async () => { const button=$('invEq'),epoch=Acc.sessionId();if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'equip',p_item:sel.id,p_hero:h}]);if(!r.ok)throw Error('장착할 수 없습니다.');}else Acc.update(d => E.equip(d, h, sel.id)[0]);}catch(e){if(epoch===Acc.sessionId()&&button.isConnected)showTip(button,esc(e.message));return;}finally{button.removeAttribute('aria-busy');button.disabled=false;}if(epoch!==Acc.sessionId())return; Snd.play('upgrade'); hooks.cheer(); hooks.onChange(); };
   if ($('invUneq')) $('invUneq').onclick = async () => { const button=$('invUneq'),epoch=Acc.sessionId();if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'unequip',p_hero:h,p_slot:sel.s}]);if(!r.ok)throw Error('해제할 장비가 없습니다.');}else Acc.update(d => E.unequip(d, h, sel.s));}catch(e){if(epoch===Acc.sessionId()&&button.isConnected)showTip(button,esc(e.message));return;}finally{button.removeAttribute('aria-busy');button.disabled=false;}if(epoch!==Acc.sessionId())return; Snd.play('ui'); hooks.onChange(); };
-  if(Acc.serverSaveState()?.busy)for(const id of ['invEq','invUneq']){const b=$(id);if(b){b.disabled=true;b.setAttribute('aria-busy','true');}}
+  if($('invLock'))$('invLock').onclick=async()=>{const button=$('invLock'),epoch=Acc.sessionId();if(button.disabled)return;button.disabled=true;try{if(directGearEnabled()){const [r]=await runDirectGear([{p_action:'lock',p_item:sel.id,p_locked:!E.isLocked(s,sel.id)}]);if(!r.ok)throw Error('잠금을 변경하지 못했습니다.');}else Acc.update(d=>{E.lockItem(d,sel.id,!E.isLocked(s,sel.id));return d;});if(epoch===Acc.sessionId()){renderInv();hooks.onChange();}}catch(e){if(epoch===Acc.sessionId())showTip(button,esc(e.message));}finally{button.disabled=false;}};
+  if(Acc.serverSaveState()?.busy)for(const id of ['invEq','invUneq','invLock']){const b=$(id);if(b){b.disabled=true;b.setAttribute('aria-busy','true');}}
 }
 // U-10 (2026-10-23): 오른쪽에 자리가 없으면 왼쪽, 양쪽 다 없으면 화면 안으로 · 아래로 넘치면 위로 올림 (높이는 CSS max-height 로 화면 안)
 export function showTip(el, html) { const t = $('itemTip'); t.innerHTML = html; t.classList.remove('hidden'); const r = el.getBoundingClientRect(), M = 8, W = t.offsetWidth || 230, H = t.offsetHeight;
@@ -67,7 +69,7 @@ export function closeSmith(silent) { if (ui.smith && !silent) Snd.play('ui'); fi
 const SMP = definePanel('smith', { id: 'smithPanel', z: 40, isOpen: () => ui.smith, close: s => closeSmith(s) });
 const costHtml = (c, s) => [['souls', '영혼석', s.souls], ['steel', '강철', s.mat.steel], ['crystal', '마력석', s.mat.crystal]].filter(([k]) => c[k]).map(([k, n, have]) => `<span class="cost ${have >= c[k] ? '' : 'lack'}"><i class="mi ${k}"></i>${n} ${c[k]}<small>/${have}</small></span>`).join('');
 // Q-8 (2026-10-23): 전투력 변화 한 줄 (장착 버튼 옆 · 강화 미리보기). a 없음 = 빈 칸에 장착
-const pwrLine = (a, b, pre = '') => { const p0 = a ? E.power(a) : 0, p1 = E.power(b), d = p1 - p0; return `<div class="pwrLine">${pre}전투력 ${a ? `${p0} → ` : ''}<b>${p1}</b> <span class="${d > 0 ? 'gup' : d < 0 ? 'gdown' : ''}">(${d > 0 ? '+' : ''}${d})</span></div>`; };
+const pwrLine = (a, b, pre = '') => { const p0 = a ? E.power(a) : 0, p1 = E.power(b), d = p1 - p0; return `<div class="pwrLine">${pre}장비 점수 ${a ? `${p0} → ` : ''}<b>${p1}</b> <span class="${d > 0 ? 'gup' : d < 0 ? 'gdown' : ''}">(${d > 0 ? '+' : ''}${d})</span></div>`; };
 function renderSmith() {
   if (!ui.smith) return; const s = S();
   $('smMats').innerHTML = `<span><i class="mi souls"></i>${s.souls}</span><span><i class="mi steel"></i>강철 ${s.mat.steel}</span><span><i class="mi crystal"></i>마력석 ${s.mat.crystal}</span><span class="essM" title="영웅 전직 재료"><i class="mi essence"></i>전직 정수 ${s.mat.essence || 0}</span>`;
@@ -85,7 +87,7 @@ function renderSmith() {
     body.querySelectorAll('.smList .itile').forEach(b => { b.onclick = () => { if (ui.busy) return; ui.res = null; ui.smSel = b.dataset.id; Snd.play('select'); renderSmith(); }; tipBind(b); });
     if ($('enhGo')) $('enhGo').onclick = () => doEnhance(it.id);
   } else if (ui.smTab === 'dis') {
-    const list = sorted(s.inv.filter(x => !eqOf(s, x.id) && !x.uq), s); for (const id of [...ui.dis]) if (!list.some(x => x.id === id)) ui.dis.delete(id);
+    const list = sorted(s.inv.filter(x => !eqOf(s, x.id) && !x.uq && !E.isLocked(s,x.id)), s); for (const id of [...ui.dis]) if (!list.some(x => x.id === id)) ui.dis.delete(id);
     const y = { steel: 0, crystal: 0 }; for (const id of ui.dis) { const r = E.dismantleYield(s.inv.find(x => x.id === id)); y.steel += r.steel; y.crystal += r.crystal; }
     body.innerHTML = `<div class="disBulk">${E.GRADES.map((g, i) => `<button class="ftab gb" data-g="${i}" style="--gc:${g.c}">${g.n} 전체</button>`).join('')}${[1, 2].map(i => `<button class="ftab le" data-le="${i}" title="${E.GRADES.slice(0, i + 1).map(g => g.n).join('·')} 모두 선택 (장착 제외)">${E.GRADES[i].n} 이하 모두</button>`).join('')}<button class="ftab" data-g="x">선택 해제</button></div>
       <div class="smGrid" id="disGrid">${list.map(x => tile(x, s, ui.dis.has(x.id) ? 'pick' : '')).join('') || '<div class="emptyMsg">분해할 수 있는 장비가 없어요 (장착 중인 장비는 분해되지 않아요)</div>'}</div>

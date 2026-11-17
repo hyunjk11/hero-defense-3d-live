@@ -1,3 +1,4 @@
+import { jointBlessing, rescueBlessing } from '../data/bless-actions.js';
 import { treeBuild } from '../data/skill-tree.js';
 import * as HG from '../account/hero-growth.js';
 import { settleDungeon } from './rewards.js';
@@ -105,6 +106,7 @@ export async function startDungeonRun() { setDmgCap(30); // U-11: 던전 피해 
   loadModel('lich_meshy').then(() => { G.dgBossModel = 'meshy'; }).catch(e => { console.warn('boss model fallback', e); G.dgBossModel = 'fallback'; }); // 5층 보스 모델: 기다리지 않고 뒤에서 (보스 출현 때 없으면 해골 마법사 + 왕관)
   $('loading').classList.add('hidden');
   Object.assign(G, { dungeon: true, gold: 0, grow: false, research: null, runDrops: [], runBossKills: [], stage: null, runStart: performance.now() });
+  D.rallyReady = 0; D.rescueReady = 0;
   D.xpChain = Promise.resolve(); D.auto = loadDungeonAuto(); D.bossDrop = null; D.bossDropPromise = null; D.bossRolled = false;
   document.body.classList.add('dungeonRun'); core.visible = false;
   showSelect(); $('select').classList.add('hidden'); Object.assign(G, L[party[0]]); choose(party[0]); // 첫 영웅(세라) = 조작 영웅
@@ -121,6 +123,7 @@ const killCount = () => Object.values(G.stats.kills || {}).reduce((a, b) => a + 
 // 층 시작: 쓰러진 영웅 = 체력 30% 로 복귀, 살아남은 영웅 = 15% 회복 (생명의 샘 축복: +50%), 파티를 방 가운데로
 function startFloor(f, heal = 0, ult0 = 0) {
   D.blessHeal = 0; D.blessUlt = 0;
+  for(const h of G.heroes)h.blessHasteUntil=0;
   D.floor = f; D.wave = -1; D.q = []; D.blessing = null; D.nextT = 0; if (G.spire) SPR.ensureFloors(D); const off = [[0, 0], [-2.2, 1.8], [-2.2, -1.8], [-4, 0]];
   const hk = G.spire ? SPR.healKOf(D.floors[f]) : 1; // 🗼 💔 저주: 층 사이 회복 −50% (쓰러짐 30% 복귀는 그대로)
   G.heroes.forEach((h, i) => { const down = h.dead > 0; if (f > 0) { h.hp = hk === 1 ? Math.min(h.max, nextFloorHp(h.hp, h.max, down) + h.max * heal) : Math.min(h.max, down ? nextFloorHp(h.hp, h.max, true) + h.max * heal * hk : h.hp + (nextFloorHp(h.hp, h.max, false) - h.hp + h.max * heal) * hk); h.ult = Math.max(h.ult || 0, ult0); }
@@ -152,6 +155,8 @@ export function updDungeon(dt) {
   // 궁극기 게이지: 전투 중 매초 + 처치마다 (살아있는 영웅 전원) · 재생 축복
   const k = killCount(), nk = Math.max(0, k - D.k0), combat = G.enemies.some(e => !e.dead); D.k0 = k;
   for (const h of G.heroes) { if (h.dead > 0) continue; const M = G.dgM(h); h.ult = Math.min(ULT_MAX, (h.ult || 0) + ultGain(dt, nk, combat, M.ult)); if (M.regen && h.hp < h.max) h.hp = Math.min(h.max, h.hp + h.max * M.regen * dt * (G.spire ? SPR.healKOf(D.floors[D.floor]) : 1)); }
+  if(combat){const healed=rescueBlessing(D.bless,G.heroes,G.t,D,G.spire?SPR.healKOf(F):1);
+    if(healed.length){for(const h of healed)ringFx(h.g.position,1.2,0x80ffc0,.45);}}
   if (D.auto && !confirmOpen() && wantAutoJoint(G.heroes, G.enemies) && G.heroes.filter(h => h.dead <= 0).every(h => !skillBusy(h))) joint();
   D.hudT = (D.hudT || 0) - dt; if (D.hudT <= 0) { D.hudT = .15; refreshBar(); }
 }
@@ -189,6 +194,7 @@ G.dgTakeBless = takeBless;
 // ---------- 합동 공격: 살아있는 영웅 전원 궁극기 가득 → 모두 스킬 동시 시전 + 화면 전체 큰 피해 ----------
 function joint() { if (D.over || D.blessing || G.paused || !jointReady(G.heroes)) { if (!D.over && !D.blessing) Snd.play('error'); return false; }
   const L = G.heroes.filter(h => h.dead <= 0), En = G.enemies.filter(e => !e.dead && e.dying === undefined);
+  jointBlessing(D.bless,L,G.t,D);
   const dmg = jointDamage(L.map(h => h.C.dmg)); D.joints++; G.dgJointN = D.joints;
   for (const h of L) { h.ult = 0; G.withHero(h, () => { const p = h.g.position; let t = null, bd = Infinity; for (const e of En) { const d = e.g.position.distanceTo(p); if (d < bd) { bd = d; t = e; } }
     h.skillCd = 0; castSkill(t ? t.g.position.clone() : p.clone()); ringFx(p, 3, 0xffe066, .7); emit(PB, p.x, 2, p.z, 30, 0xffe066, 6, .8, -2, 2); }); }
