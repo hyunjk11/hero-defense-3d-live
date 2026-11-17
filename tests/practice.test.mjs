@@ -106,3 +106,5 @@ assert.match(main,/step\(dt, i === 0 \? raw : 0\)/);assert.match(main,/updatePra
 assert.match(read('style.css'),/#practicePanel\{position:fixed;top:/);
 assert.match(read('style.css'),/#practiceSeconds\{font-size:36px/);
 console.log('solo snapshots, legacy retry, visible countdown and real-time speed-independent clock: passed');
+
+assert.match(read('style.css'),/body\.practiceRun #camTop\{top:calc\(164px/);

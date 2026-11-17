@@ -1041,4 +1041,4 @@ body:not(.dungeonRun) #heroEffects .heroEffect{flex:0 0 18px;width:18px;height:1
 #practiceClock{display:flex;justify-content:center;align-items:baseline;gap:8px;line-height:1.1;margin:5px 0;font-size:14px}#practiceSeconds{font-size:36px;font-variant-numeric:tabular-nums;color:#ffe08a;min-width:2ch}
 .practiceFooter{display:flex;align-items:center;justify-content:space-between;gap:6px}.practiceFooter small{font-size:11px}.practiceFooter>div{display:flex;gap:4px}.practiceFooter .gbtn{min-height:32px;padding:4px 8px}
 body.practiceRun #top,body.practiceRun #hardPartyBar{display:none!important}
-@media(max-width:600px){body.practiceRun #camTop{top:calc(142px + env(safe-area-inset-top))}body.practiceRun #hud{--battle-top:192px;--right-start:192px}body.practiceRun #hud #build{max-height:calc(100dvh - 366px)}}
+@media(max-width:640px){body.practiceRun #camTop{top:calc(164px + env(safe-area-inset-top))}body.practiceRun #hud{--battle-top:216px;--right-start:192px}body.practiceRun #hud #build{max-height:max(80px,calc(100dvh - 390px))}}
