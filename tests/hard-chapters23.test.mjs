@@ -3,9 +3,9 @@ import {HARD_CHAPTERS,HARD_STAGES,hardUnlocked,hardXP,hardReward,eliteQueue,hard
 import {STAGES,nextStage} from '../src/data/stages.js';import {ETYPES} from '../src/data/monsters.js';
 import {MemoryStore} from '../server/memory-store.mjs';import {execute} from '../server/operations.mjs';import * as P from '../src/account/progress.js';import * as H from '../src/data/hero-growth.js';
 test('released hard order follows stable normal IDs and unlocks across chapter boundaries only',()=>{
- const ids=HARD_CHAPTERS.flatMap(c=>c.stages.map(s=>s.id));assert.equal(ids.length,36);assert.equal(ids[11],'hard-2-4');assert.equal(ids[17],'hard-3-4');
+ const ids=HARD_CHAPTERS.flatMap(c=>c.stages.map(s=>s.id));assert.equal(ids.length,60);assert.equal(ids[11],'hard-2-4');assert.equal(ids[17],'hard-3-4');
  const s={st:{'10-6':3},growth:{hard:{st:{}}}};for(let i=0;i<ids.length;i++){assert.equal(hardUnlocked(s,ids[i]),true);if(ids[i+1])assert.equal(hardUnlocked(s,ids[i+1]),false);s.growth.hard.st[ids[i]]=1;assert.equal(nextStage(s,ids[i]),ids[i+1]||null);}
- assert.equal(hardUnlocked(s,'hard-7-1'),false);assert.deepEqual(cleanHard({st:{'hard-7-1':3}}).st,{});
+ assert.equal(hardUnlocked(s,'hard-11-1'),false);assert.deepEqual(cleanHard({st:{'hard-11-1':3}}).st,{});
  for(const id of ids){const a=HARD_STAGES[id],b=STAGES[a.normalId];for(const k of ['waves','spawns','core','lava','walls','q','bed','seed','boss'])assert.deepEqual(a[k],b[k]);}
 });
 test('fixed ice line and ash circle allow dodge and stun; boss followup has no endless chain',()=>{
@@ -54,5 +54,5 @@ test('all 12 new stages use the atomic receipt, kills, first/repeat reward and s
   expected+=hardReward(s,s.waves,true,true,'mage').souls;kills+=77;const data=store.tables.hd3d_progress[0].data;assert.equal(data.souls,expected);assert.equal(data.stats.kills,kills);assert.deepEqual(data.st,{'10-6':3});
   const snapshot=structuredClone(store.tables);await rpc('progress',args);assert.deepEqual(store.tables,snapshot);
  }
- assert.equal(store.tables.hd3d_progress[0].data.hardRewardSeq,12);assert.equal((await rpc('start',{p_id:'slice2-unreleased-seven',p_mode:'campaign',p_stage:'hard-7-1',p_hero:'mage'})).reason,'locked');
+ assert.equal(store.tables.hd3d_progress[0].data.hardRewardSeq,12);assert.equal((await rpc('start',{p_id:'slice2-unreleased-seven',p_mode:'campaign',p_stage:'hard-11-1',p_hero:'mage'})).reason,'locked');
 });

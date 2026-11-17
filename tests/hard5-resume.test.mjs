@@ -41,5 +41,5 @@ test('H5 real server settlement is atomic on first/repeat/partial, replay, codex
   assert.deepEqual(P.clean(opened).inv,opened.inv);assert.equal(E.openChests(opened)[1].opened.length,0);
   const committed=structuredClone(store.tables);await rpc('progress',args);assert.deepEqual(store.tables,committed);
  }
- assert.equal((await rpc('start',{p_id:'h7-not-made-yet',p_mode:'campaign',p_stage:'hard-7-1',p_hero:'mage'})).reason,'locked');
+ assert.equal((await rpc('start',{p_id:'h7-not-made-yet',p_mode:'campaign',p_stage:'hard-11-1',p_hero:'mage'})).reason,'locked');
 });

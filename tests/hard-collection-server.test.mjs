@@ -19,8 +19,9 @@ function fixture(repeat=true){
 }
 
 test('server stamps the reward contract and all released stages award exactly base+2 with target only once',async()=>{
- const f=fixture();assert.equal((await f.call('status')).features.hardCollection,1);
  for(const [i,s] of Object.values(HARD_STAGES).entries()){
+  // Independent saves keep this contract test separate from the 200-chest overflow tests.
+  const f=fixture();assert.equal((await f.call('status')).features.hardCollection,1);
   const id='collection-'+i;await f.start(id,s.id);assert.equal(f.db.tables.hd3d_growth_runs.at(-1).hardRewardVersion,2);
   f.tick();const before=f.save().chests.length,r=await f.finish(id,s.id),newBoxes=f.save().chests.slice(before);
   assert.equal(r.ok,true);assert.equal(r.hardReward.chests,Math.floor(s.waves/5)+2);
@@ -55,11 +56,11 @@ test('legacy unfinished run, legacy completed receipt and forged fields do not a
  await f.start('old-client-new-run');f.tick();const fresh=await f.finish('old-client-new-run');assert.equal(fresh.hardReward.chests,r.hardReward.chests+2);
 });
 
-test('failed, partial and non-finishing wins cannot claim collection extras; H7 remains locked',async()=>{
+test('failed, partial and non-finishing wins cannot claim collection extras; H11 remains locked',async()=>{
  const f=fixture();for(const [i,args] of [{p_completed:5,p_win:false},{p_win:false},{p_finish:false}].entries()){
   const id='non-clear-'+i;await f.start(id);f.tick();const r=await f.finish(id,'hard-5-1',args);assert.equal(r.hardReward.chests,Math.floor((args.p_completed??HARD_STAGES['hard-5-1'].waves)/5));
  }
- assert.equal((await f.start('future-hard-seven','hard-7-1')).reason,'locked');
+ assert.equal((await f.start('future-hard-seven','hard-11-1')).reason,'locked');
  assert.equal((await f.start('normal-contract','1-1')).ok,true);assert.equal(f.db.tables.hd3d_growth_runs.at(-1).hardRewardVersion,undefined);
 });
 

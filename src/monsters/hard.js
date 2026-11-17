@@ -17,7 +17,7 @@ export function hardTick(e,dt) {
   if(event?.kind==='warn'){if(hardShape(event))chapterWarning(event,e);else warning(event);}
   if(event?.kind==='hit'){
     if(hardShape(event))chapterWarning(event,null);else ringFx(event.p,event.rule==='ash-eruption'?3.6:3.2,0xffc55a,.25);
-    for(const h of heroes)if(hardHit(event,h.g.position)){heroDamage(e.E.dps*(event.rule==='desert-twin'?.55:hardShape(event)?1.2:event.rule==='ash-eruption'?1.5:1.4),h);if(event.rule==='ice-fracture')h.hardSlowUntil=Math.max(h.hardSlowUntil||0,G.t+1.5);}
+    for(const h of heroes)if(hardHit(event,h.g.position)){heroDamage(e.E.dps*(['desert-twin','storm-ring','machine-grid','abyss-cross','citadel-seal'].includes(event.rule)?.55:hardShape(event)?1.2:event.rule==='ash-eruption'?1.5:1.4),h);if(event.rule==='ice-fracture')h.hardSlowUntil=Math.max(h.hardSlowUntil||0,G.t+1.5);}
     G.hardPulseHits=(G.hardPulseHits||0)+1;
   }
   return !!e.hardCast;

@@ -36,8 +36,8 @@ test('conditional attacks, chain caps and Q modifiers remain separate from raw s
  const h={tree:treeBuild(changeTree({},'gunner','duel',20,0,15,'stack'),'gunner','duel',20)},t={E:{}};
  assert.equal(basicTreeMul(h,t),.96);for(const v of [1.04,1.08,1.12,1.16,1.16])assert.equal(basicTreeMul(h,t),v);assert.equal(basicTreeMul(h,{E:{}}),.96);
 });
-test('hard uses separate stable IDs, normal layout/waves; only chapters one to six are released',()=>{
- assert.equal(Object.keys(STAGES).length,60);assert.equal(Object.keys(HARD_STAGES).length,36);
+test('hard uses separate stable IDs, normal layout/waves; only chapters one to ten are released',()=>{
+ assert.equal(Object.keys(STAGES).length,60);assert.equal(Object.keys(HARD_STAGES).length,60);
  for(const s of Object.values(HARD_STAGES)){assert.equal(s.waves,STAGES[s.normalId].waves);assert.deepEqual(s.spawns,STAGES[s.normalId].spawns);assert.deepEqual(s.core,STAGES[s.normalId].core);assert.equal(hardUnlocked({st:{}},s.id),false);}
  assert.equal(hardUnlocked({st:{'10-6':3}},'hard-1-1'),true);assert.equal(hardUnlocked({st:{'10-6':3}},'hard-1-2'),false);assert.equal(hardUnlocked({st:{'10-6':3},growth:{hard:{st:{'hard-1-1':1}}}},'hard-1-2'),true);
  assert.equal(hardUnlocked({st:{'10-6':3}},'hard-2-1'),false);

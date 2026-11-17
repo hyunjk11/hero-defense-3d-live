@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import * as H from '../src/data/hard.js';
 import {COLLECTION_ODDS} from '../src/data/hard-collection.js';
-const ids=Object.keys(H.HARD_STAGES);assert.equal(ids.length,36);
+const ids=Object.keys(H.HARD_STAGES);assert.equal(ids.length,60);
 const save={st:{},growth:{hard:{st:{}}}};
 for(const id of ids)assert.equal(H.hardUnlocked(save,id),false);
 save.st['10-6']=1;
@@ -22,7 +22,7 @@ for(let i=0;i<ids.length;i++){
  const unit=30+4*(s.ch-1),xp=s.waves*unit+Math.floor(s.waves*unit/3);
  assert.equal(H.hardXP(s,s.waves,true,false),xp);assert.equal(H.hardXP(s,s.waves,true,true),xp+Math.floor(xp/2));
 }
-assert.equal(H.hardUnlocked(save,'hard-7-1'),false);
+assert.equal(H.hardUnlocked(save,'hard-11-1'),false);
 assert.deepEqual(COLLECTION_ODDS,[50,35,15,0,0]);
-assert.deepEqual(H.cleanHard({st:{'hard-1-1':9,'hard-5-6':2,'hard-6-1':3,'hard-7-1':3,'hard-1-2':-1}}).st,{'hard-1-1':3,'hard-5-6':2,'hard-6-1':3});
-console.log('PASS: 36 stage unlocks, first guarantee, repeat/partial/version rewards and XP');
+assert.deepEqual(H.cleanHard({st:{'hard-1-1':9,'hard-5-6':2,'hard-6-1':3,'hard-11-1':3,'hard-1-2':-1}}).st,{'hard-1-1':3,'hard-5-6':2,'hard-6-1':3});
+console.log('PASS: 60 stage unlocks, first guarantee, repeat/partial/version rewards and XP');

@@ -3,7 +3,7 @@ export const HARD_REWARD_VERSION = 2;
 export const COLLECTION_ODDS = Object.freeze([50, 35, 15, 0, 0]);
 // Chapter 3+ shares the normal minimum grade; keep chapter 1/2 unchanged.
 export const collectionOdds = ch => ch >= 3 ? [0, 70, 30, 0, 0] : COLLECTION_ODDS;
-export const collectionChapter = ch => Number.isInteger(ch) && ch >= 1 && ch <= 6;
+export const collectionChapter = ch => Number.isInteger(ch) && ch >= 1 && ch <= 10;
 export const collectionCount = (stage, completed, win, first, version) =>
   version === HARD_REWARD_VERSION && stage?.hard && collectionChapter(stage.ch) &&
   win && !first && completed === stage.waves ? 2 : 0;
