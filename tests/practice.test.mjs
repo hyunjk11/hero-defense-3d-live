@@ -25,7 +25,7 @@ const practice=read('src/ui/practice.js');assert(!practice.includes('Acc.update'
 assert.match(read('src/core/waves.js'),/function endWave\(\) \{ if \(G.practice\) return/);
 assert.match(read('src/ui/result.js'),/export function onRunEnd\(reason\) \{\s*if \(G.practice/);
 // Exercise active timer, spawn cap, 30-second terminal state, repeated finish, and no-state invalid entry.
-let src=practice.replace(/^import .*;\n/gm,'').replaceAll('export ','');
+let src=practice.replace(/^import .*;\r?\n/gm,'').replaceAll('export ','');
 const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{id,textContent:'',classList:{values:new Set(),add(k){this.values.add(k)},remove(k){this.values.delete(k)},contains(k){return this.values.has(k)}},style:{}});return nodes.get(id);};
 const G={practice:true,phase:'build',hero:{},enemies:[],stats:{kills:{golem:2}},spawnEnemy(){G.spawns=(G.spawns||0)+1;}};
 const rctx={CORE:[22,7],tileX:x=>x,tileZ:z=>z,G,$:node,document:{createElement:()=>({style:{}}),body:{appendChild(){}}},Object,Math,Set,JSON,CLASSES:{mage:{}},isHidden:()=>false,startHardParty:()=>{},go:()=>{},reload:()=>{}};
