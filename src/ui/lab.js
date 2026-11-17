@@ -14,7 +14,7 @@ import { labFx } from '../world/town.js';
 import {directGearEnabled,runDirectGear} from '../account/direct-gear-client.js';
 let buying=false, pendingRow=null;
 let open = false, tab = 'arrow', built = null, hooks = { onChange() {}, cheer() {} };
-const TC = { arrow: '#5a9aff', cannon: '#ff9a4a', magic: '#c07aff' };
+const TC = { arrow: '#5a9aff', cannon: '#ff9a4a', magic: '#c07aff', guardian: '#73d9bf' };
 const MATN = { steel: '⚙ 강철', crystal: '💎 마력석' };
 export function initLab(h) { hooks = { ...hooks, ...h }; $('labClose').onclick = () => closeLab(); }
 const LP = definePanel('lab', { id: 'labPanel', z: 40, isOpen: () => open, close: s => closeLab(s) });
@@ -47,7 +47,7 @@ export function renderLab() {
   setH($('labMats'), `<span>🔮 영혼석 <b>${s.souls}</b></span><span>${MATN.steel} <b>${s.mat.steel}</b></span><span>${MATN.crystal} <b>${s.mat.crystal}</b></span>`);
   $('labTabs').querySelectorAll('.ftab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
   const m = GR.resMods(s.research, tab);
-  setH($('labSum'), `<b>${TOWERS[tab].n}</b> 현재 연구 효과: 피해 <b>+${pct(m.dmg - 1)}%</b> · 사거리 <b>+${pct(m.rng - 1)}%</b> · 공격속도 <b>+${pct(m.rate - 1)}%</b> · 강화 비용 <b>-${pct(m.discount)}%</b>`);
+  setH($('labSum'), `<b>${TOWERS[tab].n}</b> 현재 연구 효과: 피해 <b>+${pct(m.dmg - 1)}%</b> · ${tab === 'guardian' ? '수호 범위' : '사거리'} <b>+${pct(m.rng - 1)}%</b> · 공격속도 <b>+${pct(m.rate - 1)}%</b> · 강화 비용 <b>-${pct(m.discount)}%</b>`);
   { const h = Sh.usableHero(s.hero), A = AD.advOf(h, s.adv[h]), on = !!(A && A.tower && (A.tower[tab] || A.tower.bar)); $('labAdv').classList.toggle('hidden', !on); // 전직 보너스 (출정 영웅의 분기만, 연구와 곱)
     if (on) setH($('labAdv'), `⚜ 전직 보너스 · ${A.icon} ${A.n}: <b>${A.td}</b>`); }
   $('labBody').querySelectorAll('.labRow').forEach(row => { const k = row.dataset.k, R = GR.RES[k], lv = r[k], max = lv >= R.max, why = GR.resBlock(s, tab, k), c = GR.resCost(k, lv);
