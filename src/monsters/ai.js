@@ -1,3 +1,4 @@
+import { guardCombat } from '../combat/guardian.js';
 import * as THREE from 'three';
 import { Snd } from '../audio/audio.js';
 import { STAGE, CORE, DIRS, GH, GW, T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
@@ -69,6 +70,8 @@ function updEnemies(dt) {
     if (hd < 1.25 + E.h * .2) { faceTo(g, th.g.position.x, th.g.position.z, dt, 14); play(e.m, E.dig, { speed: 1.2 }); e.atkCd -= dt; if (e.atkCd <= 0) { e.atkCd = .85; heroDamage(E.dps * .85 * (G.spireAtkK ? G.spireAtkK(e) : 1), th); } continue; } /* 🗼 😡 광폭 (탑에서만 G.spireAtkK) */
     if (G.dungeon) { chase(e, dt, spd); continue; } // 던전 원정: 경로 대신 영웅 추적 (타워·코어 없음)
     if (e.ai !== 'basic') { const r = special(e, dt, slowK); if (r === true) continue; }
+    const defender = guardCombat(e, G.t, dt, G.spireAtkK ? G.spireAtkK(e) : 1);
+    if (defender) { e.digging = false; e.ckT = 0; e.ckP = null; faceTo(g, defender.m.g.position.x, defender.m.g.position.z, dt); play(e.m, E.dig, { speed: 1.2 }); continue; }
     if (e.next && enterCost(tileAt(e.next[0], e.next[1])) === Infinity) e.next = null;
     if (!e.next) e.next = e.profile === 'default' ? nextStep(e.tile[0], e.tile[1]) : nextStep(e.tile[0], e.tile[1], e.profile);
     if (!e.next) { reachCore(e); continue; }
