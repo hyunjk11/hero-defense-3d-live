@@ -4,13 +4,13 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../src/ui/loadouts.js',import.meta.url),'utf8').replace(/^import .*;\s*$/mg,'').replace(/export /g,'');
 const tick=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
-function fixture({existing=false,confirm=async()=>true}={}){
+function fixture({existing=false,logged=true,confirm=async()=>true}={}){
  let epoch=1,calls=0,refreshes=0,changes=0,current=true,release;
  const s={hero:'mage',eq:{},adv:{},...(existing?{battlePresets:[{hero:'mage',partner:'archer'}]}:{})};
  const host={html:'',saves:[0,1].map(i=>({dataset:{save:String(i)}})),applies:[0,1].map(i=>({dataset:{apply:String(i)}})),set innerHTML(v){this.html=v;},querySelector:()=>({value:'archer'}),querySelectorAll(q){return q==='[data-save]'?this.saves:this.applies;}};
  const Acc={A:{user:{id:'a'}},sessionId:()=>epoch,load:()=>s,serverSaveState:()=>null,SAVE_WAIT_MESSAGE:'pending'};
  const HG={HG:{growth:{rev:1},pending:0},enabled:()=>true,refresh:async()=>true};
- const ctx=vm.createContext({Acc,HG,G:{screen:'town'},directGearEnabled:()=>true,partners:()=>['archer'],readPartner:()=> 'archer',writePartner(){},heroLabel:h=>h,esc:s=>String(s),loadoutStamp:()=> 'stamp',askConfirm:confirm,runDirectGear:async a=>{calls++;return new Promise(resolve=>release=r=>resolve([r]));}});
+ const ctx=vm.createContext({Acc,HG,G:{screen:'town'},directGearEnabled:()=>logged,partners:()=>['archer'],readPartner:()=> 'archer',writePartner(){},heroLabel:h=>h,esc:s=>String(s),loadoutStamp:()=> 'stamp',askConfirm:confirm,runDirectGear:async a=>{calls++;return new Promise(resolve=>release=r=>resolve([r]));}});
  vm.runInContext(source+';this.mount=mountLoadouts;',ctx);
  const mount=()=>ctx.mount(host,s,()=>{refreshes++;mount();},()=>changes++,()=>current);mount();
  return {host,ctx,calls:()=>calls,changes:()=>changes,refreshes:()=>refreshes,mount,release:r=>release(r),switchUser:()=>{epoch++;Acc.A.user={id:'b'};},close:()=>current=false};
@@ -27,4 +27,17 @@ test('account switch during response cannot apply old result to new account UI',
 });
 test('conflict shows explicit not-applied guidance and allows another attempt',async()=>{
  const f=fixture({existing:true});const p=f.host.applies[0].onclick();await tick();f.release({ok:false,reason:'conflict'});await p;assert.match(f.host.html,/다른 곳에서 편성이 변경/);const q=f.host.applies[0].onclick();await tick();assert.equal(f.calls(),2);f.release({ok:false,reason:'missing'});await q;assert.match(f.host.html,/창고/);
+});
+
+test('empty, saved and logged-out presets have distinct themed structure without item-rarity dependencies',()=>{
+ const empty=fixture(),saved=fixture({existing:true}),guest=fixture({logged:false});
+ assert.match(empty.host.html,/loadoutCurrent/);assert.equal((empty.host.html.match(/class="loadoutCard isEmpty"/g)||[]).length,2);
+ assert.match(saved.host.html,/loadoutCard isSaved/);assert.match(saved.host.html,/loadoutSavedParty/);assert.match(saved.host.html,/덮어쓰기/);
+ assert.match(guest.host.html,/loadoutStatus[^>]*role="status"[^>]*>로그인/);
+ assert(guest.host.html.indexOf('loadoutStatus')<guest.host.html.indexOf('loadoutGrid'));
+ assert.doesNotMatch(empty.host.html,/class="icard"|<h3>/);
+ const css=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');
+ assert.match(css,/#presetPartner\{[^}]*background:#151122/);
+ assert.match(css,/\.loadoutCard\{[^}]*border:1px solid #766446/);
+ assert.match(css,/@media\(max-width:520px\)/);
 });
