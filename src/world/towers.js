@@ -1,3 +1,4 @@
+import { updGuardians, clearGuardians } from './guardians.js';
 import { retireTowerMeter } from '../combat/meter.js';
 import { towerShell } from '../render/tower-projectiles.js';
 import { Snd } from '../audio/audio.js';
@@ -40,7 +41,7 @@ function sellTower(tw) {
   const v = Math.floor(tw.invest * .7 * (tw.hp / tw.max >= .999 ? 1 : .5 + .5 * tw.hp / tw.max)); G.gold += v; Snd.play('sell'); Snd.play('breakWood', { pos: { x: tileX(tw.c), z: tileZ(tw.r) }, vol: .5 }); const hpK = tw.hp / tw.max; scene.remove(tw.m.g); removeTowerObj(tw);
   const p = tw.m.g.position; debris(p.x, 1, p.z, 14, [0xe0dacb, 0x9e98ae, 0xa8703a], 6); popCoins(p.clone().setY(1.5), 4); dmgText(p.clone().setY(2.5), `+${v}G`, '#ffe066', true); select(null); computeDist(); refreshHud();
 }
-function removeTowerObj(tw) { disposeOwned(tw.m.g); tw.dead = true; retireTowerMeter(G.dmTowers, tw); G.towers.splice(G.towers.indexOf(tw), 1); tw.t.tower = null; refreshTile(tw.t); scene.remove(tw.anchor); tw.hb.dispose(); }
+function removeTowerObj(tw) { clearGuardians(tw); disposeOwned(tw.m.g); tw.dead = true; retireTowerMeter(G.dmTowers, tw); G.towers.splice(G.towers.indexOf(tw), 1); tw.t.tower = null; refreshTile(tw.t); scene.remove(tw.anchor); tw.hb.dispose(); }
 // ---- 타워 체력 / 피해 / 파괴 / 수리 ----
 function damageTower(tw, dmg, src) {
   if (!tw || tw.dead || dmg <= 0) return; tw.hp -= dmg; tw.hb.set(Math.max(0, tw.hp / tw.max)); tw.hitT = .25; G.stats.towerDmg = (G.stats.towerDmg || 0) + dmg;
@@ -83,6 +84,7 @@ function updTowers0(dt) {
     if (tw.hp < tw.max) { // 손상 연출: 피격 흔들림, 50% 이하 연기, 25% 이하 불꽃
       if (tw.hitT > 0) { tw.hitT -= dt; m.g.position.x = tileX(tw.c) + Math.sin(G.t * 70) * tw.hitT * .4; } else m.g.position.x = tileX(tw.c);
       tw.fxT -= dt; const k = tw.hp / tw.max; if (k < .5 && tw.fxT <= 0) { tw.fxT = k < .25 ? .08 : .2; emit(P, p.x + rnd(-.5, .5), 2.2, p.z + rnd(-.5, .5), 1, 0x5a5a62, .6, 1.4, 2.5, .3); if (k < .25) emit(P, p.x + rnd(-.4, .4), 1.6, p.z + rnd(-.4, .4), 2, 0xff8a2a, 1.2, .5, 3, .3); } }
+    if (tw.type === 'guardian') { updGuardians(tw, dt, canAct); continue; }
     if (!canAct) continue; // 속박·용암 웅덩이·저주 봉인: 조준·공격 정지
     const rng = S.range; let best = null, bd = Infinity; const many = B && B.targets && tw.cd <= 0 ? [] : null, byHp = B && B.prio === 'hp';
     for (const e of G.enemies) { if (e.dead || (e.E.fly && !D.air) || e.immT > G.t) continue; const dx = e.g.position.x - p.x, dz = e.g.position.z - p.z; if (dx * dx + dz * dz > rng * rng) continue;
