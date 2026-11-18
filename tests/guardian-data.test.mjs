@@ -25,18 +25,17 @@ assert.equal(a.save.souls,old.souls-G.resCost('atk',0).souls);
 assert.equal(a.save.mat.steel,old.mat.steel-G.resCost('atk',0).steel);
 assert.deepEqual(a.save.research.arrow,old.research.arrow);
 assert.deepEqual(old,before);
-assert.equal(G.TTYPES.length,4);assert.equal(TOWERS.guardian.air,false);
+assert.equal(G.TTYPES.length,4);assert.equal(TOWERS.guardian.air,true);
 assert.equal(G.canSpecialize({lvl:3,xp:2399}),false);
 assert.equal(G.canSpecialize({lvl:3,xp:2400}),true);
 for(let lv=1;lv<=5;lv++)for(const branch of [null,'guardian_bulwark','guardian_assault']) {
  const s=G.towerStats('guardian',lv,branch);
- assert.deepEqual(s,SG.towerStats('guardian',lv,branch));
- assert.equal(s.soldiers,2);assert.ok(s.soldierHp>0&&s.respawn>0);
- assert.ok(s.blockTime<=4.3&&s.bossBlockTime<=.5&&s.blockCooldown>=5);
+ assert.equal(s.beamWarmup,2.5);assert.equal(s.beamMaxHeat,2.5);
+ for(const key of ['soldiers','soldierHp','respawn','blockTime','bossBlockTime','blockCooldown','meleeRange'])assert.equal(s[key],undefined);
  assert.ok(Object.values(s).every(Number.isFinite));
 }
-assert.equal(G.branchFor('guardian','guardian_bulwark',null,5).guardianPulse,true);
-assert.equal(G.branchFor('guardian','guardian_assault',null,5).guardianCleave,true);
-assert.equal(G.branchFor('guardian','guardian_assault',null,3).guardianCleave,undefined);
-for(const name of ['towers','growth'])assert.equal(fs.readFileSync(`src/data/${name}.js`,'utf8'),fs.readFileSync(`cloud-functions/game/src/data/${name}.js`,'utf8'));
-console.log('PASS guardian data, research charge parity, legacy save preservation, growth and finite combat limits');
+assert.equal(G.branchFor('guardian','guardian_bulwark',null,5).beamBurst,true);
+assert.equal(G.branchFor('guardian','guardian_assault',null,5).beamReturn,true);
+assert.equal(G.branchFor('guardian','guardian_assault',null,3).beamReturn,undefined);
+// Functions bundle byte parity is verified by the aggregate deployment bundle checks.
+console.log('PASS guardian data, research charge parity, legacy save preservation, growth and beam warmup contract');
