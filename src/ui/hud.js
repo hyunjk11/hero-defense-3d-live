@@ -57,7 +57,7 @@ function refreshHud() {
     $('tName').textContent = `${D.n} Lv.${s.lvl}/${MAX_TOWER_LEVEL}${Bn ? ' · ' + Bn.n : ''}`;
     const stars = starsFor(s.xp || 0), cap = XP_NEED[stars] || XP_NEED[2], lo = XP_NEED[stars - 1];
     const ratio = stars >= 3 ? 1 : Math.max(0, Math.min(1, ((s.xp || 0) - lo) / (cap - lo)));
-    $('tStats').innerHTML = `<span class="tstar">${'★'.repeat(stars)}<i>${'☆'.repeat(3-stars)}</i></span> XP ${Math.floor(s.xp || 0)}/${cap}<div class="txp"><b style="width:${ratio*100}%"></b></div>${s.type === 'guardian' ? `수호병 ${S.soldiers}명 · 체력 ${Math.round(S.soldierHp)}<br>병사 피해 ${r2(S.dmg)} · ${r2(S.rate)}/초<br>병사 탐지 범위 ${r2(S.range)} · 재소환 ${r2(S.respawn)}초<br>지상 저지 · 대공 불가` : `피해 ${r2(S.dmg)} · ${r2(S.rate)}/초<br>사거리 ${r2(S.range)}${S.splash ? ' · 폭발 ' + r2(S.splash) : ''}${S.chain ? ' · 연쇄 ' + S.chain : ''}`}`;
+    $('tStats').innerHTML = `<span class="tstar">${'★'.repeat(stars)}<i>${'☆'.repeat(3-stars)}</i></span> XP ${Math.floor(s.xp || 0)}/${cap}<div class="txp"><b style="width:${ratio*100}%"></b></div>${s.type === 'guardian' ? `${s.B?.beamSweep ? `광선 접촉 중 초당 피해 ${r2(S.dmg * S.rate)}<br>예열 없음 · 편도 2.4초${s.B.beamReturn ? ' · 왕복 광선' : ' · 재조준 0.45초'}` : `초당 피해 ${r2(S.dmg * S.rate)} → ${r2(S.dmg * S.rate * S.beamMaxHeat)}<br>최대 예열 ${r2(S.beamWarmup)}초 · 목표 변경 시 초기화`}<br>사거리 ${r2(S.range)} · 지상·공중 공격` : `피해 ${r2(S.dmg)} · ${r2(S.rate)}/초<br>사거리 ${r2(S.range)}${S.splash ? ' · 폭발 ' + r2(S.splash) : ''}${S.chain ? ' · 연쇄 ' + S.chain : ''}`}`;
     const u = $('tUp'), c = upgradeCost(s.type, s.lvl, s.mods), why = upgradeBlock(s, G.gold);
     u.textContent = s.lvl >= MAX_TOWER_LEVEL ? 'MAX' : `Lv.${s.lvl + 1} · ${c}G`; u.disabled = !!why;
     u.title = ''; delete u.dataset.nx;
