@@ -4,7 +4,7 @@ import * as G from '../src/data/growth.js';
 assert.equal('AWK' in G,false);
 assert.equal(G.MAX_TOWER_LEVEL,5);
 const before=JSON.stringify(G.BRANCH);
-const expected={multi:{targets:5},snipe:{dmg:3},blast:{cluster:5},pierce:{dmg:2.7},storm:{chainAdd:6,falloff:.98},frost:{freezeEvery:3},guardian_bulwark:{guardianPulse:true,soldierHp:2},guardian_assault:{guardianCharge:true,guardianCleave:true,dmg:1.6}};
+const expected={multi:{targets:5},snipe:{dmg:3},blast:{cluster:5},pierce:{dmg:2.7},storm:{chainAdd:6,falloff:.98},frost:{freezeEvery:3},guardian_bulwark:{beamBurst:true},guardian_assault:{beamReturn:true}};
 let branches=0;
 for(const type of G.TTYPES) for(const branch of Object.keys(G.BRANCH[type])){
  branches++;
