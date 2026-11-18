@@ -17,8 +17,12 @@ function endpoints(tw,b,sweepAge=b.sweep){
   const sweep=tw.B?.beamSweep?beamSweepAt(sweepAge,!!tw.B.beamReturn):{active:true,offset:0},angle=center+sweep.offset;
   tw.m.head.rotation.y=angle;const from=new THREE.Vector3();tw.m.muzzle.getWorldPosition(from);
   if(!tw.B?.beamSweep)return {from,to:target,active:true};
-  const range=tw.S.range;
-  return {from,to:new THREE.Vector3(from.x+Math.sin(angle)*range,target.y,from.z+Math.cos(angle)*range),active:sweep.active};
+  // Pitch crosses the target's actual distance, not the maximum-range endpoint.
+  // A high-level muzzle otherwise shoots over nearby ground enemies.
+  const distance=Math.max(.05,Math.hypot(target.x-from.x,target.z-from.z));
+  const slope=(target.y-from.y)/distance;
+  const range=Math.min(tw.S.range,slope<0?Math.max(.05,(from.y-.12)/-slope):tw.S.range);
+  return {from,to:new THREE.Vector3(from.x+Math.sin(angle)*range,from.y+slope*range,from.z+Math.cos(angle)*range),active:sweep.active};
 }
 export function updBeam(tw,dt,canAct=true){
   const b=tw.beam||= {visual:createBeamVisual(),target:null,age:0,acc:0,burst:0,sweep:0,flash:0};
