@@ -15,7 +15,7 @@ test('beam controls preserve existing shortcuts and expose sustained DPS',()=>{
  assert.match(read('index.html'),/data-tool="guardian"/);
  assert.match(read('src/ui/input.js'),/\['arrow', 'cannon', 'magic', 'barricade', 'clear', 'guardian'\]/);
  assert.match(read('src/ui/hud.js'),/초당 피해/);assert.match(read('src/ui/hud.js'),/지상·공중 공격/);
- assert.match(read('src/ui/lab.js'),/guardian: '#73d9bf'/);assert.match(read('src/ui/lab.js'),/기존 수호탑 연구 계승/);assert.doesNotMatch(read('src/ui/hud.js'),/재소환|병사 탐지 범위/);assert.match(read('src/ui/help.js'),/최대 예열/);
+ assert.match(read('src/ui/lab.js'),/guardian: '#73d9bf'/);assert.doesNotMatch(read('src/ui/lab.js'),/기존 수호탑 연구 계승/);assert.doesNotMatch(read('src/ui/hud.js'),/재소환|병사 탐지 범위/);assert.match(read('src/ui/help.js'),/최대 예열/);
 });
 
 const beam=vm.createContext({THREE,...ctx.api,scene:ctx.scene});vm.runInContext(clean(read('src/render/beam.js'))+';this.api={createBeamVisual,drawBeam,disposeBeamVisual};',beam);
