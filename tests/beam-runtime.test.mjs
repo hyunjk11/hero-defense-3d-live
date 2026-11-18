@@ -15,3 +15,15 @@ test('slow applies once to damage and heating, and focus burst needs continuous 
 test('cutting beam intersects multiple ground enemies; return beam stays on during reverse',()=>{const h=harness('guardian_assault',3),a=h.enemy(0,4),b=h.enemy(.7,4);h.G.enemies=[a,b];h.tick(.1,60);assert.ok(a.hp<1e6&&b.hp<1e6);assert.equal(beamSweepAt(2.6,false).active,false);assert.equal(beamSweepAt(2.6,true).active,true);assert.ok(beamSweepAt(2.6,true).offset>beamSweepAt(3.8,true).offset);});
 test('base beam tracks flying enemies and upgraded model, releases visual on sale repeatedly',()=>{const h=harness(),e=h.enemy(0,4,{fly:true});h.G.enemies=[e];h.tick(.1,10);assert.equal(h.visuals[0].last.to.y,3);const before=e.hp;h.tw.m.head.position.y=2;h.tick(.2);assert.ok(e.hp<before);assert.ok(h.visuals[0].last.from.y>2);for(let i=0;i<50;i++){h.clear();h.tick(.2);}h.clear();assert.equal(h.disposed(),51);assert.equal(h.tw.beam,null);});
 test('beam geometry ignores distant/off-line targets and respects segment ends',()=>{const a={x:0,y:1,z:0},b={x:0,y:1,z:5};assert.ok(beamTouches(a,b,{x:.3,y:1,z:3}));assert.ok(!beamTouches(a,b,{x:2,y:1,z:3}));assert.ok(!beamTouches(a,b,{x:0,y:1,z:7}));});
+// Use production meshes/muzzle transforms: the earlier 1m stub hid close-range misses.
+const readModel=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const cleanModel=s=>s.replace(/import[\s\S]*?from\s*['"][^'"]+['"];?/g,'').replace(/export\s*\{[\s\S]*?\};?/g,'').replaceAll('export ','');
+const modelCtx=vm.createContext({...THREE,THREE,scene:new THREE.Scene()});
+for(const p of ['lib/addons/utils/BufferGeometryUtils.js','lib/addons/geometries/RoundedBoxGeometry.js','src/render/toon.js','src/render/tower-body-batch.js','src/render/tower-models.js'])vm.runInContext(cleanModel(readModel(p)),modelCtx);
+vm.runInContext('this.make=towerModel;this.dispose=disposeOwned;',modelCtx);
+for(const level of [3,5])for(const distance of [1.3,2.5,4,7])for(const fly of [false,true])test(`real Lv${level} cutting muzzle hits ${fly?'air':'ground'} targets at ${distance}m`,()=>{
+ const h=harness('guardian_assault',level);h.tw.m=modelCtx.make('guardian',level);
+ const a=h.enemy(0,distance,{h:1.4,fly}),b=h.enemy(.45,distance,{h:1.4,fly});h.G.enemies=[a,b];
+ h.tick(.05,120);assert.ok(a.hp<1e6,'primary target damaged');assert.ok(b.hp<1e6,'nearby target damaged');assert.ok(h.visuals[0].last.to.y>=.119,'visible beam never below ground');
+ modelCtx.dispose(h.tw.m.g);
+});
