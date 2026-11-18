@@ -1,0 +1,17 @@
+import * as THREE from 'three';
+import { scene } from './scene.js';
+import { shareGeo, disposeOwned } from './toon.js';
+const tube=shareGeo(new THREE.CylinderGeometry(1,1,1,8,1,true)),orb=shareGeo(new THREE.SphereGeometry(1,10,8)),up=new THREE.Vector3(0,1,0);
+export function createBeamVisual() {
+  const g=new THREE.Group();g.name='continuous-tower-beam';
+  const mat=(opacity)=>new THREE.MeshBasicMaterial({color:0x83edff,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false});
+  const halo=new THREE.Mesh(tube,mat(.24)),core=new THREE.Mesh(tube,mat(.95)),tip=new THREE.Mesh(orb,mat(.8));g.add(halo,core,tip);g.visible=false;scene.add(g);
+  return {g,halo,core,tip,delta:new THREE.Vector3(),mid:new THREE.Vector3()};
+}
+export function drawBeam(v,from,to,{heat=1,color=0x83edff,flash=0,cut=false}={}) {
+  v.delta.subVectors(to,from);const length=v.delta.length();v.g.visible=length>.01;if(!v.g.visible)return;
+  v.mid.copy(from).lerp(to,.5);const width=(cut?.14:.045)+.055*Math.max(0,heat-1)+flash*.11;
+  for(const [m,k] of [[v.halo,2.5],[v.core,1]]){m.position.copy(v.mid);m.quaternion.setFromUnitVectors(up,v.delta.clone().normalize());m.scale.set(width*k,length,width*k);m.material.color.setHex(m===v.core&&heat>2?0xeeffff:color);}
+  v.tip.position.copy(to);v.tip.scale.setScalar(width*2.4);v.tip.material.color.setHex(flash>0?0xffffff:color);
+}
+export function disposeBeamVisual(v){if(v){scene.remove(v.g);disposeOwned(v.g);}}
