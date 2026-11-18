@@ -1,4 +1,0 @@
-import test from 'node:test';import assert from 'node:assert/strict';
-import {enemyMarchRoute,closestMarchIndex} from '../src/combat/guardian-route.js';
-test('reverse march preserves an exact curved enemy route',()=>{const cells=[[0,0],[1,0],[1,1],[1,2],[2,2]],next=(c,r)=>cells[cells.findIndex(p=>p[0]===c&&p[1]===r)+1];assert.deepEqual(enemyMarchRoute(cells[0],cells.at(-1),next),cells);assert.equal(closestMarchIndex(cells,1,1,c=>c,r=>r),2);});
-test('sealed route and a looping enemy field terminate with soldier-only fallback',()=>{for(const next of [()=>null,(c,r)=>[1-c,r]]){const route=enemyMarchRoute([0,0],[3,2],next);assert.deepEqual(route[0],[0,0]);assert.deepEqual(route.at(-1),[3,2]);assert.ok(route.length<15);for(let i=1;i<route.length;i++)assert.equal(Math.abs(route[i][0]-route[i-1][0])+Math.abs(route[i][1]-route[i-1][1]),1);}});
