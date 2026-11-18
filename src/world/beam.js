@@ -1,0 +1,47 @@
+import * as THREE from 'three';
+import { G } from '../core/state.js';
+import { hurt } from '../monsters/enemy.js';
+import { towerRateK } from '../combat/towerstatus.js';
+import { BEAM_STEP, beamHeatIntegral, beamTouches, beamSweepAt } from '../combat/beam.js';
+import { createBeamVisual, drawBeam, disposeBeamVisual } from '../render/beam.js';
+import { Snd } from '../audio/audio.js';
+
+// 'guardian' remains the persisted research/type key; the fourth slot now fires a beam.
+const aim=e=>e.g.position.clone().setY(e.E.fly?(e.m?.inner?.position.y??3):e.g.position.y+(e.E.h||1.5)*.55);
+const valid=(e,tw)=>!!e&&!e.dead&&e.state!=='spawn'&&!(e.immT>G.t)&&Math.hypot(e.g.position.x-tw.m.g.position.x,e.g.position.z-tw.m.g.position.z)<=tw.S.range;
+function reset(b){b.target=null;b.age=0;b.acc=0;b.burst=0;b.sweep=0;b.flash=0;b.visual.g.visible=false;}
+export function clearBeam(tw){if(tw.beam){disposeBeamVisual(tw.beam.visual);tw.beam=null;}}
+function select(tw){let best=null,score=Infinity;for(const e of G.enemies){if(!valid(e,tw))continue;const d=tw.m.g.position.distanceToSquared(e.g.position);if(d<score){best=e;score=d;}}return best;}
+function endpoints(tw,b,sweepAge=b.sweep){
+  const target=aim(b.target),center=Math.atan2(target.x-tw.m.g.position.x,target.z-tw.m.g.position.z);
+  const sweep=tw.B?.beamSweep?beamSweepAt(sweepAge,!!tw.B.beamReturn):{active:true,offset:0},angle=center+sweep.offset;
+  tw.m.head.rotation.y=angle;const from=new THREE.Vector3();tw.m.muzzle.getWorldPosition(from);
+  if(!tw.B?.beamSweep)return {from,to:target,active:true};
+  const range=tw.S.range;
+  return {from,to:new THREE.Vector3(from.x+Math.sin(angle)*range,target.y,from.z+Math.cos(angle)*range),active:sweep.active};
+}
+export function updBeam(tw,dt,canAct=true){
+  const b=tw.beam||= {visual:createBeamVisual(),target:null,age:0,acc:0,burst:0,sweep:0,flash:0};
+  if(!canAct||tw.dead){reset(b);return;}
+  if(!valid(b.target,tw)){reset(b);b.target=select(tw);}
+  if(!b.target)return;
+  b.flash=Math.max(0,b.flash-dt*5);b.acc+=dt;
+  // Fixed simulation ticks: bounded draw/sound/text work, no per-render-frame damage.
+  while(b.acc+1e-9>=BEAM_STEP){
+    b.acc-=BEAM_STEP;if(!valid(b.target,tw)){reset(b);break;}
+    const S=tw.S,B=tw.B||{},k=towerRateK(tw,G.t),elapsed=BEAM_STEP*k;
+    if(k<=0){reset(b);break;}
+    b.sweep+=elapsed;const ray=endpoints(tw,b),base=S.dmg*S.rate;
+    const amount=base*(B.beamSweep?elapsed:beamHeatIntegral(b.age,elapsed,S.beamWarmup,S.beamMaxHeat));
+    b.age+=elapsed;b.burst+=elapsed;
+    if(ray.active){
+      const hits=B.beamSweep?G.enemies.filter(e=>valid(e,tw)&&beamTouches(ray.from,ray.to,aim(e),Math.max(.6,(e.E.h||1.5)*.3)+.35)):[b.target];
+      for(const e of hits){hurt(e,amount,B.beamSweep?'#d4b0ff':'#a8f4ff',false,{x:ray.from.x,z:ray.from.z,kind:'beam'});tw.shots++;}
+    }
+    if(B.beamBurst&&b.burst+1e-8>=4&&valid(b.target,tw)){b.burst-=4;hurt(b.target,base*1.8,'#ffffff',true,{x:ray.from.x,z:ray.from.z,kind:'beam'});b.flash=1;tw.shots++;Snd.play('zap',{pos:ray.from,vol:.45});}
+    if(!valid(b.target,tw)){reset(b);break;}
+  }
+  if(!b.target)return;
+  const preview=b.acc*towerRateK(tw,G.t),ray=endpoints(tw,b,b.sweep+preview),heat=tw.B?.beamSweep?1.4:1+(tw.S.beamMaxHeat-1)*Math.min(1,(b.age+preview)/tw.S.beamWarmup);
+  if(ray.active)drawBeam(b.visual,ray.from,ray.to,{heat,color:tw.B?.beamSweep?0xc18bff:0x72e4ff,flash:b.flash,cut:!!tw.B?.beamSweep});else b.visual.g.visible=false;
+}
