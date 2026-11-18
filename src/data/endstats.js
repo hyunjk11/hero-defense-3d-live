@@ -1,6 +1,6 @@
 // 판 종료 통계 (순수 · DOM 없음 → tests/endstats.test.mjs) — combat/meter.js 가 판 동안 기록한 값을 결과 화면용으로 모음
 // 입력: heroes [{ cls, nm, icon, dm, dead }] · other(G.dmOther) · towers(G.dmTowers 를 { type, stars, branch, n, icon, dmT, dmK, gone } 로) · waves(G.waveLog) · t(종료 게임 시간)
-export const TOWER_IC = { arrow: '🏹', cannon: '💣', magic: '🔮', guardian: '🛡' };
+export const TOWER_IC = { arrow: '🏹', cannon: '💣', magic: '🔮', guardian: '✦' };
 export const TOP_TOWERS = 6;
 const num = v => (Number.isFinite(v) ? v : 0);
 // 전투 시간 = 웨이브 시간 합 (진행 중 웨이브는 t 까지) · 웨이브 기록이 없으면 판 시간 (t − t0)
