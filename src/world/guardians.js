@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G } from '../core/state.js';
-import { GW, GH, DIRS, T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
+import { GW, GH, DIRS, T, SPAWNS, CORE, inGrid, tileX, tileZ, toTile } from '../core/grid.js';
 import { scene } from '../render/scene.js';
 import { disposeOwned } from '../render/toon.js';
 import { guardianModel, animateGuardian } from '../render/guardian-model.js';
@@ -11,20 +11,34 @@ import { hurt } from '../monsters/enemy.js';
 import { towerXp } from './growth.js';
 import { acquireGuard, releaseGuard, activeGuard } from '../combat/guardian.js';
 import { towerRateK } from '../combat/towerstatus.js';
+import { nextStep } from './pathfinding.js';
+import { enemyMarchRoute, closestMarchIndex } from '../combat/guardian-route.js';
 
-const pass = (c, r) => { const t = G.tiles[c]?.[r]; return inGrid(c,r) && t && !isBlock(t.t) && t.t !== T.BEDROCK && !t.tower && !t.bar; };
-const key = (c,r) => c * GH + r;
-function field(tw) {
-  const q = [], seen = new Map(), rng = tw.S.range;
-  for (const [dc,dr] of DIRS) { const c=tw.c+dc,r=tw.r+dr; if(pass(c,r)){ q.push([c,r]); seen.set(key(c,r),null); } }
-  for(let i=0;i<q.length;i++){const [c,r]=q[i]; for(const [dc,dr] of DIRS){const x=c+dc,z=r+dr,k=key(x,z);if(seen.has(k)||!pass(x,z)||Math.hypot(tileX(x)-tileX(tw.c),tileZ(z)-tileZ(tw.r))>rng)continue;seen.set(k,[c,r]);q.push([x,z]);}}
-  return {seen,q};
+let marchCache;
+function marchRoutes() {
+  if(!marchCache||marchCache.tiles!==G.tiles||marchCache.version!==G.structVer||marchCache.dist!==G.D) {
+    const previous=marchCache?.tiles===G.tiles?marchCache.routes:[];
+    const routes=SPAWNS.map((p,i)=>{const route=enemyMarchRoute(p,CORE,nextStep,GW,GH),old=previous[i];return old&&old.length===route.length&&old.every((v,n)=>v[0]===route[n][0]&&v[1]===route[n][1])?old:route;});
+    marchCache={tiles:G.tiles,version:G.structVer,dist:G.D,routes};
+  }
+  return marchCache.routes;
 }
-function pathTo(s,c,r) {
-  const start=toTile(s.m.g.position.x,s.m.g.position.z), target=key(c,r), q=[start], par=new Map([[key(...start),null]]);
-  for(let i=0;i<q.length;i++){const p=q[i],k=key(...p);if(k===target){let at=p,prev=par.get(k);while(prev&&key(...prev)!==key(...start)){at=prev;prev=par.get(key(...at));}return at;}
-    for(const [dc,dr] of DIRS){const x=p[0]+dc,z=p[1]+dr,k2=key(x,z);if(!par.has(k2)&&s.tw.guardField.seen.has(k2)&&pass(x,z)){par.set(k2,p);q.push([x,z]);}}
-  } return null;
+function homeFor(tw,i) {
+  const cells=DIRS.map(([dc,dr])=>[tw.c+dc,tw.r+dr]).filter(([c,r])=>inGrid(c,r));
+  return cells[i%cells.length]||[tw.c,tw.r];
+}
+function marchPoint(s,routes) {
+  const route=routes[s.lane%routes.length],p=s.m.g.position;
+  if(s.route!==route||s.marchIndex==null){const old=s.marchIndex!=null?s.route?.[s.marchIndex]:null,keep=old?route.findIndex(c=>c[0]===old[0]&&c[1]===old[1]):-1;
+    s.route=route;s.marchIndex=keep>=0?keep:closestMarchIndex(route,p.x,p.z,tileX,tileZ);}
+  let cell=route[s.marchIndex];
+  if(Math.hypot(tileX(cell[0])-p.x,tileZ(cell[1])-p.z)<.12&&s.marchIndex>0)cell=route[--s.marchIndex];
+  let x=tileX(cell[0]),z=tileZ(cell[1]);
+  if(s.marchIndex===0){const first=route[1]||[cell[0]+1,cell[1]],dx=first[0]-cell[0],dz=first[1]-cell[1],len=Math.hypot(dx,dz)||1;
+    const slot=Math.floor(s.formation/routes.length),side=slot%2?.6:-.6,back=1.5+Math.min(2,Math.floor(slot/2))*.45;
+    x+=(-dz*side+dx*back)/len;z+=(dx*side+dz*back)/len;}
+  s.waiting=s.marchIndex===0&&Math.hypot(x-p.x,z-p.z)<.12;
+  return [x,z];
 }
 function release(s){releaseGuard(s.target,s);s.target=null;}
 function dropModel(s){if(s.m){scene.remove(s.m.g);disposeOwned(s.m.g);s.hb?.dispose();s.m=null;s.hb=null;}}
@@ -34,30 +48,29 @@ function makeModel(s){ const old=s.m?.g.position.clone(), ratio=s.max? s.hp/s.ma
 function hit(s,e,k=1){hurt(e,s.tw.S.dmg*k,'#bceaff',k>1,{x:s.m.g.position.x,z:s.m.g.position.z,kind:'melee'});s.tw.shots++;s.swing=.3;}
 function signature(s){const tw=s.tw,p=s.m.g.position,B=tw.B;
   if(B?.guardianPulse&&s.index===0&&s.sig<=0){s.sig=8;ringFx(p,3.1,0x8edbff,.65);emit(P,p.x,1,p.z,18,0xc2edff,4,.45,1,.6);Snd.play('block',{pos:p});
-    for(const e of G.enemies)if(!e.dead&&!e.E.fly&&!(e.immT>G.t)&&e.g.position.distanceToSquared(p)<9)hit(s,e,1.6);
+    for(const e of G.enemies)if(!e.dead&&!e.E.fly&&e.state!=='spawn'&&!(e.immT>G.t)&&e.g.position.distanceToSquared(p)<9)hit(s,e,1.6);
   }
-  if(B?.guardianCleave&&s.charging){ringFx(p,2,0xffc67a,.3);for(const e of G.enemies)if(e!==s.target&&!e.dead&&!e.E.fly&&e.g.position.distanceToSquared(p)<4)hit(s,e,.65);}
+  if(B?.guardianCleave&&s.charging){ringFx(p,2,0xffc67a,.3);for(const e of G.enemies)if(e!==s.target&&!e.dead&&!e.E.fly&&e.state!=='spawn'&&!(e.immT>G.t)&&e.g.position.distanceToSquared(p)<4)hit(s,e,.65);}
 }
 export function updGuardians(tw,dt,canAct=true){
   const S=tw.S, skin=`${tw.lvl}:${tw.branch}`;
-  if(!tw.guardField||tw.guardVersion!==G.structVer||tw.guardRange!==S.range||G.t>tw.guardScan){tw.guardField=field(tw);tw.guardVersion=G.structVer;tw.guardRange=S.range;tw.guardScan=G.t+.7;}
-  const F=tw.guardField;
-  if(!F.q.length){clearGuardians(tw);return;}
-  if(!tw.guards?.length){tw.guards=[];for(let i=0;i<S.soldiers;i++){const home=F.q[Math.min(i,F.q.length-1)];const s={tw,index:i,home,hp:S.soldierHp,max:S.soldierHp,cd:0,sig:2+i,respawn:0,swing:0,scan:0};makeModel(s);tw.guards.push(s);}}
+  const routes=marchRoutes();
+  if(!routes.length)return;
+  if(!tw.guards?.length){tw.guards=[];const offset=G.towers.filter(t=>!t.dead&&t.type==='guardian').indexOf(tw)*S.soldiers;
+    for(let i=0;i<S.soldiers;i++){const s={tw,index:i,lane:Math.max(0,offset+i)%routes.length,formation:Math.max(0,offset+i),home:homeFor(tw,i),hp:S.soldierHp,max:S.soldierHp,cd:0,sig:2+i,respawn:0,swing:0,scan:0};makeModel(s);tw.guards.push(s);}}
   for(const s of tw.guards){
-    if(s.hp<=0){release(s);if(s.m){ringFx(s.m.g.position,1,0x8edbff,.3);dropModel(s);s.respawn=S.respawn;}s.respawn-=canAct?dt:0;if(s.respawn>0)continue;s.home=F.q[Math.min(s.index,F.q.length-1)];s.max=S.soldierHp;s.hp=s.max;makeModel(s);ringFx(s.m.g.position,1.3,0x8edbff,.4);}
+    if(s.hp<=0){release(s);if(s.m){ringFx(s.m.g.position,1,0x8edbff,.3);dropModel(s);s.respawn=S.respawn;}s.respawn-=canAct?dt:0;if(s.respawn>0)continue;s.home=homeFor(tw,s.index);s.route=null;s.marchIndex=null;s.charging=false;s.support=0;s.max=S.soldierHp;s.hp=s.max;makeModel(s);ringFx(s.m.g.position,1.3,0x8edbff,.4);}
     if(s.skin!==skin)makeModel(s);
-    const p=s.m.g.position;const cell=toTile(p.x,p.z);if(!pass(...cell)||!F.seen.has(key(...cell))){release(s);s.home=F.q[Math.min(s.index,F.q.length-1)];p.set(tileX(s.home[0]),0,tileZ(s.home[1]));}
+    const p=s.m.g.position;
     s.hb.set(s.hp/s.max);s.swing=Math.max(0,s.swing-dt);s.hit=Math.max(0,(s.hit||0)-dt);
-    if(!canAct){release(s);animateGuardian(s.m,{time:G.t,moving:false,attacking:false,blocking:false});continue;}
+    if(!canAct){release(s);s.charging=false;s.marchIndex=null;animateGuardian(s.m,{time:G.t,moving:false,attacking:false,blocking:false});continue;}
     s.cd-=dt*towerRateK(tw,G.t);s.sig-=dt;s.scan-=dt;
-    if(s.target&&(s.target.dead||s.target.E.fly||s.target.immT>G.t||!F.seen.has(key(...toTile(s.target.g.position.x,s.target.g.position.z)))))release(s);
-    if(!s.target&&s.scan<=0){s.scan=.25;let best=null,bd=Infinity;for(const e of G.enemies){if(e.dead||e.E.fly||e.state==='spawn'||e.immT>G.t||tw.guards.some(o=>o!==s&&o.target===e)||!F.seen.has(key(...toTile(e.g.position.x,e.g.position.z))))continue;const d=p.distanceToSquared(e.g.position);if(d<bd&&pathTo(s,...toTile(e.g.position.x,e.g.position.z))){bd=d;best=e;}}s.target=best;}
+    const valid=e=>!e.dead&&!e.E.fly&&e.state!=='spawn'&&!(e.immT>G.t);
+    if(s.target&&(!valid(s.target)||Math.hypot(s.target.g.position.x-p.x,s.target.g.position.z-p.z)>S.range*1.35)){release(s);s.marchIndex=null;s.charging=false;}
+    if(!s.target&&s.scan<=0){s.scan=.25;let best=null,bd=S.range*S.range;for(const e of G.enemies){if(!valid(e))continue;const d=(p.x-e.g.position.x)**2+(p.z-e.g.position.z)**2;if(d<bd){bd=d;best=e;}}s.target=best;if(best){s.marchIndex=null;s.waiting=false;}}
     let moving=false;
-    const e=s.target,target=e?toTile(e.g.position.x,e.g.position.z):s.home;
-    if(!F.seen.has(key(...s.home)))s.home=F.q[Math.min(s.index,F.q.length-1)];
-    const dist=e?Math.hypot(e.g.position.x-p.x,e.g.position.z-p.z):Math.hypot(tileX(s.home[0])-p.x,tileZ(s.home[1])-p.z);
-    if(dist>(e?S.meleeRange:.25)){const step=pathTo(s,...target);if(step){const same=e&&step[0]===target[0]&&step[1]===target[1];const x=same?e.g.position.x:tileX(step[0]),z=same?e.g.position.z:tileZ(step[1]),dx=x-p.x,dz=z-p.z,d=Math.hypot(dx,dz);if(d>.05){s.charging=!!(e&&tw.B?.guardianCharge&&s.sig<=0);const mv=Math.min(d,dt*(s.charging?9:3.4));p.x+=dx/d*mv;p.z+=dz/d*mv;s.m.g.rotation.y=Math.atan2(dx,dz);moving=true;}}else if(e){release(s);s.scan=0;}}
+    const e=s.target,[x,z]=e?[e.g.position.x,e.g.position.z]:marchPoint(s,routes),dx=x-p.x,dz=z-p.z,dist=Math.hypot(dx,dz);
+    if(dist>(e?S.meleeRange:.08)){s.charging=!!(e&&tw.B?.guardianCharge&&s.sig<=0);const mv=Math.min(dist,dt*(s.charging?9:3.4));p.x+=dx/dist*mv;p.z+=dz/dist*mv;s.m.g.rotation.y=Math.atan2(dx,dz);moving=true;}
     else if(e){s.m.g.rotation.y=Math.atan2(e.g.position.x-p.x,e.g.position.z-p.z);acquireGuard(e,s,G.t,S);if(activeGuard(e,G.t)===s){if(s.support>=.5){towerXp(tw,s.support*12);s.support=0;}}
       if(s.cd<=0){s.cd=1/S.rate;hit(s,e,s.charging?1.6:1);signature(s);if(s.charging){s.sig=6;Snd.play('hit',{pos:p});}s.charging=false;}
     }
