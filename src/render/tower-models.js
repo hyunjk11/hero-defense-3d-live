@@ -147,38 +147,47 @@ function magicTower(g, head, muzzle, anim, level) {
     crystal(g, .16, 2, x, top + 1.35, z); beam(g, [x, top, z], [x, top + 1.06, z], .12, 'gold');
   }
 }
-function guardianTower(g, head, muzzle, anim, level) {
-  const top = 1.25 + level * .23;
-  box(g, 1.38, top - .35, 1.25, 0, (top + .35) / 2, 0, 'violet');
-  // A dark gate and twin watch posts distinguish the barracks from attack turrets.
-  box(g, .6, .85, .06, 0, .79, .66, 'dark');
-  for (const x of [-.65, .65]) {
-    cyl(g, .25, .31, top + .15, x, (top + .15) / 2 + .3, .45, 'stone', 6);
-    cyl(g, .29, .29, .13, x, top + .42, .45, level >= 3 ? 'gold' : 'steel', 6);
-    for (const z of [.3, .6]) box(g, .18, .2, .16, x, top + .56, z, 'stone');
+// Internal guardian key preserves purchased research. This is now a prism beam emitter.
+function beamTower(g, head, muzzle, anim, level) {
+  const top = 1.1 + level * .25;
+  cyl(g, .62, .8, .3, 0, .5, 0, 'darkStone', 6);
+  cyl(g, .35, .5, top - .6, 0, (top + .6) / 2, 0, 'violet', 6);
+  for (const x of [-.52, .52]) {
+    beam(g, [x, .55, 0], [x * .6, top, 0], .18, level >= 3 ? 'gold' : 'steel');
+    if (level >= 2) crystal(g, .13, 1.7, x, .88, 0);
   }
-  box(g, 1.55, .16, 1.36, 0, top + .08, 0, level >= 4 ? 'gold' : 'steel');
-  for (const x of [-.57, 0, .57]) box(g, .28, .28, .25, x, top + .28, -.55, 'stone');
-  head.position.y = top + .55;
-  // Floating crest is the summon point, not a projectile weapon.
-  const crest = box(head, .5, .65, .13, 0, .12, 0, 'gold'); crest.rotation.z = Math.PI / 4;
-  crystal(head, .2, 1.2, 0, .12, .13); muzzle.position.set(0, .4, .2);
-  if (level >= 2) for (const x of [-.5, .5]) box(g, .26, .63, .04, x, top - .45, -.64, 'blue');
+  cyl(g, .63, .52, .2, 0, top, 0, level >= 4 ? 'gold' : 'steel');
+  head.position.y = top + .48;
+  // The forward optical axis is local +Z, shared by muzzle and targeting.
+  box(head, .7, .46, .85, 0, 0, -.18, 'iron');
+  anim.gem = crystal(head, .26 + level * .015, 1.1, 0, .18, -.22);
+  const lensZ = .53 + level * .055, radius = .27 + level * .025;
+  cyl(head, radius + .08, radius + .1, .32, 0, 0, lensZ - .16, 'steel', 12).rotation.x = Math.PI / 2;
+  ring(head, radius, .065, 0, 0, lensZ, 'gold');
+  cyl(head, radius * .83, radius * .83, .055, 0, 0, lensZ + .025, 'crystal', 12).rotation.x = Math.PI / 2;
+  muzzle.position.set(0, 0, lensZ + .08);
+  if (level >= 2) for (const x of [-.44, .44]) box(head, .13, .35, .8, x, 0, -.15, 'steel');
   if (level >= 3) {
-    cyl(g, .025, .025, 1.05, -.55, top + .9, -.45, 'iron', 5);
-    const flag = new THREE.Group(); flag.position.set(-.55, top + 1.12, -.45); g.add(flag);
-    box(flag, .55, .34, .035, .27, 0, 0, level === 5 ? 'gold' : 'blue'); anim.flag = flag;
+    for (const x of [-.55, .55]) {
+      beam(head, [x * .65, -.2, -.5], [x, .24, .16], .13, 'gold');
+      crystal(head, .14, 1.5, x, .31, .16);
+    }
+    ring(head, .43, .035, 0, 0, lensZ - .16, 'lightViolet');
   }
-  if (level === 5) for (const x of [-.75, .75]) {
-    crystal(g, .19, 2, x, top + .92, .45);
-    ring(g, .23, .035, x, top + .62, .45, 'gold').rotation.x = Math.PI / 2;
+  if (level >= 4) for (const z of [-.6, -.35, -.1]) box(head, .9, .065, .06, 0, -.26, z, 'gold');
+  if (level === 5) {
+    for (const x of [-.67, .67]) {
+      beam(head, [x, -.12, -.45], [x, .4, .35], .16, 'gold');
+      crystal(head, .2, 1.6, x, .51, .35);
+    }
+    ring(head, .55, .045, 0, 0, lensZ - .33, 'gold');
   }
 }
 export function towerModel(type, level) {
   if (!['arrow', 'cannon', 'magic', 'guardian'].includes(type) || !Number.isInteger(level) || level < 1 || level > 5) throw new Error('Invalid tower model');
   const g = new THREE.Group(), head = new THREE.Group(), muzzle = new THREE.Object3D(), anim = {};
   foundation(g, level, type);
-  ({ arrow: arrowTower, cannon: cannonTower, magic: magicTower, guardian: guardianTower })[type](g, head, muzzle, anim, level);
+  ({ arrow: arrowTower, cannon: cannonTower, magic: magicTower, guardian: beamTower })[type](g, head, muzzle, anim, level);
   head.name = 'aim-head'; muzzle.name = 'projectile-muzzle'; head.add(muzzle); g.add(head);
   const excludeMeshes = new Set([anim.crys, anim.gem, ...(anim.rings || [])].filter(Boolean));
   batchTowerBodies(g, { excludeMeshes, shareGeometry: shareGeo });
