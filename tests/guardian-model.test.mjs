@@ -32,6 +32,6 @@ test('soldier shared assets survive repeated spawn/dispose',()=>{
 test('guardian controls preserve existing shortcuts and expose summon-specific stats',()=>{
  assert.match(read('index.html'),/data-tool="guardian"/);
  assert.match(read('src/ui/input.js'),/\['arrow', 'cannon', 'magic', 'barricade', 'clear', 'guardian'\]/);
- assert.match(read('src/ui/hud.js'),/활동 범위/);assert.match(read('src/ui/hud.js'),/대공 불가/);
+ assert.match(read('src/ui/hud.js'),/병사 탐지 범위/);assert.match(read('src/ui/hud.js'),/대공 불가/);
  assert.match(read('src/ui/lab.js'),/guardian: '#73d9bf'/);
 });
