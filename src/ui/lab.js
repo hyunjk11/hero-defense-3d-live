@@ -47,7 +47,7 @@ export function renderLab() {
   setH($('labMats'), `<span>🔮 영혼석 <b>${s.souls}</b></span><span>${MATN.steel} <b>${s.mat.steel}</b></span><span>${MATN.crystal} <b>${s.mat.crystal}</b></span>`);
   $('labTabs').querySelectorAll('.ftab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
   const m = GR.resMods(s.research, tab);
-  setH($('labSum'), `<b>${TOWERS[tab].n}</b> 현재 연구 효과: 피해 <b>+${pct(m.dmg - 1)}%</b> · ${tab === 'guardian' ? '수호 범위' : '사거리'} <b>+${pct(m.rng - 1)}%</b> · 공격속도 <b>+${pct(m.rate - 1)}%</b> · 강화 비용 <b>-${pct(m.discount)}%</b>`);
+  setH($('labSum'), `<b>${TOWERS[tab].n}</b> 현재 연구 효과: 피해 <b>+${pct(m.dmg - 1)}%</b> · 사거리 <b>+${pct(m.rng - 1)}%</b> · 공격속도 <b>+${pct(m.rate - 1)}%</b> · 강화 비용 <b>-${pct(m.discount)}%</b>${tab === 'guardian' ? '<br><small>기존 수호탑 연구 계승</small>' : ''}`);
   { const h = Sh.usableHero(s.hero), A = AD.advOf(h, s.adv[h]), on = !!(A && A.tower && (A.tower[tab] || A.tower.bar)); $('labAdv').classList.toggle('hidden', !on); // 전직 보너스 (출정 영웅의 분기만, 연구와 곱)
     if (on) setH($('labAdv'), `⚜ 전직 보너스 · ${A.icon} ${A.n}: <b>${A.td}</b>`); }
   $('labBody').querySelectorAll('.labRow').forEach(row => { const k = row.dataset.k, R = GR.RES[k], lv = r[k], max = lv >= R.max, why = GR.resBlock(s, tab, k), c = GR.resCost(k, lv);
