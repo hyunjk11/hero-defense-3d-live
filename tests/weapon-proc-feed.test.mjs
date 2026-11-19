@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {fixture} from './support/advance-e-runtime.mjs';
 import {LSK,legendOf} from '../src/account/equip.js';
+import {HERO_E} from '../src/data/hero-e.js';
 import {createWeaponFeed} from '../src/ui/weapon-proc-feed.js';
 const heroSetup=(cls,key)=>{
   const f=fixture(cls,null,1), it={id:'fixture_weapon',s:'weapon',g:4,h:cls,u:key};
@@ -41,9 +42,16 @@ test('party owners remain distinct; repeated procs coalesce; timed, map and rost
  const heroes=['루나','로즈','세라'].map(nm=>({C:{nm}})),g={phase:'wave',hero:heroes[0],heroes,tiles:[]};
  const record=(h,s,t)=>feed.record(root,g,heroes[h],LSK[s],t);
  record(0,'frostorb',10);record(1,'rosebarrage',20);record(1,'rosebarrage',1000);
- assert.deepEqual(els.map(e=>e.textContent),['루나 · 무기 발동: 프로즌 오브','로즈 · 무기 발동: 장미 쐐기 ×2']);
+ assert.deepEqual(els.map(e=>e.textContent),['루나 · 무기 발동: 프로즌 오브','로즈 · 무기 발동: 장미 탄막 ×2']);
  record(2,'quake',1100);assert.equal(els.length,2);g.hero=heroes[1];feed.refresh(g,3201);
- assert.deepEqual(els.map(e=>e.textContent),['세라 · 무기 발동: 검기 파열']);
+ assert.deepEqual(els.map(e=>e.textContent),['세라 · 무기 발동: 천지파열무']);
  g.tiles=[];feed.refresh(g,3210);assert.equal(els.length,0);
  record(1,'ricochet',4000);g.heroes=[];g.hero=null;feed.refresh(g,4001);assert.equal(els.length,0);
+});
+
+test('equipped weapon and battle proc use the original skill name without inheriting active mechanics',()=>{
+ for(const [key,active] of Object.entries(HERO_E)){
+  const f=heroSetup(active.h,key),proc=LSK[f.hero.lsk];assert.equal(proc.n,active.n);assert.equal(proc.type,'proc');assert.equal(proc.cd,undefined);
+  f.api.legendProc(f.target());assert.equal(f.rows[0].textContent,'테스트 · 무기 발동: '+active.n);
+ }
 });

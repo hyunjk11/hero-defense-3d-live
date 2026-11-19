@@ -1,6 +1,7 @@
 // 장비 시스템 (순수 로직, DOM·네트워크 없음 → node 테스트 가능)
 import { DEFAULT_HERO, isHidden } from '../data/heroes.js';
 import { CHSET, chOdds, CH_KEYS } from '../data/items.js';
+import { HERO_E } from '../data/hero-e.js';
 import { BOSS_SETS } from '../data/boss-sets.js';
 export const setOf = it => it && !it.uq ? BOSS_SETS[it.set] || CHSET[it.c] || null : null;
 import { unpackItem } from './storpack.js';
@@ -33,17 +34,17 @@ export const GEAR_NAMES = {
 
 export const LSK = {
   multishot: { h: 'archer', type: 'proc', n: '멀티샷', chance: .25, icd: 1.2, mul: .6, d: '공격 시 25% 확률로 화살 5발을 부채꼴로 발사 (각 60% 피해)' },
-  pierce: { h: 'archer', type: 'proc', n: '은빛 추격', chance: .2, icd: 1.8, mul: 1.6, max: 1, color: 0xffdf85, d: '기본 공격 시 20% 확률로 대상에게 추가 160% 피해 · 1명 · 내부 쿨타임 1.8초' },
+  pierce: { h: 'archer', type: 'proc', n: HERO_E.pierce.n, chance: .2, icd: 1.8, mul: 1.6, max: 1, color: 0xffdf85, d: '기본 공격 시 20% 확률로 대상에게 추가 160% 피해 · 1명 · 내부 쿨타임 1.8초' },
   frostorb: { h: 'mage', type: 'proc', n: '프로즌 오브', chance: .15, icd: 3, mul: .35, d: '공격 시 15% 확률로 느리게 나아가는 얼음 구체 소환 — 주변 적 피해·50% 둔화, 끝에서 폭발해 빙결' },
-  meteorstorm: { h: 'mage', type: 'proc', n: '비전 파동', chance: .18, icd: 2.5, mul: 1.3, radius: 2.4, max: 3, color: 0xc798ff, d: '기본 공격 시 18% 확률로 대상 중심 반경 2.4의 적 최대 3명에게 130% 피해 (비행 포함) · 내부 쿨타임 2.5초' },
+  meteorstorm: { h: 'mage', type: 'proc', n: HERO_E.meteorstorm.n, chance: .18, icd: 2.5, mul: 1.3, radius: 2.4, max: 3, color: 0xc798ff, d: '기본 공격 시 18% 확률로 대상 중심 반경 2.4의 적 최대 3명에게 130% 피해 (비행 포함) · 내부 쿨타임 2.5초' },
   boomerang: { h: 'warrior', type: 'proc', n: '회선대검', chance: .2, icd: 2, mul: .9, d: '공격 시 20% 확률로 대검을 회전시켜 던짐 — 갈 때와 돌아올 때 모두 타격 (각 90% 피해)' },
-  quake: { h: 'warrior', type: 'proc', n: '검기 파열', chance: .2, icd: 2, mul: 1.4, radius: 2.2, max: 3, ground: true, color: 0xffb56a, d: '기본 공격 시 20% 확률로 대상 중심 반경 2.2의 지상 적 최대 3명에게 140% 피해 · 내부 쿨타임 2초' },
+  quake: { h: 'warrior', type: 'proc', n: HERO_E.quake.n, chance: .2, icd: 2, mul: 1.4, radius: 2.2, max: 3, ground: true, color: 0xffb56a, d: '기본 공격 시 20% 확률로 대상 중심 반경 2.2의 지상 적 최대 3명에게 140% 피해 · 내부 쿨타임 2초' },
   ricochet: { h: 'gunner', type: 'proc', n: '도탄 난사', chance: .22, icd: .8, mul: .7, d: '공격 시 22% 확률로 탄환이 주변 적 최대 4명에게 차례로 튕김 (각 70% 피해)' },
-  rosebarrage: { h: 'gunner', type: 'proc', n: '장미 쐐기', chance: .2, icd: 1.5, mul: .9, max: 1, slow: .4, slowTime: 1, color: 0xff7ea9, d: '기본 공격 시 20% 확률로 대상에게 추가 90% 피해와 1초간 40% 둔화 · 1명 · 내부 쿨타임 1.5초' },
+  rosebarrage: { h: 'gunner', type: 'proc', n: HERO_E.rosebarrage.n, chance: .2, icd: 1.5, mul: .9, max: 1, slow: .4, slowTime: 1, color: 0xff7ea9, d: '기본 공격 시 20% 확률로 대상에게 추가 90% 피해와 1초간 40% 둔화 · 1명 · 내부 쿨타임 1.5초' },
   overdrill: { h: 'mechanic', type: 'proc', n: '과부하 드릴', chance: .2, icd: 1.6, mul: .45, d: '공격 시 20% 확률로 드릴이 과열 — 앞쪽 부채꼴을 6번 연속 갈아버림 (각 45% 피해) + 40% 둔화' },
-  gigahammer: { h: 'mechanic', type: 'proc', n: '충격 너트', chance: .2, icd: 2, mul: 1.4, max: 1, slow: .3, slowTime: 1, color: 0x9ce876, d: '기본 공격 시 20% 확률로 대상에게 추가 140% 피해와 1초간 30% 둔화 · 1명 · 내부 쿨타임 2초' },
+  gigahammer: { h: 'mechanic', type: 'proc', n: HERO_E.gigahammer.n, chance: .2, icd: 2, mul: 1.4, max: 1, slow: .3, slowTime: 1, color: 0x9ce876, d: '기본 공격 시 20% 확률로 대상에게 추가 140% 피해와 1초간 30% 둔화 · 1명 · 내부 쿨타임 2초' },
   pawstorm: { h: 'fighter', type: 'proc', n: '냥냥 난타', chance: .2, icd: 1.5, mul: .45, hits: 6, d: '기본 공격 적중 시 20% 확률로 6연타 (각 45%) — 근접: 전방 지상 부채꼴 / 장풍: 적중 방향으로 발 기탄 6발(비행 포함·발당 1명·사거리 10). 장풍 1회당 판정 1회 · 내부 쿨타임 1.5초' },
-  tigerdash: { h: 'fighter', type: 'proc', n: '맹호 잔영', chance: .2, icd: 1.8, mul: 1.2, radius: 1.8, max: 2, color: 0xffcd8b, d: '기본 공격 적중 시 20% 확률로 대상과 반경 1.8의 적 최대 2명에게 120% 피해 · 근접은 지상, 장풍은 비행 포함 · 장풍 1회당 판정 1회 · 내부 쿨타임 1.8초' },
+  tigerdash: { h: 'fighter', type: 'proc', n: HERO_E.tigerdash.n, chance: .2, icd: 1.8, mul: 1.2, radius: 1.8, max: 2, color: 0xffcd8b, d: '기본 공격 적중 시 20% 확률로 대상과 반경 1.8의 적 최대 2명에게 120% 피해 · 근접은 지상, 장풍은 비행 포함 · 장풍 1회당 판정 1회 · 내부 쿨타임 1.8초' },
 };
 export const LPOOL = { archer: ['multishot', 'pierce'], mage: ['frostorb', 'meteorstorm'], warrior: ['boomerang', 'quake'], gunner: ['ricochet', 'rosebarrage'], mechanic: ['overdrill', 'gigahammer'], fighter: ['pawstorm', 'tigerdash'] };
 const hashId = id => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };

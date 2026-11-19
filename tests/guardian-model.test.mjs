@@ -14,8 +14,8 @@ test('beam tower has five bounded distinct models',()=>{
 test('beam controls preserve existing shortcuts and expose sustained DPS',()=>{
  assert.match(read('index.html'),/data-tool="guardian"/);
  assert.match(read('src/ui/input.js'),/\['arrow', 'cannon', 'magic', 'barricade', 'clear', 'guardian'\]/);
- assert.match(read('src/ui/hud.js'),/초당 피해/);assert.match(read('src/ui/hud.js'),/지상·공중 공격/);
- assert.match(read('src/ui/lab.js'),/guardian: '#73d9bf'/);assert.doesNotMatch(read('src/ui/lab.js'),/기존 수호탑 연구 계승/);assert.doesNotMatch(read('src/ui/hud.js'),/재소환|병사 탐지 범위/);assert.match(read('src/ui/help.js'),/최대 예열/);
+ assert.match(read('src/ui/hud.js'),/초당 피해/);
+ assert.match(read('src/ui/lab.js'),/guardian: '#73d9bf'/);assert.doesNotMatch(read('src/ui/lab.js'),/기존 수호탑 연구 계승/);assert.doesNotMatch(read('src/ui/hud.js'),/재소환|병사 탐지 범위/);assert.doesNotMatch(read('src/ui/help.js'),/최대 예열/);
 });
 
 const beam=vm.createContext({THREE,...ctx.api,scene:ctx.scene});vm.runInContext(clean(read('src/render/beam.js'))+';this.api={createBeamVisual,drawBeam,disposeBeamVisual};',beam);
@@ -23,6 +23,19 @@ test('continuous beam reuses geometry, grows visibly and frees owned materials',
 
 test('50 actual beam lifetimes dispose materials without destroying shared buffers',()=>{let freed=0,geoFreed=0;const before=ctx.scene.children.length;for(let i=0;i<50;i++){const v=beam.api.createBeamVisual();for(const mesh of [v.halo,v.core,v.tip])mesh.material.addEventListener('dispose',()=>freed++);if(i===0)v.core.geometry.addEventListener('dispose',()=>geoFreed++);beam.api.drawBeam(v,new THREE.Vector3(),new THREE.Vector3(3,1,5),{heat:2});beam.api.disposeBeamVisual(v);}assert.equal(freed,150);assert.equal(geoFreed,0);assert.equal(ctx.scene.children.length,before);});
 
-test('beam HUD separates sweep contact DPS from focused warmup',()=>{
- const hud=read('src/ui/hud.js');assert.match(hud,/s\.B\?\.beamSweep/);assert.match(hud,/광선 접촉 중 초당 피해/);assert.match(hud,/예열 없음 · 편도 2\.4초/);assert.match(hud,/s\.B\.beamReturn/);assert.match(hud,/재조준 0\.45초/);assert.match(read('src/ui/help.js'),/기본·집광:/);assert.match(read('src/ui/help.js'),/절단: 예열 없이 횡스윕/);
+test('beam HUD shows cold-to-hot DPS and range, without operation instructions',()=>{
+ const hud=read('src/ui/hud.js');assert.match(hud,/초당 피해 .* → .*beamMaxHeat.*사거리/);assert.doesNotMatch(hud,/재조준 0.45초|목표 변경 시 초기화/);assert.match(read('src/ui/help.js'),/\['6', '광선탑'\]/);
+});
+
+test('heat smoothly changes the visible core, halo and tip to red on both branches',()=>{
+ for(const color of [0x72e4ff,0xc18bff]){
+  const v=beam.api.createBeamVisual(),from=new THREE.Vector3(),to=new THREE.Vector3(0,0,4);
+  for(const charge of [0,.25,.5,.75,1]){
+   beam.api.drawBeam(v,from,to,{charge,color});
+   assert.equal(v.core.material.blending,THREE.NormalBlending);assert.equal(v.halo.material.blending,THREE.AdditiveBlending);
+   const expected=new THREE.Color(color).lerp(new THREE.Color(0xff2312),charge);
+   for(const mesh of [v.halo,v.core,v.tip])assert.equal(mesh.material.color.getHex(),expected.getHex());
+  }
+  beam.api.disposeBeamVisual(v);
+ }
 });

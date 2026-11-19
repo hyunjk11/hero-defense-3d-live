@@ -6,7 +6,7 @@ import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
 import { rnd } from '../core/util.js';
 import { tileX, tileZ } from '../core/grid.js';
-import { TOWERS, REPAIR_K } from '../data/towers.js';
+import { towerAvailable, TOWERS, REPAIR_K } from '../data/towers.js';
 import { G } from '../core/state.js';
 import { scene } from '../render/scene.js';
 import { glow, mk, toon, disposeOwned } from '../render/toon.js';
@@ -26,6 +26,7 @@ import { Q } from '../render/quality.js';
 import { towerCdStep } from '../combat/towerstatus.js';
 
 function placeTower(t, type) {
+  if(!towerAvailable(type,G))return null;
   const D = TOWERS[type], tw = { kind: 'tower', type, lvl: 1, t, c: t.c, r: t.r, cd: .5, invest: D.cost, pop: 0, recoil: 0 };
   tw.max = tw.hp = D.hp[0]; tw.hitT = 0; tw.fxT = 0; tw.anchor = new THREE.Object3D(); tw.anchor.position.set(tileX(t.c), 0, tileZ(t.r)); scene.add(tw.anchor);
   tw.hb = hpBar(tw.anchor, 3.6, 1.6, 0x55ff77, { auto: true, h: .17 });

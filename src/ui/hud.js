@@ -6,7 +6,7 @@ import { healK } from '../data/spire.js';
 import { eDescription } from '../data/hero-e.js';
 import { $ } from '../core/util.js';
 import { UPS } from '../data/heroes.js';
-import { TOWERS, BARRICADE, barHpAt } from '../data/towers.js';
+import { towerAvailable, TOWERS, BARRICADE, barHpAt } from '../data/towers.js';
 import { upPreview } from './stats.js';
 import { repairCost } from '../world/towers.js';
 import { G } from '../core/state.js';
@@ -43,7 +43,7 @@ function refreshHud() {
   document.querySelectorAll('.up').forEach(b => { const k = b.dataset.up, c = upCost(k); b.classList.toggle('hidden', k === 'focus' ? !G.growthEnabled || !!G.dungeon : !!G.growthEnabled && k !== 'bar'); if (k === 'focus') { const n = G.focus || 0; b.textContent = `전투 집중 ${n}/${FOCUS_MAX} · ${n >= FOCUS_MAX ? 'MAX' : c + 'G'}`; b.title = '단계당 공격 +4% · 공속 +2% · 스킬 계수 +4% · 쿨 ×0.98 (회복 없음)'; b.disabled = n >= FOCUS_MAX || G.gold < c || G.paused || G.navigating || !['build', 'wave'].includes(G.phase); return; } const h = `<span class="row"><span>${UPS[k].n} Lv.${G.ups[k]}</span><small>${c}G</small></span>${k === 'bar' ? '' : `<span class="desc">${UPS[k].d}</span>`}`; if (b._h !== h) { b._h = h; b.innerHTML = h; if (k === 'bar') b.setAttribute('aria-label', `${UPS[k].n} Lv.${G.ups[k]}, ${c}골드, ${UPS[k].d}`); }
     const tt = k === 'bar' ? `바리케이드 체력 ${Math.round(barHpAt(G.ups.bar, (G.advBar || 1) * (G.barRes || 1)))} → ${Math.round(barHpAt(G.ups.bar + 1, (G.advBar || 1) * (G.barRes || 1)))}` : upPreview(G.hero, k); if (b._tt !== tt) { b._tt = tt; b.title = tt ? `${UPS[k].n}: ${tt}` : ''; b.dataset.nx = tt; } /* Q-7: 지금 → 다음 (툴팁 · data-nx) */
     const dis = G.gold < c; if (b.disabled !== dis) b.disabled = dis; }); // 바뀔 때만 다시 그림 (매 프레임 innerHTML 교체 → 클릭 씹힘 방지)
-  document.querySelectorAll('.tool').forEach(b => { const T2 = TOWERS[b.dataset.tool]; if (T2) b.disabled = G.gold < T2.cost; if (b.dataset.tool === 'barricade') b.disabled = G.gold < BARRICADE.cost; });
+  document.querySelectorAll('.tool').forEach(b => { const T2 = TOWERS[b.dataset.tool]; if (T2) b.disabled = !towerAvailable(b.dataset.tool,G) || G.gold < T2.cost; if (b.dataset.tool === 'barricade') b.disabled = G.gold < BARRICADE.cost; });
   const allRepair = $('repairAllBtn');
   if (allRepair) {
     const costs = G.towers.map(repairCost).filter(c => c > 0), total = costs.reduce((a, b) => a + b, 0);
@@ -59,7 +59,7 @@ function refreshHud() {
     $('tName').textContent = `${D.n} Lv.${s.lvl}/${MAX_TOWER_LEVEL}${Bn ? ' · ' + Bn.n : ''}`;
     const stars = starsFor(s.xp || 0), cap = XP_NEED[stars] || XP_NEED[2], lo = XP_NEED[stars - 1];
     const ratio = stars >= 3 ? 1 : Math.max(0, Math.min(1, ((s.xp || 0) - lo) / (cap - lo)));
-    $('tStats').innerHTML = `<span class="tstar">${'★'.repeat(stars)}<i>${'☆'.repeat(3-stars)}</i></span> XP ${Math.floor(s.xp || 0)}/${cap}<div class="txp"><b style="width:${ratio*100}%"></b></div>${s.type === 'guardian' ? `${s.B?.beamSweep ? `광선 접촉 중 초당 피해 ${r2(S.dmg * S.rate)}<br>예열 없음 · 편도 2.4초${s.B.beamReturn ? ' · 왕복 광선' : ' · 재조준 0.45초'}` : `초당 피해 ${r2(S.dmg * S.rate)} → ${r2(S.dmg * S.rate * S.beamMaxHeat)}<br>최대 예열 ${r2(S.beamWarmup)}초 · 목표 변경 시 초기화`}<br>사거리 ${r2(S.range)} · 지상·공중 공격` : `피해 ${r2(S.dmg)} · ${r2(S.rate)}/초<br>사거리 ${r2(S.range)}${S.splash ? ' · 폭발 ' + r2(S.splash) : ''}${S.chain ? ' · 연쇄 ' + S.chain : ''}`}`;
+    $('tStats').innerHTML = `<span class="tstar">${'★'.repeat(stars)}<i>${'☆'.repeat(3-stars)}</i></span> XP ${Math.floor(s.xp || 0)}/${cap}<div class="txp"><b style="width:${ratio*100}%"></b></div>${s.type === 'guardian' ? `초당 피해 ${r2(S.dmg * S.rate)} → ${r2(S.dmg * S.rate * S.beamMaxHeat)}<br>사거리 ${r2(S.range)}` : `피해 ${r2(S.dmg)} · ${r2(S.rate)}/초<br>사거리 ${r2(S.range)}${S.splash ? ' · 폭발 ' + r2(S.splash) : ''}${S.chain ? ' · 연쇄 ' + S.chain : ''}`}`;
     const u = $('tUp'), c = upgradeCost(s.type, s.lvl, s.mods), why = upgradeBlock(s, G.gold);
     u.textContent = s.lvl >= MAX_TOWER_LEVEL ? 'MAX' : `Lv.${s.lvl + 1} · ${c}G`; u.disabled = !!why;
     u.title = ''; delete u.dataset.nx;

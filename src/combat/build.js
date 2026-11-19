@@ -1,7 +1,7 @@
 // 건설 규칙 (C-11: ui/input.js 에서 분리 — 동작 불변). 도구 비용·불가 사유·경로 차단 검사
 import { GH, SPAWNS, T, inGrid, isBlock, toTile } from '../core/grid.js';
 import { BLK } from '../data/terrain.js';
-import { TOWERS, BARRICADE } from '../data/towers.js';
+import { towerAvailable, TOWERS, BARRICADE } from '../data/towers.js';
 import { G } from '../core/state.js';
 import { tileAt } from '../world/terrain.js';
 import { dijkstra } from '../world/pathfinding.js';
@@ -28,7 +28,7 @@ export function buildReason(c, r) {
   return '도구 없음';
 }
 export function canBuild(c, r) {
-  if (!inGrid(c, r)) return false; const t = tileAt(c, r), tool = G.tool;
+  if (!towerAvailable(G.tool,G)||!inGrid(c, r)) return false; const t = tileAt(c, r), tool = G.tool;
   if (TOWERS[tool]) { if (t.t !== T.GRASS || t.tower || t.bar || G.gold < TOWERS[tool].cost || occupied(c, r)) return false; const D = dijkstra(t); return SPAWNS.every(s => isFinite(D[s[0] * GH + s[1]])); }
   if (tool === 'barricade') return (t.t === T.CARVED || t.t === T.GRASS) && !t.tower && !t.bar && G.gold >= BARRICADE.cost && !occupied(c, r);
   if (tool === 'clear') return isBlock(t.t) && G.gold >= clearCost(t);

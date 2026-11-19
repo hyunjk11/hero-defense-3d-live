@@ -14,8 +14,8 @@ export const BRANCH = {
     pierce: { n: '단일 관통', icon: '➶', c: '#9ad8ff', d: '관통 철갑탄: 사거리 끝까지 직선 위 모든 지상 적 관통 · 피해 ×2 · 방어력 무시 · 폭발 없음', dmg: 2, pierce: true, pierceArmor: true },
   },
   guardian: {
-    guardian_bulwark: { n: '집광', icon: '☀', c: '#8edbff', d: '집중 광선 피해 +20%', dmg: 1.2, beamFocus: true, maxHeat: 3.05 },
-    guardian_assault: { n: '절단', icon: '✦', c: '#ffba77', d: '휩쓰는 광선 · 접촉 피해 200%', dmg: 2, beamSweep: true },
+    guardian_bulwark: { n: '집광', icon: '☀', c: '#8edbff', d: '집중 광선 피해 +20%', dmg: 1.2, beamFocus: true, maxHeat: 5.6 },
+    guardian_assault: { n: '절단', icon: '✦', c: '#ffba77', d: '휩쓰는 광선 · 접촉 피해 200%', dmg: 2, beamSweep: true, maxHeat: 2.2 },
   },
   magic: {
     storm: { n: '폭풍 연쇄', icon: '⚡', c: '#c8a0ff', d: '연쇄 +4 · 연쇄 감쇠 15%→5% · 연쇄 거리 3.8→5.5', chainAdd: 4, falloff: .95, hop: 5.5 },

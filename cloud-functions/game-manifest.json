@@ -22,7 +22,7 @@
   "src/account/direct-spire-start.js": "9f6bfe5da50eb51155084cd9d345aa2ddaa2a64c62354f4ac8eb0556a4ef7ccf",
   "src/account/direct-town.js": "f4dd5979acf3a0c1b471b0e40b155e28a320f96ea7f507ce727e672d98a3112d",
   "src/account/dungeon-local.js": "4f4e20beb708912fcf064c86d538c1ce0a555bd8af1036d3b77b590cfdb71f37",
-  "src/account/equip.js": "13dfa231fd2ace37adf8c17685095101353ee1822c4a1bd6f5996d1a9abf82bf",
+  "src/account/equip.js": "5bdfea69c9fb56d7354a8b260869478364484ae5d5269d4c2bc9619981c78856",
   "src/account/loadouts.js": "81865375f73746da3de95f86f2e7755d054976e3c5a72d8cbcacdbaf58bedde6",
   "src/account/progress.js": "293d152ca54bf8e688f2a817f56044b1824a4769251bd92c98f237739c3fc342",
   "src/account/rewarditems.js": "788511cc9dda9438124390866d88d0baeb824fd286fe1f91a09e27a533432db8",
@@ -47,7 +47,7 @@
   "src/data/chapters/machine.js": "b3f4382ae8a67f6eeba6055a75f78faec17c39a9c6ac219f4f8d8fac96de19b0",
   "src/data/chapters/storm.js": "a2a5abad84c59e5b12387d33b0eec9abddcda550421bfeb684aca600822db4e3",
   "src/data/chapters/swamp.js": "b3b2d70414b23cc957d76a7e4119c53c7664e19ee8fe99fce0952a255a529feb",
-  "src/data/growth.js": "e00c7d12d345a0df9d4bcfe40bc941d4858bf50927faa8453ca7306cdb994c9d",
+  "src/data/growth.js": "945f3ebc4a4ed0782bc99f440f1a66d53b70353ec171175aa30080bb6418c95c",
   "src/data/hard-collection.js": "09fdf35a5034586bf2a23dae0931441fbbe3f1de7607c9c69098c201e429a0ac",
   "src/data/hard-party.js": "44bc23be3fdc4f8ab93aa19fbfd9286f97a024d27e09236b3654b3bde1fa9dd6",
   "src/data/hard.js": "f59f0b8b9c0bab41a909f83021e428d341bb59f196bf809faedafd4098df9ee7",
@@ -59,5 +59,5 @@
   "src/data/repeat-target.js": "e0f63bfa3eeaaeda0922862730279e48b030a050eadc1f1e710da993332534f8",
   "src/data/skill-tree.js": "544868e93d3ce4eaa60b24117e8c82ca09ff644a71d882ac9c6bf7a31acce7ad",
   "src/data/stages.js": "96f2aa6a06145dacdaa064f62fce8cfb6726cec21d29572467ed61c01f3cf772",
-  "src/data/towers.js": "085d77b0755854b5a7c004992cbfcdf46fc902e018d8888e39d7dcda55bd2443"
+  "src/data/towers.js": "b4f4b60a6ad7ffe442c30b737e9857f89b3cb19d4c9b2c1d6d8eb468b3e6f122"
 }

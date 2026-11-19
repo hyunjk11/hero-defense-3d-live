@@ -7,7 +7,7 @@ import { typing } from './keys.js';
 import { T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
 import { BLK, TNAME } from '../data/terrain.js';
 import { UPS, UP_GROWTH } from '../data/heroes.js';
-import { TOWERS, BARRICADE } from '../data/towers.js';
+import { towerAvailable, TOWERS, BARRICADE } from '../data/towers.js';
 import { G } from '../core/state.js';
 import { cam, camera, renderer, scene } from '../render/scene.js';
 import { SFX } from '../audio/sfx.js';
@@ -86,7 +86,7 @@ function previewTip(t, why) { const tool = G.tool, cost = toolCost(t), name = TO
   if (TOWERS[tool]) s += `<br>사거리 ${TOWERS[tool].range[0]} · 피해 ${TOWERS[tool].dmg[0]}`;
   return s + `<br>${why ? `<span class="bad">✖ ${why}</span>` : `<span class="good">✔ 클릭하여 ${tool === 'clear' ? '개간' : '건설'}</span>`}`; }
 function build(c, r) {
-  if (G.dungeon) return false; // 던전 원정: 타워·바리케이드 없음
+  if (G.dungeon || !towerAvailable(G.tool,G)) return false; // 던전 원정: 타워·바리케이드 없음
   if (!canBuild(c, r)) { Snd.play('error'); const why = buildReason(c, r); if (why) banner(why === '경로 차단' ? '경로 차단: 길을 완전히 막을 수 없습니다' : why, '#ff8a9a', 900); return false; }
   const t = tileAt(c, r), p = new THREE.Vector3(tileX(c), .5, tileZ(r));
   if (TOWERS[G.tool]) { G.gold -= TOWERS[G.tool].cost; placeTower(t, G.tool); emit(P, p.x, .5, p.z, 30, 0xffe066, 5, .6, -6, 2); debris(p.x, .3, p.z, 8, [0xe0dacb, 0x9e98ae], 4); ringFx(p, 2, 0xffe066, .4); }
@@ -94,7 +94,7 @@ function build(c, r) {
   else if (G.tool === 'clear') { const B = BLK[t.t]; G.gold -= clearCost(t); t.wall = false; debris(p.x, .8, p.z, 16, B.deb, 6); emit(P, p.x, .8, p.z, 24, 0x8ad05a, 4, .7); t.t = T.GRASS; t.hp = t.max = 0; refreshTile(t); }
   if (!TOWERS[G.tool]) Snd.play(G.tool === 'barricade' ? 'build' : 'breakDirt', { pos: { x: tileX(c), z: tileZ(r) }, force: true }); computeDist(); refreshHud(); return true;
 }
-function setTool(t) { if (G.dungeon) t = 'move'; /* 던전 원정: 건설 없음 */ if (G.tool !== t) Snd.play('ui'); G.tool = t; const mi = $('modeInd');
+function setTool(t) { if(!towerAvailable(t,G))return false; if (G.dungeon) t = 'move'; /* 던전 원정: 건설 없음 */ if (G.tool !== t) Snd.play('ui'); G.tool = t; const mi = $('modeInd');
   if (mi) { mi.classList.toggle('hidden', t === 'move'); mi.classList.toggle('clear', t === 'clear'); if (t !== 'move') mi.innerHTML = `${t === 'clear' ? '⛏ 개간 모드' : t === 'barricade' ? '🧱 바리케이드 설치' : '🏰 건설 모드: ' + TOWERS[t].n} <small>Esc / 우클릭: 취소</small>`; }
   if (t === 'move') { hidePreview(); rangeRing.visible = false; } document.querySelectorAll('.tool').forEach(b => b.classList.toggle('sel', b.dataset.tool === t)); if (t !== 'move') select(null); }
 document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.tool));
