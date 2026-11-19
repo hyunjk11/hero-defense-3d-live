@@ -1,3 +1,4 @@
+import {createWeaponFeed} from '../../src/ui/weapon-proc-feed.js';
 import {createHellfireBurn} from '../../src/data/hellfire-burn.js';
 import {abyssalStrike} from '../../src/data/abyssal-set.js';
 import {ABYSSAL_PROC} from '../../src/data/boss-sets.js';
@@ -31,11 +32,12 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
   const cats=vm.createContext({THREE});vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/cat-spirit.js',import.meta.url),'utf8'))+';this.api={createCatSpirit,animateCatSpirit};',cats);
   const adv=vm.createContext({createHellfireBurn,createSkillCues,THREE,G,hero,scene,catFlight,stepCatFlight,...cats.api,disposeOwned:toon.dispose,groundY:()=>0,hurt:env.hurt0,grantEShield,stat:env.stat,play:env.play,Snd:env.Snd,banner:no,knock:(e,x,z,d)=>{e.knock=d;}});
   vm.runInContext(strip(advanceSource??fs.readFileSync(new URL('../../src/heroes/advance-e.js',import.meta.url),'utf8'))+';this.cast=castAdvanceE;this.cues=typeof skillCues===\'undefined\'?null:skillCues;',adv);env.castAdvanceE=adv.cast;
-  const lf=vm.createContext({createSkillCues,scene,G,groundY:()=>0,Snd:env.Snd});
+  const feed=createWeaponFeed(),rows=[],root={ownerDocument:{createElement:()=>({remove(){const i=rows.indexOf(this);if(i>=0)rows.splice(i,1);}})},appendChild:n=>rows.push(n)};
+  const lf=vm.createContext({weaponProcFeed:feed,document:{getElementById:()=>root},performance:{now:()=>G.t*1000},createSkillCues,scene,G,groundY:()=>0,Snd:env.Snd});
   vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/legend-feedback.js',import.meta.url),'utf8'))+';this.feedback=legendFeedback;this.pool=pool;',lf);env.legendFeedback=lf.feedback;
   const path=new URL('../../src/heroes/legend.js',import.meta.url);
   vm.runInContext(strip(legendSource??fs.readFileSync(path,'utf8'))+'\nthis.api={legendProc,legendActive,legendCd,castLegend,updLegend,updLegendHero,updLeap};',env);
   const target=(x=0,z=2,extra={})=>{const e={id:G.enemies.length,g:new THREE.Group(),E:{armor:0,...extra},hp:10000,max:10000,stunT:0,slowT:0,dead:false};e.g.position.set(x,0,z);G.enemies.push(e);return e;};
   const tick=(seconds,dt=.01)=>{for(let i=0;i<Math.ceil(seconds/dt);i++){G.t+=dt;for(let j=timers.length-1;j>=0;j--){timers[j].time-=dt;if(timers[j].time<=0){const t=timers.splice(j,1)[0];t.f();}}env.api.updLegend(dt);if(hero.leap)env.api.updLeap(dt);}};
-  return {legendCues:lf.pool,cues:adv.cues,G,hero,scene,hits,env,casts,timers,FX,api:env.api,target,tick,THREE};
+  return {feed,rows,legendCues:lf.pool,cues:adv.cues,G,hero,scene,hits,env,casts,timers,FX,api:env.api,target,tick,THREE};
 }

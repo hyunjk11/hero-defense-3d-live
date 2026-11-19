@@ -1053,3 +1053,26 @@ body.practiceRun #top,body.practiceRun #hardPartyBar{display:none!important}
 .loadoutCard>footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 12px 12px}.loadoutCard .gbtn{min-width:0;min-height:44px;padding:8px 6px;font-size:12px;letter-spacing:.4px;border-radius:8px}.loadoutCard .loadoutApply{background:linear-gradient(#80632c,#493316);border-color:#d4b26c;color:#fff1bf;box-shadow:none}.loadoutCard .gbtn:disabled{opacity:1;background:#211c2b;border-color:#514754;color:#817588;box-shadow:none}
 .loadoutRules{border-top:1px solid #b39b6533;padding-top:9px;color:#ad9fc1;font-size:11px}.loadoutRules summary{cursor:pointer;color:#c9b88a;min-height:26px;line-height:26px}.loadoutRules p{margin:5px 0 0;line-height:1.65;color:#a99cbb}
 @media(max-width:520px){#invPanel.presetMode{padding:14px 12px}.presetMode #invHead{font-size:18px}.loadoutView{gap:10px}.loadoutCurrent{gap:8px;padding:10px;grid-template-columns:minmax(0,1fr) 14px minmax(0,1.2fr)}.loadoutMain>strong{font-size:13px}.loadoutGrid{grid-template-columns:1fr;gap:10px}.loadoutCardBody{min-height:74px;padding:10px 12px}.loadoutCard>header{padding:9px 12px}.loadoutIntro{font-size:11px}}
+
+/* Reserve a lane for the camera controls rather than covering status or party buttons. */
+#camTop button{touch-action:manipulation}
+#camTop button:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+@media(min-width:601px) and (max-width:1100px){
+ #hud #top{left:8px;transform:none;max-width:calc(100% - 218px - env(safe-area-inset-right))}
+}
+@media(min-width:601px) and (max-width:1100px) and (pointer:coarse){
+ #hud #top{max-width:calc(100% - 286px - env(safe-area-inset-right))}
+}
+@media(max-width:420px){
+ #hud{--right-start:calc(132px + var(--boss-space))}
+ #hud:has(#hardPartyBar:not([hidden])){--right-start:calc(248px + var(--boss-space))}
+ #hardPartyBar{top:calc(132px + var(--boss-space) + env(safe-area-inset-top))}
+}
+@media(max-width:640px){body.practiceRun #hud{--right-start:216px}}
+
+/* Named weapon confirmations remain readable in performance mode, without stealing taps. */
+#weaponProcFeed{position:absolute;left:50%;top:37%;transform:translateX(-50%);display:grid;gap:3px;justify-items:center;max-width:calc(100% - 16px);z-index:var(--z-hud-top);pointer-events:none}
+#weaponProcFeed:empty{display:none}
+#weaponProcFeed>div{width:max-content;max-width:100%;box-sizing:border-box;background:#171425f2;color:#fff1bd;border:1px solid #ffda70;border-radius:6px;padding:4px 10px;font:700 clamp(13px,1.25vw,18px)/1.35 system-ui,sans-serif;text-align:center;box-shadow:0 2px 6px #0009}
+
+.settings .sndSub,#sndPanel .sndSub{padding-left:1.5em}.sndSub:has(input:disabled){opacity:.6}

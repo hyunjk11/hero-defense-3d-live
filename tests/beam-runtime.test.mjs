@@ -9,9 +9,9 @@ function harness(branch=null,lvl=1,source=null){const G={t:0,enemies:[]},hits=[]
  const enemy=(x=0,z=4,extra={})=>({hp:1e6,state:'walk',E:{h:2,...extra},g:{position:new THREE.Vector3(x,0,z)},m:{inner:{position:{y:3}}}});
  const tick=(dt,n=1,can=true)=>{for(let i=0;i<n;i++){G.t+=dt;ctx.api.updBeam(tw,dt,can);}};
  return {G,tw,enemy,tick,hits,visuals,sounds,clear:()=>ctx.api.clearBeam(tw),disposed:()=>disposed};}
-for(const hz of [10,30,60,144])test(`fixed beam DPS and warmup at ${hz} FPS`,()=>{const h=harness(),e=h.enemy();h.G.enemies=[e];h.tick(1/hz,10*hz);assert.ok(Math.abs((1e6-e.hp)-24*beamHeatIntegral(0,10))<1e-6);assert.equal(h.visuals.length,1);assert.ok(h.hits.length<=51);assert.ok(h.tw.beam.age>9.9);});
+for(const hz of [10,30,60,144])test(`fixed beam DPS and warmup at ${hz} FPS`,()=>{const h=harness(),e=h.enemy();h.G.enemies=[e];h.tick(1/hz,10*hz);assert.ok(Math.abs((1e6-e.hp)-24*beamHeatIntegral(0,10,h.tw.S.beamWarmup,h.tw.S.beamMaxHeat))<1e-6);assert.equal(h.visuals.length,1);assert.ok(h.hits.length<=51);assert.ok(h.tw.beam.age>9.9);});
 test('target switch, out of range, spawn/immune and disabled reset every accumulator',()=>{const h=harness(),a=h.enemy(),b=h.enemy(2,4);h.G.enemies=[a,b];h.tick(.1,23);assert.equal(h.tw.beam.target,a);a.dead=true;h.tick(.1);assert.equal(h.tw.beam.target,b);assert.equal(h.tw.beam.age,0);assert.ok(b.hp===1e6);h.tick(.1);assert.ok(b.hp<1e6);h.tick(.1,1,false);assert.equal(h.tw.beam.age,0);assert.equal(h.tw.beam.acc,0);assert.equal(h.tw.beam.visual.g.visible,false);b.immT=99;h.tick(.2);assert.equal(h.tw.beam.target,null);b.immT=0;b.state='spawn';h.tick(.2);assert.equal(h.tw.beam.target,null);b.state='walk';b.g.position.z=99;h.tick(.2);assert.equal(h.tw.beam.target,null);});
-test('slow applies once to damage and heating, and focus burst needs continuous four seconds',()=>{const h=harness(),e=h.enemy();h.G.enemies=[e];h.tw.frostT=100;h.tw.frostK=.5;h.tick(.1,100);assert.ok(Math.abs(1e6-e.hp-24*beamHeatIntegral(0,5))<1e-6);
+test('slow applies once to damage and heating, and focus burst needs continuous four seconds',()=>{const h=harness(),e=h.enemy();h.G.enemies=[e];h.tw.frostT=100;h.tw.frostK=.5;h.tick(.1,100);assert.ok(Math.abs(1e6-e.hp-24*beamHeatIntegral(0,5,h.tw.S.beamWarmup,h.tw.S.beamMaxHeat))<1e-6);
  const f=harness('guardian_bulwark',5),a=f.enemy();f.G.enemies=[a];f.tick(.1,39);assert.equal(f.sounds.length,0);f.tick(.1);assert.equal(f.sounds.length,1);const b=f.enemy(1,4);a.dead=true;f.G.enemies.push(b);f.tick(.1,39);assert.equal(f.sounds.length,1);});
 test('cutting beam intersects multiple ground enemies; return beam stays on during reverse',()=>{const h=harness('guardian_assault',3),a=h.enemy(0,4),b=h.enemy(.7,4);h.G.enemies=[a,b];h.tick(.1,60);assert.ok(a.hp<1e6&&b.hp<1e6);assert.equal(beamSweepAt(2.6,false).active,false);assert.equal(beamSweepAt(2.6,true).active,true);assert.ok(beamSweepAt(2.6,true).offset>beamSweepAt(3.8,true).offset);});
 test('base beam tracks flying enemies and upgraded model, releases visual on sale repeatedly',()=>{const h=harness(),e=h.enemy(0,4,{fly:true});h.G.enemies=[e];h.tick(.1,10);assert.equal(h.visuals[0].last.to.y,3);const before=e.hp;h.tw.m.head.position.y=2;h.tick(.2);assert.ok(e.hp<before);assert.ok(h.visuals[0].last.from.y>2);for(let i=0;i<50;i++){h.clear();h.tick(.2);}h.clear();assert.equal(h.disposed(),51);assert.equal(h.tw.beam,null);});
@@ -45,4 +45,25 @@ const baselineBeam=execFileSync('git',['show','dc8c3dbf:src/world/beam.js'],{enc
 for(const branch of [null,'guardian_bulwark','guardian_assault'])for(const fps of [30,60,144])test(`8s damage/charge parity ${branch??'base'} ${fps}fps`,()=>{
  const run=source=>{const h=harness(branch,5,source),e=h.enemy(0,4,{boss:true});h.G.enemies=[e];h.tick(1/fps,8*fps);return {hp:e.hp,shots:h.tw.shots,age:h.tw.beam.age,burst:h.tw.beam.burst,sounds:h.sounds.length};};
  assert.deepEqual(run(null),run(baselineBeam));
+});
+// A/B identical placement, real tower ticks/geometry, three stars on specialists.
+// Compare effective damage on fixed 20% armor, before deaths or overkill.
+test('focus pays off on long locks; sweep gains on a line without inheriting focus heat',()=>{
+ function measure(branch,mode,old){
+  const lvl=branch?5:1,stars=branch?3:1,h=harness(branch,lvl);
+  h.tw.S=towerStats('guardian',lvl,branch,null,stars);
+  if(old){h.tw.S.dmg*=(lvl===5?25/29:1);h.tw.S.beamWarmup=2.5;h.tw.S.beamMaxHeat=2.5;}
+  const targets=mode==='line'?[h.enemy(0,3),h.enemy(.2,3.6),h.enemy(-.25,3.8)]:[h.enemy(0,4,{boss:true})];h.G.enemies=targets;
+  h.tick(.05,mode==='fresh'?4:160);
+  return h.hits.reduce((sum,hit)=>sum+.8*hit.n,0);
+ }
+ const pair=(branch,mode)=>[true,false].map(old=>measure(branch,mode,old));
+ const base=pair(null,'fresh'),fresh=pair('guardian_bulwark','fresh'),focus=pair('guardian_bulwark','locked'),sweep=pair('guardian_assault','line');
+ const ratio=([a,b])=>b/a;
+ assert.ok(ratio(base)>1&&ratio(base)<1.025);
+ assert.ok(ratio(fresh)<1.23);
+ assert.ok(ratio(focus)>1.35&&ratio(focus)<1.43);
+ assert.ok(ratio(sweep)>1.15&&ratio(sweep)<1.17);
+ assert.ok(focus[1]>4384.8&&focus[1]<5167.8);
+ console.log('20% armor effective damage A/B',JSON.stringify({base,fresh,focus,sweep}));
 });

@@ -75,10 +75,11 @@ function petals(c, n, spd) { for (let i = 0; i < n; i++) { const m = new THREE.M
 
 // ---------- 전설 쌍권총 ----------
 // 도탄 난사 (proc): 탄환이 주변 적 최대 4명에게 차례로 튕김 (각 70% 피해)
-export function ricochet(t, s, N = 4, leg = true) { // 전직 장미 결투가: N=3, leg=false (전설 피해 집계 제외)
+export function ricochet(t, s, N = 4, leg = true, onFirstBounce = null) { // 전직 장미 결투가: N=3, leg=false (전설 피해 집계 제외)
   const dmg = stat.dmg() * s.mul, hit = new Set([t]); let cur = t; if (leg) G.gunN.ricochet++;
   const jump = n => { if (n >= N || cur.dead && n > 0 && !cur.g) return; const a = cur.g.position; let best = null, bd = 5.5 * 5.5;
     for (const e of alive()) { if (hit.has(e)) continue; const d = d2(e, a.x, a.z); if (d < bd) { bd = d; best = e; } } if (!best) return;
+    if (n === 0) onFirstBounce?.();
     const pa = a.clone().setY(1.2), pb = best.g.position.clone().setY(1.2); tracer(pa, pb, 0xffd0e8); tracer(pa, pb, 0xff6aa8, .22); hit.add(best); lsk = leg; hurt(best, dmg, '#ffd86a', false, { x: pa.x, z: pa.z, kind: 'ranged' }); lsk = false; if (!leg) G.advN.ricoHit = (G.advN.ricoHit || 0) + 1;
     emit(P, pb.x, pb.y, pb.z, 10, 0xffe0a0, 4, .3); emit(P, pa.x, pa.y, pa.z, 4, 0xfff0c0, 3, .2); Snd.gun(pb, { rate: 1.6 + n * .12, vol: .45, ping: true }); cur = best; later(.06, () => jump(n + 1)); };
   later(.05, () => jump(0));

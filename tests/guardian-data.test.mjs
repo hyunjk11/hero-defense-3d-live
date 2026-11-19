@@ -30,7 +30,7 @@ assert.equal(G.canSpecialize({lvl:3,xp:2399}),false);
 assert.equal(G.canSpecialize({lvl:3,xp:2400}),true);
 for(let lv=1;lv<=5;lv++)for(const branch of [null,'guardian_bulwark','guardian_assault']) {
  const s=G.towerStats('guardian',lv,branch);
- assert.equal(s.beamWarmup,2.5);assert.equal(s.beamMaxHeat,2.5);
+ assert.equal(s.beamWarmup,2);assert.equal(s.beamMaxHeat,branch==='guardian_bulwark'?3.05:2.5);
  for(const key of ['soldiers','soldierHp','respawn','blockTime','bossBlockTime','blockCooldown','meleeRange'])assert.equal(s[key],undefined);
  assert.ok(Object.values(s).every(Number.isFinite));
 }

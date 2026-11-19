@@ -1,3 +1,4 @@
+import { weaponProcFeed } from './weapon-proc-feed.js';
 import { FOCUS_MAX } from '../data/hero-growth.js';
 import { renderBossDebuffs } from './boss-debuffs.js';
 import { renderHeroEffects } from './hero-effects.js';
@@ -26,6 +27,7 @@ function updBossBar() { let b = null; for (const e of G.enemies) if (e.E.boss &&
     attackScale:b&&G.spire&&G.dungeon&&G.spireAtkK?G.spireAtkK(b):1
   }); if (!b) return; setBar('bossFill', 'bossTr', b.hp / b.max); const nm = $('bossName'); if (nm.textContent !== b.E.n) nm.textContent = b.E.n; }
 function refreshHud() {
+  weaponProcFeed.refresh(G, performance.now());
   // Dungeon HUD temporarily owns this strip; restore it above normal HP on return.
   const effects=$('heroEffects'),heroBox=$('heroBox');
   if (!G.dungeon && effects && heroBox && effects.parentNode!==heroBox) heroBox.insertBefore(effects,heroBox.querySelector('.bar.hp'));
@@ -58,7 +60,6 @@ function refreshHud() {
     const stars = starsFor(s.xp || 0), cap = XP_NEED[stars] || XP_NEED[2], lo = XP_NEED[stars - 1];
     const ratio = stars >= 3 ? 1 : Math.max(0, Math.min(1, ((s.xp || 0) - lo) / (cap - lo)));
     $('tStats').innerHTML = `<span class="tstar">${'★'.repeat(stars)}<i>${'☆'.repeat(3-stars)}</i></span> XP ${Math.floor(s.xp || 0)}/${cap}<div class="txp"><b style="width:${ratio*100}%"></b></div>${s.type === 'guardian' ? `${s.B?.beamSweep ? `광선 접촉 중 초당 피해 ${r2(S.dmg * S.rate)}<br>예열 없음 · 편도 2.4초${s.B.beamReturn ? ' · 왕복 광선' : ' · 재조준 0.45초'}` : `초당 피해 ${r2(S.dmg * S.rate)} → ${r2(S.dmg * S.rate * S.beamMaxHeat)}<br>최대 예열 ${r2(S.beamWarmup)}초 · 목표 변경 시 초기화`}<br>사거리 ${r2(S.range)} · 지상·공중 공격` : `피해 ${r2(S.dmg)} · ${r2(S.rate)}/초<br>사거리 ${r2(S.range)}${S.splash ? ' · 폭발 ' + r2(S.splash) : ''}${S.chain ? ' · 연쇄 ' + S.chain : ''}`}`;
-    if (s.B?.beamFocus) $('tStats').innerHTML += '<br>새 표적: 보스 우선 · 현재 표적 유지';
     const u = $('tUp'), c = upgradeCost(s.type, s.lvl, s.mods), why = upgradeBlock(s, G.gold);
     u.textContent = s.lvl >= MAX_TOWER_LEVEL ? 'MAX' : `Lv.${s.lvl + 1} · ${c}G`; u.disabled = !!why;
     u.title = ''; delete u.dataset.nx;

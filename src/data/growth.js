@@ -14,7 +14,7 @@ export const BRANCH = {
     pierce: { n: '단일 관통', icon: '➶', c: '#9ad8ff', d: '관통 철갑탄: 사거리 끝까지 직선 위 모든 지상 적 관통 · 피해 ×2 · 방어력 무시 · 폭발 없음', dmg: 2, pierce: true, pierceArmor: true },
   },
   guardian: {
-    guardian_bulwark: { n: '집광', icon: '☀', c: '#8edbff', d: '집중 광선 피해 +20% · 새 목표는 보스 우선·현재 체력 높은 순 · 공격 중인 목표 유지', dmg: 1.2, beamFocus: true },
+    guardian_bulwark: { n: '집광', icon: '☀', c: '#8edbff', d: '집중 광선 피해 +20%', dmg: 1.2, beamFocus: true, maxHeat: 3.05 },
     guardian_assault: { n: '절단', icon: '✦', c: '#ffba77', d: '휩쓰는 광선 · 접촉 피해 200%', dmg: 2, beamSweep: true },
   },
   magic: {
@@ -69,7 +69,7 @@ export function towerStats(type, lvl, branch = null, mods = null, stars = 1) {
   const o = { dmg: D.dmg[L] * X.dmg * (B.dmg || 1) * M.dmg, rate: D.rate[L] * X.rate * (B.rate || 1) * M.rate, range: D.range[L] * X.rng * (B.rng || 1) * M.rng };
   if (D.splash && !B.pierce) o.splash = D.splash[L] * (B.splash || 1) * (M.splash || 1);
   if (D.chain) { o.chain = B.chainSet || D.chain[L] + (B.chainAdd || 0); o.slow = (B.slowSet || D.slow[L]) + (M.slowAdd || 0); o.falloff = B.falloff || .85; o.hop = B.hop || 3.8; }
-  if (D.beam) Object.assign(o, { beamWarmup: D.warmup, beamMaxHeat: D.maxHeat });
+  if (D.beam) Object.assign(o, { beamWarmup: D.warmup, beamMaxHeat: B.maxHeat ?? D.maxHeat });
   return o;
 }
 export function upgradeCost(type, lvl, mods) {

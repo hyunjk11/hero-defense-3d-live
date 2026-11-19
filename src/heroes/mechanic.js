@@ -173,7 +173,7 @@ export function updMech(dt) {
 
 // ---------- 전설 건틀릿 ----------
 // 과부하 드릴 (proc): 앞쪽 부채꼴 6연속 갈기 (각 45%) + 40% 둔화 1.2초
-export function overdrill(t, s) { const dmg = stat.dmg() * s.mul; G.mechN.overdrill++; drillSpin(true, 3); banner('과부하 드릴!', '#c8ff6a', 700); Snd.whoosh(hero.g.position, .6, 1200, 4000, .4);
+export function overdrill(t, s) { const dmg = stat.dmg() * s.mul; G.mechN.overdrill++; drillSpin(true, 3); Snd.whoosh(hero.g.position, .6, 1200, 4000, .4);
   for (let i = 0; i < 6; i++) later(.05 + i * .08, () => { if (!hero || hero.dead > 0) return; const tp = tipPos('drill'); let n = 0;
     for (const e of cone(stat.range() + 1.4, .3)) { lsk = true; hurt(e, dmg, '#e0ff7a', false); lsk = false; if (!e.dead) { e.slowT = Math.max(e.slowT, 1.2); e.slowAmt = Math.max(e.slowAmt || 0, .4); } n++; if (n <= 4) sparks(_v.set(e.g.position.x, 1.2, e.g.position.z), 4, 0xfff07a); }
     sparks(tp, 18, 0xfff07a); emit(P, tp.x, tp.y, tp.z, 6, GREEN, 4, .3, 0, .3); Snd.play('hitArmor', { pos: tp, rate: 1.8 + i * .08, vol: .5 }); if (i === 5) drillSpin(false); }); }

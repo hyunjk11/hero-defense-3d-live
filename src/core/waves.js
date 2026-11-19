@@ -21,7 +21,7 @@ function markSeen(list) { const s = seenSet(); list.forEach(t => s.add(t)); try 
 function gameOver() { if (G.practice) { G.endPractice?.(); return; } if (G.phase === 'over') return; G.phase = 'over'; if (G.onRunEnd) setTimeout(() => G.onRunEnd('defeat'), 0); Snd.setMusic('none'); Snd.play('gameOver', { force: true, exact: true }); Snd.play('breakRock', { force: true }); Snd.play('glass', { force: true }); $('over').classList.remove('hidden'); $('overTxt').textContent = STAGE ? `스테이지 ${STAGE.no} · 웨이브 ${G.wave}/${STAGE.waves}에서 코어가 파괴되었습니다` : `웨이브 ${G.wave}에서 코어가 파괴되었습니다 · 최고 기록 ${Math.max(G.wave, +localStorage.getItem('hd3d_live_best') || 0)}`;  if (G.endStatsShow) G.endStatsShow('over'); /* 📊 통계 (ui/endstats.js) */ }
 
 // ================= 웨이브 =================
-function startWave() {
+function startWave(clearBonus) {
   if (G.practice) return;
   if (G.phase !== 'build') return; G.wave++; G.phase = 'wave'; G.nightTarget = 1; select(null); waveStart(G.waveLog, G.wave, G.t); // 웨이브 시간 기록 (결과 통계)
   const n = G.wave, boss = n % 5 === 0, hpMul = Math.pow(1.16, n - 1), q = [], count = 8 + n * 3;
@@ -37,7 +37,7 @@ function startWave() {
   if (bossType) { if (STAGE && STAGE.boss && n === STAGE.waves) q.push(bossType); else q.splice(Math.floor(count / 2), 0, bossType); }
   if (!G.classic) { const nt = newTypes(q, seenSet()).filter(t => !intro.includes(t) && ETYPES[t].desc); intro = intro.concat(nt); markSeen(intro); }
   G.spawnE = STAGE?.hard ? eliteQueue(q,n,ETYPES,STAGE.rule) : null;
-  G.spawnQ = q; G.spawnT = 1; G.hpMul = hpMul * (STAGE ? STAGE.hp : 1) * rules.enemyHp; const ne = G.spawnE ? G.spawnE.filter(Boolean).length : 0; Snd.horn(); Snd.duck(.4, 2.2); banner((STAGE && n === STAGE.waves ? `최종 웨이브 ${n}/${STAGE.waves} · ${STAGE.boss ? '챕터 보스 출현!' : '보스 웨이브!'}` : STAGE ? `웨이브 ${n}/${STAGE.waves}${boss ? ' · 보스 웨이브!' : ''}` : boss ? `웨이브 ${n} · 보스 웨이브!` : intro.length ? `웨이브 ${n} · 신규: ${intro.map(t => ETYPES[t].n).join(', ')}` : `웨이브 ${n}`) + (ne ? ` · 정예 ${ne}` : ''), boss ? '#ff5a6a' : intro.length ? '#ffd27a' : '#ffffff', intro.length ? 2400 : undefined);
+  G.spawnQ = q; G.spawnT = 1; G.hpMul = hpMul * (STAGE ? STAGE.hp : 1) * rules.enemyHp; const ne = G.spawnE ? G.spawnE.filter(Boolean).length : 0; Snd.horn(); Snd.duck(.4, 2.2); banner((STAGE && n === STAGE.waves ? `최종 웨이브 ${n}/${STAGE.waves} · ${STAGE.boss ? '챕터 보스 출현!' : '보스 웨이브!'}` : STAGE ? `웨이브 ${n}/${STAGE.waves}${boss ? ' · 보스 웨이브!' : ''}` : boss ? `웨이브 ${n} · 보스 웨이브!` : intro.length ? `웨이브 ${n} · 신규: ${intro.map(t => ETYPES[t].n).join(', ')}` : `웨이브 ${n}`) + (ne ? ` · 정예 ${ne}` : '') + (Number.isFinite(clearBonus) && clearBonus > 0 ? ` · +${clearBonus}G` : ''), boss ? '#ff5a6a' : intro.length ? '#ffd27a' : '#ffffff', intro.length ? 2400 : undefined);
   if (intro.length) showNote(intro.slice(0, 4).map(t => ({ name: ETYPES[t].n, desc: ETYPES[t].desc, type: t, icon: ETYPES[t].icon })), 6500 + 900 * Math.min(4, intro.length)); setPhaseUI();
 }
 // 신규 몬스터 섞기 (classic 모드에서는 호출하지 않음 → 기존 난수열/밸런스 그대로).
@@ -56,6 +56,7 @@ function endWave() { if (G.practice) return; waveEnd(G.waveLog, G.t); G.complete
   if (hero && hero.dead <= 0) { hero.hp = hero.max; play(hero.ch, 'Cheer', { once: true }); hero.atkT = 1.5; } computeDist(); setPhaseUI();
   if (STAGE && G.wave >= STAGE.waves && G.onStageClear) { G.onStageClear(); return; }
   try { localStorage.setItem('hd3d_live_best', Math.max(G.wave, +localStorage.getItem('hd3d_live_best') || 0)); } catch (e) {}
+  return bonus; // Immediate auto-start can carry the earned gold into the next wave banner.
 }
 
 export { gameOver, startWave, endWave };

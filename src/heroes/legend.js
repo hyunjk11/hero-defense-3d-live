@@ -71,7 +71,9 @@ function legendProc0(t, attack) {
   if (hero.cls === 'fighter' && !pawCanProc(t, attack)) return; // 빗나감·사거리 이탈은 확률/쿨다운을 소비하지 않음
   if (s.max && !procTargets(s, t, G.enemies, G.t, attack).length) return;
   if (LR() >= (G.legendForce ? 1 : s.chance)) return; hero.licd = s.icd; count(hero.lsk);
-  const oldProc = ({ multishot, frostorb, boomerang, ricochet, overdrill, pawstorm })[hero.lsk];
+  const oldProc = ({ multishot, frostorb, boomerang, overdrill, pawstorm })[hero.lsk];
+  // A ricochet needs a second target. Report it only when the first tracer really appears.
+  if (hero.lsk === 'ricochet') { const caster = hero; ricochet(t,s,4,true,() => legendFeedback(caster,t,s,[],FX,true)); return; }
   if (oldProc) { legendFeedback(hero,t,s,[],FX,true); oldProc(t, s, attack); } else impactProc(t, s, attack);
 }
 // Immediate bounded follow-up to a basic attack. No new timers/projectile ownership or recursive proc calls.

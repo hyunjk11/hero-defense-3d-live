@@ -1,6 +1,6 @@
 // Exact integral of a linear warm-up ramp, independent of rendering frame rate.
 export const BEAM_STEP = .2;
-export function beamHeatIntegral(age, dt, warmup=2.5, maximum=2.5) {
+export function beamHeatIntegral(age, dt, warmup, maximum) {
   const area=t=>{const a=Math.max(0,t),w=Math.max(.01,warmup),r=maximum-1;return a<=w?a+r*a*a/(2*w):w+r*w/2+(a-w)*maximum;};
   return area(age+dt)-area(age);
 }

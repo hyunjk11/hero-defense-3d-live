@@ -6,12 +6,13 @@ const ROWS = [
   { n: '효과음', chk: ['stSfxOn', 'sfxOn'], rng: ['stSfx', 'sfxVol'] },
   { n: '백그라운드에서 음소거', chk: ['stBgMute', 'bgMute'] },
   { n: '×2 배속을 다음 판에도 유지', chk: ['stKeepSpd', 'sndKeepSpd'] },
-  { n: '다음 웨이브 자동 시작 (건설 15초 뒤)', chk: ['stAutoWave', 'sndAutoWave'] }, // Q-13 (ui/autowave.js)
+  { n: '다음 웨이브 자동 시작', chk: ['stAutoWave', 'sndAutoWave'] }, // Q-13 (ui/autowave.js)
+  { n: '즉시 시작', sub: true, chk: ['stAutoWaveInstant', 'sndAutoWaveInstant'] },
   { n: '⚡ 스킬 자동 사용 (AUTO · Z)', chk: ['stAutoSkill', 'sndAutoSkill'] }, // 2026-10-24 (heroes/autoskill.js)
 ];
 export const SETTING_IDS = ROWS.flatMap(r => [r.chk, r.rng].filter(Boolean)); // [[메뉴 id, 전투 id], …]
 export function settingsHtml(w) { // w = 0 메뉴, 1 전투
-  return ROWS.map(r => `<label class="snd"><input type="checkbox" id="${r.chk[w]}"> ${r.n}${r.rng ? ` <input type="range" id="${r.rng[w]}" min="0" max="100">` : ''}</label>`).join('')
+  return ROWS.map(r => `<label class="snd${r.sub ? ' sndSub' : ''}"><input type="checkbox" id="${r.chk[w]}"> ${r.n}${r.rng ? ` <input type="range" id="${r.rng[w]}" min="0" max="100">` : ''}</label>`).join('')
     + '<div class="gfxRow"><span>그래픽</span><div class="gfxSeg"><button data-gfx="auto">자동</button><button data-gfx="high">고품질</button><button data-gfx="perf">성능</button></div></div><div class="gfxNow"></div>'
     + '<div class="sndHint">M 키: 전체 음소거</div>';
 }

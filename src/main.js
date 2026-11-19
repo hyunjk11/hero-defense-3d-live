@@ -91,8 +91,9 @@ function step(dt, practiceClockDt = dt) {
   G.t += dt;
   for (let i = G.timers.length - 1; i >= 0; i--) { const tm = G.timers[i]; tm.t -= dt; if (tm.t <= 0) { G.timers.splice(i, 1); runTimer(tm); } }
   if (G.phase === 'select') updSelect(dt);
-  if (G.phase === 'wave') { if (G.spawnQ.length) { G.spawnT -= dt; if (G.spawnT <= 0) { G.spawnT = rnd(.55, .9); const t0 = G.spawnQ.shift(), el = G.spawnE ? G.spawnE.shift() : false; spawnEnemy(t0, G.hpMul, undefined, el); if (ETYPES[t0].pack && G.spawnQ[0] === t0) G.spawnT = .22; /* 무리는 붙어서 */ } } else if (!G.enemies.length && !pendingSpawns() && !G.dungeon) endWave(); }
-  updAutoWave();
+  let clearBonus;
+  if (G.phase === 'wave') { if (G.spawnQ.length) { G.spawnT -= dt; if (G.spawnT <= 0) { G.spawnT = rnd(.55, .9); const t0 = G.spawnQ.shift(), el = G.spawnE ? G.spawnE.shift() : false; spawnEnemy(t0, G.hpMul, undefined, el); if (ETYPES[t0].pack && G.spawnQ[0] === t0) G.spawnT = .22; /* 무리는 붙어서 */ } } else if (!G.enemies.length && !pendingSpawns() && !G.dungeon) clearBonus = endWave(); }
+  updAutoWave(clearBonus);
   if (G.dungeon) updDungeon(dt); // 던전 원정: 층·웨이브·결과 (src/dungeon/run.js)
   updateHardParty(dt);
   if (hero && G.phase !== 'over' && G.phase !== 'select') {
