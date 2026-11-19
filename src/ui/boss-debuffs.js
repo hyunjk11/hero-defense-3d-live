@@ -1,3 +1,4 @@
+import { enemySlow } from '../combat/tower-slow.js';
 import { SP_AFFIX_BY } from '../data/spire.js';
 import { ETYPES } from '../data/monsters.js';
 
@@ -15,8 +16,8 @@ export function bossDebuffs(boss, now = 0) {
     if (!boss.frozen && !lifted) timed('stun', '기절', boss.stunT);
   }
   // AI uses 45% when slowAmt is zero/unset, and pauses slowT during a stun.
-  const slow = boss.slowAmt || .45;
-  if (Number.isFinite(slow) && slow > 0) timed('slow', '둔화', boss.slowT, `${Math.round(slow * 100)}%`);
+  const slow = enemySlow(boss);
+  if (Number.isFinite(slow.amount) && slow.amount > 0) timed('slow', '둔화', slow.time, `${Math.round(slow.amount * 100)}%`);
   const burn = boss.hellfireBurn;
   if (burn) timed('hellfire', '업화 화상', burn.until-now, `초당 ${Math.round(burn.dps)} 피해(방어 적용 전)`);
   const crack = boss.E.ab?.crack;

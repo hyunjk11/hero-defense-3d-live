@@ -12,7 +12,6 @@ export const storCap = s => STOR.base + STOR.step * storX(s);
 export const storMax = () => STOR.base + STOR.step * STOR.steps;
 export const storUsed = s => ((s && s.stor) || []).length;
 export const storFree = s => Math.max(0, storCap(s) - storUsed(s));
-export const bagFree = s => Math.max(0, E.CAP - ((s && s.inv) || []).length);
 export const nextCost = s => STOR_COST[storX(s)] || null; // null = 최대
 
 export const GRADE_F = ['all', 0, 1, 2, 3, 4];

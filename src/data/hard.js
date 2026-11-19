@@ -11,7 +11,7 @@ import chapter9 from './chapters/chapter9.js';
 import chapter10 from './chapters/chapter10.js';
 const normalChapters=[...BASE_CHAPTERS,chapter5,chapter6,chapter7,chapter8,chapter9,chapter10];
 // All ten campaign chapters have hard variants. Normal chapter definitions remain untouched.
-export const HARD_VERSION=1, HARD_ELITE_CAP=2;
+export const HARD_ELITE_CAP=2;
 const chapterRules=[
  {n:'각성한 숲',name:'수호의 포효',desc:'정예의 예고 고리를 피하거나 기절로 끊기',rule:'forest-pulse',hp:4.4,attack:1.12},
  {n:'균열의 설원',name:'빙하 균열',desc:'푸른 선을 옆으로 피하거나 기절로 차단',rule:'ice-fracture',hp:4.9,attack:1.13,weights:{icewolf:1.25,frostgolem:1.15,wisp:1.1}},

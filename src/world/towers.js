@@ -1,3 +1,4 @@
+import { applyTowerSlow } from '../combat/tower-slow.js';
 import { updBeam, clearBeam } from './beam.js';
 import { retireTowerMeter } from '../combat/meter.js';
 import { towerShell } from '../render/tower-projectiles.js';
@@ -109,7 +110,7 @@ function updTowers0(dt) {
 function chainLightning(from, first, dmg, n, slow, tw, S, B) {
   const hit = new Set(), fp = first.g.position.clone(); let cur = first, a = from.clone(); const fo = S ? S.falloff : .85, hop = S ? S.hop : 3.8, frost = B && B.freezeEvery, cA = frost ? 0x8ae8ff : B ? 0xd8b0ff : 0x9ae8ff, cB = frost ? 0xc8f4ff : 0xc0a0ff;
 
-  for (let k = 0; k < n && cur; k++) { const b = enemyAim(cur); bolt(a, b, k ? cB : cA); const ce = cur; hit.add(ce); ce.slowT = B && B.slowT ? B.slowT : 1.3; ce.slowAmt = slow; hurt(ce, dmg * Math.pow(fo, k), frost ? '#bff4ff' : '#c8b8ff'); emit(P, b.x, b.y, b.z, 8, frost ? 0xbff4ff : 0xb8a0ff, 4, .35, 0, .5);
+  for (let k = 0; k < n && cur; k++) { const b = enemyAim(cur); bolt(a, b, k ? cB : cA); const ce = cur; hit.add(ce); applyTowerSlow(ce, slow, B && B.slowT ? B.slowT : 1.3); hurt(ce, dmg * Math.pow(fo, k), frost ? '#bff4ff' : '#c8b8ff'); emit(P, b.x, b.y, b.z, 8, frost ? 0xbff4ff : 0xb8a0ff, 4, .35, 0, .5);
     if (frost && k === 0 && !ce.dead && tw.shots % B.freezeEvery === 0) { ce.stunT = ce.E.boss ? B.freezeBoss : B.freezeT; ce.frozen = true; emit(PB, b.x, b.y, b.z, 8, 0x8ae8ff, 3, .6, 0, .8); emit(P, b.x, b.y, b.z, 30, 0xe0fbff, 5, .7, -3, 1); ringFx(ce.g.position, 2, 0x8ae8ff, .4); Snd.play('glass', { pos: b, vol: .45 }); }
     a = b; let nb = null, nd = hop * hop; for (const e of G.enemies) { if (e.dead || hit.has(e)) continue; const d = e.g.position.distanceToSquared(ce.g.position); if (d < nd) { nd = d; nb = e; } } cur = nb; }
   Snd.crackle(first.g.position);

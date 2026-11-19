@@ -24,7 +24,6 @@ export const SP = {
 };
 // 서버 강제 값 (T-6 에서 schema.sql 과 같게)
 export const SP_SERVER = { dailyCap: 30, maxPerRun: 30, minSec: { normal: 25, boss: 40 }, pingMinSec: 125, expireH: 3 };
-export const SP_REVIVE = .3; // 쓰러진 영웅: 매 층 체력 30% 복귀 (던전과 같음 — 결정 Q3)
 
 const int = n => Math.max(1, Math.floor(+n || 1));
 export const hpMul = n => SP.hpBase * SP.hpGrow ** (int(n) - 1);

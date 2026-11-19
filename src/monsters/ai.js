@@ -1,3 +1,4 @@
+import { enemySlowAmount, tickTowerSlow } from '../combat/tower-slow.js';
 import * as THREE from 'three';
 import { Snd } from '../audio/audio.js';
 import { STAGE, CORE, DIRS, GH, GW, T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
@@ -48,13 +49,13 @@ function updEnemies(dt) {
     if (e.m.mixer) { if (lod) { e.mixAcc = (e.mixAcc || 0) + dt; if (((i + G.frameN) & 1) === 0) { e.m.mixer.update(e.mixAcc); e.mixAcc = 0; } } else e.m.mixer.update(dt); }
     if (e.m.anim) e.m.anim(e, dt); // 절차적 모델(늑대/슬라임/정령) 동작
     if (e.dying !== undefined) { e.dying -= dt; if (E.fly) { e.m.inner.position.y = Math.max(.3, e.m.inner.position.y - dt * 7); e.m.inner.rotation.z += dt * 8; } else if (e.dying < .5) g.position.y -= dt * 2.5; if (e.dying <= 0) removeEnemy(e); continue; }
-    if (e.flash > 0) { e.flash -= dt; flashCh(e.m, true, e.blockT > 0 ? 0x5a8aff : 0xffffff); if (e.blockT > 0) e.blockT -= dt; } else if (e.slowT > 0) flashCh(e.m, true, 0x2a3aaa); else flashCh(e.m, false);
+    if (e.flash > 0) { e.flash -= dt; flashCh(e.m, true, e.blockT > 0 ? 0x5a8aff : 0xffffff); if (e.blockT > 0) e.blockT -= dt; } else if (enemySlowAmount(e) > 0) flashCh(e.m, true, 0x2a3aaa); else flashCh(e.m, false);
     e.hb.set(Math.max(0, e.hp / e.max)); if (e.state === 'spawn') { e.spawnT -= dt; if (e.spawnT <= 0) e.state = 'walk'; continue; }
     const hardCasting=hardTick(e,dt);
     if (e.stunT > 0) { stunned(e, dt); continue; } // 전설 스킬: 빙결/띄우기 (설정될 때만)
-    if(hardCasting){e.slowT-=dt;continue;}
-    if ((E.ab || E.swamp || E.desert || E.storm || E.machine || E.endgame) && abilityTick(e, dt)) { e.slowT -= dt; e.digging = false; g.position.y += (groundY(g.position.x, g.position.z) - g.position.y) * Math.min(1, dt * 8); continue; } // 능력 예고(시전) 중: 제자리
-    const slowK = e.slowT > 0 ? 1 - (e.slowAmt || .45) : 1, spd = (e.ai === 'charger' ? chargeSpeed(e, dt) : E.spd) * slowK * (ICE && G.tiles[e.tile[0]]?.[e.tile[1]]?.t === T.CARVED ? 1.3 : 1) * (e.spdK || 1); e.slowT -= dt; // 설원: 얼음 길에서 미끄러지듯 빠름
+    if(hardCasting){e.slowT-=dt;tickTowerSlow(e,dt);continue;}
+    if ((E.ab || E.swamp || E.desert || E.storm || E.machine || E.endgame) && abilityTick(e, dt)) { e.slowT -= dt; tickTowerSlow(e, dt); e.digging = false; g.position.y += (groundY(g.position.x, g.position.z) - g.position.y) * Math.min(1, dt * 8); continue; } // 능력 예고(시전) 중: 제자리
+    const slowK = 1 - enemySlowAmount(e), spd = (e.ai === 'charger' ? chargeSpeed(e, dt) : E.spd) * slowK * (ICE && G.tiles[e.tile[0]]?.[e.tile[1]]?.t === T.CARVED ? 1.3 : 1) * (e.spdK || 1); e.slowT -= dt; tickTowerSlow(e, dt); // 설원: 얼음 길에서 미끄러지듯 빠름
     if (E.fly) {
       const ft = e.flyTo, tx = ft ? ft.x : core.position.x, tz = ft ? ft.z : core.position.z, dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz); // 서리 정령: 지상 동료 호위
       if (ft) { if (d > .6) { const mv = Math.min(d - .5, spd * 1.2 * dt); g.position.x += dx / d * mv; g.position.z += dz / d * mv; } faceTo(g, tx, tz, dt); }
@@ -62,7 +63,7 @@ function updEnemies(dt) {
       if (e.m.proc !== 'endgame' && e.m.proc !== 'storm' && e.m.proc !== 'machine') { e.bob += dt; const f = Math.sin(G.t * 16 + e.bob); e.m.wings[0].rotation.y = f * .8; e.m.wings[1].rotation.y = -f * .8; e.m.inner.position.y = 3 + Math.sin(G.t * 3 + e.bob) * .35; e.m.inner.rotation.x = .15; }
       const [tc, tr] = toTile(g.position.x, g.position.z); if (inGrid(tc, tr)) e.tile = [tc, tr]; continue;
     }
-    if (E.dgBoss && G.dungeon && dgBossTick(e, dt)) { e.slowT -= dt; g.position.y += (groundY(g.position.x, g.position.z) - g.position.y) * Math.min(1, dt * 8); continue; } // 던전 5층 보스: 기믹 시전 중 제자리 (dungeon/boss.js)
+    if (E.dgBoss && G.dungeon && dgBossTick(e, dt)) { e.slowT -= dt; tickTowerSlow(e, dt); g.position.y += (groundY(g.position.x, g.position.z) - g.position.y) * Math.min(1, dt * 8); continue; } // 던전 5층 보스: 기믹 시전 중 제자리 (dungeon/boss.js)
     // 영웅과 근접 전투
     const th = G.heroes.length > 1 ? nearestHero(G.heroes, g.position.x, g.position.z) : hero; // 파티: 가장 가까운 살아있는 영웅 (1명이면 기존 그대로)
     const hd = th && th.dead <= 0 ? Math.hypot(th.g.position.x - g.position.x, th.g.position.z - g.position.z) : 99;

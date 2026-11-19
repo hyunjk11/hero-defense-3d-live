@@ -1,8 +1,9 @@
+import {execFileSync} from 'node:child_process';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import * as THREE from '../lib/three.module.js';
 import {towerStats,branchFor} from '../src/data/growth.js';import {BEAM_STEP,beamHeatIntegral,beamTouches,beamSweepAt} from '../src/combat/beam.js';import {towerRateK} from '../src/combat/towerstatus.js';
-function harness(branch=null,lvl=1){const G={t:0,enemies:[]},hits=[],visuals=[],sounds=[];let disposed=0;
+function harness(branch=null,lvl=1,source=null){const G={t:0,enemies:[]},hits=[],visuals=[],sounds=[];let disposed=0;
  const ctx=vm.createContext({THREE,G,BEAM_STEP,beamHeatIntegral,beamTouches,beamSweepAt,towerRateK,Snd:{play:(...args)=>sounds.push(args)},createBeamVisual:()=>{const v={g:{visible:false}};visuals.push(v);return v;},drawBeam:(v,from,to,opt)=>{v.g.visible=true;v.last={from:from.clone(),to:to.clone(),...opt};},disposeBeamVisual:()=>disposed++,hurt:(e,n)=>{e.hp-=n;hits.push({e,n});if(e.hp<=0)e.dead=true;}});
- vm.runInContext(fs.readFileSync(new URL('../src/world/beam.js',import.meta.url),'utf8').replace(/^import .*;\s*$/gm,'').replaceAll('export ','')+';this.api={updBeam,clearBeam};',ctx);
+ vm.runInContext((source??fs.readFileSync(new URL('../src/world/beam.js',import.meta.url),'utf8')).replace(/^import .*;\s*$/gm,'').replaceAll('export ','')+';this.api={updBeam,clearBeam};',ctx);
  const g=new THREE.Group(),head=new THREE.Group(),muzzle=new THREE.Object3D();g.add(head);head.add(muzzle);muzzle.position.set(0,1,0.7);
  const tw={type:'guardian',lvl,branch,shots:0,S:towerStats('guardian',lvl,branch),B:branchFor('guardian',branch,null,lvl),m:{g,head,muzzle}};
  const enemy=(x=0,z=4,extra={})=>({hp:1e6,state:'walk',E:{h:2,...extra},g:{position:new THREE.Vector3(x,0,z)},m:{inner:{position:{y:3}}}});
@@ -26,4 +27,22 @@ for(const level of [3,5])for(const distance of [1.3,2.5,4,7])for(const fly of [f
  const a=h.enemy(0,distance,{h:1.4,fly}),b=h.enemy(.45,distance,{h:1.4,fly});h.G.enemies=[a,b];
  h.tick(.05,120);assert.ok(a.hp<1e6,'primary target damaged');assert.ok(b.hp<1e6,'nearby target damaged');assert.ok(h.visuals[0].last.to.y>=.119,'visible beam never below ground');
  modelCtx.dispose(h.tw.m.g);
+});
+test('focus acquisition ranks boss, current HP, then distance; base/cut remain nearest',()=>{
+ for(const branch of [null,'guardian_assault','guardian_bulwark']){
+  const h=harness(branch,5),near=h.enemy(0,2),tank=h.enemy(0,3),boss=h.enemy(0,5,{boss:true});
+  near.hp=100;tank.hp=10000;boss.hp=10;h.G.enemies=[tank,near,boss];h.tick(.1);
+  assert.equal(h.tw.beam.target,branch==='guardian_bulwark'?boss:near);
+ }
+ const h=harness('guardian_bulwark',5),a=h.enemy(0,5,{boss:true}),b=h.enemy(0,4,{boss:true}),c=h.enemy(0,3,{boss:true});a.hp=200;b.hp=c.hp=100;h.G.enemies=[a,b,c];h.tick(.1);assert.equal(h.tw.beam.target,a);a.dead=true;h.tick(.1);assert.equal(h.tw.beam.target,c);
+});
+test('valid focus lock is never preempted; invalid lock reacquires and resets heat/charge',()=>{
+ const h=harness('guardian_bulwark',5),a=h.enemy(0,2),boss=h.enemy(0,4,{boss:true});h.G.enemies=[a];h.tick(.1,25);const age=h.tw.beam.age;h.G.enemies.push(boss);h.tick(.1);assert.equal(h.tw.beam.target,a);assert.ok(h.tw.beam.age>=age);
+ a.immT=99;h.tick(.1);assert.equal(h.tw.beam.target,boss);assert.equal(h.tw.beam.age,0);assert.equal(h.tw.beam.burst,0);assert.equal(h.tw.beam.acc,.1);
+ h.tick(.1,1,false);assert.equal(h.tw.beam.target,null);assert.equal(h.tw.beam.acc,0);h.tick(.1);assert.equal(h.tw.beam.target,boss);
+});
+const baselineBeam=execFileSync('git',['show','dc8c3dbf:src/world/beam.js'],{encoding:'utf8'});
+for(const branch of [null,'guardian_bulwark','guardian_assault'])for(const fps of [30,60,144])test(`8s damage/charge parity ${branch??'base'} ${fps}fps`,()=>{
+ const run=source=>{const h=harness(branch,5,source),e=h.enemy(0,4,{boss:true});h.G.enemies=[e];h.tick(1/fps,8*fps);return {hp:e.hp,shots:h.tw.shots,age:h.tw.beam.age,burst:h.tw.beam.burst,sounds:h.sounds.length};};
+ assert.deepEqual(run(null),run(baselineBeam));
 });

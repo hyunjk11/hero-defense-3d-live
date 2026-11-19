@@ -11,7 +11,16 @@ const aim=e=>e.g.position.clone().setY(e.E.fly?(e.m?.inner?.position.y??3):e.g.p
 const valid=(e,tw)=>!!e&&!e.dead&&e.state!=='spawn'&&!(e.immT>G.t)&&Math.hypot(e.g.position.x-tw.m.g.position.x,e.g.position.z-tw.m.g.position.z)<=tw.S.range;
 function reset(b){b.target=null;b.age=0;b.acc=0;b.burst=0;b.sweep=0;b.flash=0;b.visual.g.visible=false;}
 export function clearBeam(tw){if(tw.beam){disposeBeamVisual(tw.beam.visual);tw.beam=null;}}
-function select(tw){let best=null,score=Infinity;for(const e of G.enemies){if(!valid(e,tw))continue;const d=tw.m.g.position.distanceToSquared(e.g.position);if(d<score){best=e;score=d;}}return best;}
+function select(tw){
+  let best=null,score=Infinity;const focus=tw.B?.beamFocus;
+  for(const e of G.enemies){
+    if(!valid(e,tw))continue;
+    const d=tw.m.g.position.distanceToSquared(e.g.position);
+    const priority=focus&&best?(Number(!!e.E.boss)-Number(!!best.E.boss)||e.hp-best.hp):0;
+    if(!best||(focus?priority>0||priority===0&&d<score:d<score)){best=e;score=d;}
+  }
+  return best;
+}
 function endpoints(tw,b,sweepAge=b.sweep){
   const target=aim(b.target),center=Math.atan2(target.x-tw.m.g.position.x,target.z-tw.m.g.position.z);
   const sweep=tw.B?.beamSweep?beamSweepAt(sweepAge,!!tw.B.beamReturn):{active:true,offset:0},angle=center+sweep.offset;

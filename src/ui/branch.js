@@ -20,6 +20,7 @@ export function renderBranch(tower) {
     button.type = 'button';
     button.className = 'tBranchChoice';
     button.dataset.branch = key;
+    if (branch.beamFocus) button.title = branch.d;
     button.style.setProperty('--branch-color', branch.c);
     button.innerHTML = `<span aria-hidden="true">${branch.icon}</span><b>${branch.n}</b>`;
     button.onclick = e => {

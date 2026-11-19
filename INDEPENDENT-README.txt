@@ -1,4 +1,9 @@
-﻿Hero Defense 3D 독립 복사본 (2026-10-25)
+﻿[역사 문서] 아래는 2026-10-25 Supabase 독립 복사본의 기록입니다.
+현재 Firebase 운영판의 설치·배포 안내가 아닙니다. 현재 구조는 README.md를 참고하세요.
+사용되지 않던 Supabase 클라이언트 설정과 SDK는 2026-11-19 코드 정리에서 제거했습니다.
+아래의 당시 설정 경로·검증 결과·계정 상태는 현재 운영판에 적용되지 않습니다.
+
+Hero Defense 3D 독립 복사본 (2026-10-25)
 
 경로: <local installation; path omitted>
 원본: https://github.com/hyunjk11/hero-defense-3d
@@ -11,7 +16,7 @@ Python이 PATH에 있어야 합니다. 현재 PC에서 Python과 Node 실행을 
 
 독립 Supabase 프로젝트: hero-defense-3d-independent
 프로젝트 ID: xgjbwdmviuhwfhsckdrh
-연결 설정: src/config/supabase.js
+당시 연결 설정: src/config/supabase.js (폐기됨; Git 이력에 보존)
 계정 세션, 주요 저장 데이터, 구매/우편 복구 키, 던전/탑 입장 토큰을 분리했습니다.
 원본 DB의 계정이나 플레이어 데이터는 이전하지 않았습니다.
 독립 DB의 기존 6개 테이블을 최신 16개 테이블 구조로 업데이트했습니다.
