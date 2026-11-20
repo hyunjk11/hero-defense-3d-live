@@ -1,4 +1,5 @@
 // 도감 탭 (C-10b: ui/gear.js 에서 분리 — 동작 불변). 가방 패널 상태(ui)·훅·다시 그리기는 gear.js 가 X 로 넘김
+import { codexMemory } from './codex-memory.js';
 import { Snd } from '../audio/audio.js';
 import { $, esc } from '../core/util.js';
 import { CLASSES, heroLabel } from '../data/heroes.js';
@@ -45,6 +46,7 @@ export function renderCodex(s, X) { const ui = X.ui;
       + `<div class="cxFoot"><span>${SC.n} · 도감 수집 <b>${C.seen}/${C.total}</b>${un ? '' : ' · 🔒 아직 열리지 않은 챕터'}</span><span class="cxAllRw">행 완성 ${rwTxt(CODEX_RW.row)} · 전부 완성 ${rwTxt(CODEX_RW.all)}</span>${C.all.got ? '<b class="cxDone">✓ 완성 보상 받음</b>' : C.all.done ? `<button class="gbtn main cxGet" data-k="${C.all.key}">🏆 완성 보상 받기</button>` : ''}</div>`;
   }
   $('codexBody').innerHTML = h + '<div id=codexRoute role=status></div>';
+  codexMemory.mount(ui.cxTab, $('invPanel'), $('codexBody').querySelector('.cxGridScroll'));
   const route = (ch,row,grade) => {
     const save=HG.viewSave(), r=farmingRoute(save,ch,row,grade,{hard:HG.HG.features.hard===1,repeat:HG.HG.features.repeatTarget===1});
     const el=$('codexRoute'); if(!r){el.textContent='이 등급은 획득 경로가 없습니다.';return;}

@@ -17,6 +17,7 @@ import { closeStats } from './stats.js';
 import { CHSET, CH_KEYS, chOdds } from '../data/items.js';
 
 import * as CX from './codex.js';
+import { codexMemory } from './codex-memory.js';
 import { renderStorage } from './storage.js';
 import { codexClaimable } from './codex.js';
 export { codexClaimable, sampleItem } from './codex.js';
@@ -24,16 +25,16 @@ import { iconKey, weaponIcon, icon, setOf, GCi, clsN, GC, eqOf, sorted, tile, ls
 export { iconKey, weaponIcon, icon, lskHtml, card, bonusHtml, heroDots } from './itemview.js'; // 기존 import 경로 호환
 import { reveal, revealing, chestCount, openChestUI, lastChestBatch, initChest } from './chest.js';
 export { reveal, revealing, chestCount, openChestUI, lastChestBatch } from './chest.js'; // 기존 import 경로 호환
-let ui = { inv: false, smith: false, invSel: null, invF: 'all', invTab: 'bag', cxTab: 1, smTab: 'enh', smSel: null, dis: new Set(), crSlot: 'weapon', crSet: 0, busy: false, rrSel: null, rrCand: null, xchMsg: '', stoF: { slot: 'all', grade: 'all' }, stoSort: 'group', stoSel: null, stoMsg: '' };
+let ui = { inv: false, smith: false, invSel: null, invF: 'all', invTab: codexMemory.outer(), cxTab: codexMemory.tab(), smTab: 'enh', smSel: null, dis: new Set(), crSlot: 'weapon', crSet: 0, busy: false, rrSel: null, rrCand: null, xchMsg: '', stoF: { slot: 'all', grade: 'all' }, stoSort: 'group', stoSel: null, stoMsg: '' };
 let hooks = { onChange: () => {}, cheer: () => {} };
 export function initGear(h) { hooks = { ...hooks, ...h }; bind(); }
 const S = () => Acc.load(), hero = () => S().hero;
 // ---------- 가방 ----------
-export function openInv(tab) { if (tab === 'stor' || tab === 'bag' || tab === 'codex') ui.invTab = tab; closeLab(true); closeStats(); ui.inv = true; IP.show(); Snd.play('ui'); closeSmith(true); renderInv(); }
-export function closeInv() { if (ui.inv) Snd.play('ui'); ui.inv = false; IP.hide(); hideTip(); }
+export function openInv(tab) { codexMemory.leave(); if (tab === 'stor' || tab === 'bag' || tab === 'codex') ui.invTab = tab; closeLab(true); closeStats(); ui.inv = true; IP.show(); Snd.play('ui'); closeSmith(true); renderInv(); }
+export function closeInv() { codexMemory.leave(); if (ui.inv) Snd.play('ui'); ui.inv = false; IP.hide(); hideTip(); }
 const IP = definePanel('inv', { id: 'invPanel', z: 41, isOpen: () => ui.inv, close: () => closeInv() });
 function renderInv() {
-  if (!ui.inv) return; const s = S(), h = s.hero, eq = s.eq[h] || {};
+  if (!ui.inv) return; codexMemory.leave(); codexMemory.outerChanged(ui.invTab); const s = S(), h = s.hero, eq = s.eq[h] || {};
   $('invTabs').innerHTML = [['bag', '🎒 가방'], ['stor', '📦 창고'], ['codex', '📖 도감'], ['presets', '편성']].map(([k, n]) => `<button class="ftab ${ui.invTab === k ? 'on' : ''}" data-v="${k}">${n}${k === 'codex' && codexClaimable(s) ? ' <i class="newDot"></i>' : ''}</button>`).join('');
   document.querySelectorAll('#invTabs .ftab').forEach(b => b.onclick = () => { ui.invTab = b.dataset.v; ui.stoMsg = ''; Snd.play('ui'); hideTip(); renderInv(); });
   const pr = ui.invTab === 'presets', cx = ui.invTab === 'codex', so = ui.invTab === 'stor'; for (const id of ['invTopW', 'invFilt', 'invMidW', 'invMsg']) $(id).classList.toggle('hidden', cx || pr || so); $('codexBody').classList.toggle('hidden', !(cx || pr)); $('storBody').classList.toggle('hidden', !so); $('invPanel').classList.toggle('wide', so); $('invPanel').classList.toggle('codexMode', cx); $('invPanel').classList.toggle('presetMode', pr);

@@ -8,8 +8,8 @@ import {setStatuses,setDefinition} from '../src/account/set-status.js';
 import {farmingRoute} from '../src/data/farming-route.js';
 const ui=new URL('../src/ui/',import.meta.url);
 function fixture(features={hardCollection:1}){
- const body={innerHTML:''},route={innerHTML:'',textContent:'',scrollIntoView(){}},go={onclick:null},buttons=[];let tip='',save=null;
- const deps={P,E,ST,CLASSES,heroLabel,MORVIA,BOSS_SETS,MORVIA_HEROES,setStatuses,setDefinition,SLOTS:E.SLOTS,STAT:E.STAT,CHSET,CH_KEYS,CODEX_RW,optionalCollectionGrade,farmingRoute,HG:{available:()=>true,viewSave:()=>save,HG:{features}},
+ const body={innerHTML:'',querySelector(){return null;}},route={innerHTML:'',textContent:'',scrollIntoView(){}},go={onclick:null},buttons=[];let tip='',save=null;
+ const deps={codexMemory:{mount(){}},P,E,ST,CLASSES,heroLabel,MORVIA,BOSS_SETS,MORVIA_HEROES,setStatuses,setDefinition,SLOTS:E.SLOTS,STAT:E.STAT,CHSET,CH_KEYS,CODEX_RW,optionalCollectionGrade,farmingRoute,HG:{available:()=>true,viewSave:()=>save,HG:{features}},
   $:id=>id==='codexRoute'?route:id==='codexRouteGo'?go:body,document:{querySelectorAll:s=>s.endsWith('.cxC')?buttons:[]},Acc:{update(){}},Snd:{play(){}},
   esc:s=>s,iconKey:s=>s,weaponIcon:s=>s,icon:()=>'<i>item</i>',clsN:s=>s,GC:g=>'#fff',card:it=>'card '+it.g,
   showTip:(_b,s)=>tip=s,hideTip(){},closeInv(){},openStageSel(){},openDungeon(){},writeTarget(){return true;}};
