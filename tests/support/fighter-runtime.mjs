@@ -9,7 +9,7 @@ import { ARTILLERY, equipProc } from '../../src/data/gear-proc-pc.js';
 import { ADV } from '../../src/data/advance.js';
 const read=f=>fs.readFileSync(new URL('../../src/'+f,import.meta.url),'utf8');
 const strip=s=>s.replace(/^import .*;.*$/gm,'').replace(/^export \{.*$/gm,'').replace(/\bexport (?=(?:const|function|let))/g,'');
-export function fixture(branch) {
+export function fixture(branch,mobileApp=false) {
   const no=()=>{}, scene=new THREE.Scene(), hits=[], animations=[], random={value:.1,draws:0};
   const G={t:0,phase:'wave',timers:[],enemies:[],fxs:[],legendForce:true,stats:{},mK:0};
   const hero={cls:'fighter',g:new THREE.Group(),face:0,dead:0,cd:0,atkT:0,licd:0,lcd:0,lsk:'pawstorm',path:[],C:{atkSpd:1,rate:2.08},hp:760,max:760,adv:branch?ADV.fighter[branch]:null,ch:{root:new THREE.Group(),acts:{PalmS:{},PunchCombo:{}}}};
@@ -19,7 +19,7 @@ export function fixture(branch) {
   vm.runInContext('const G=window.G;'+read('core/state.js').slice(read('core/state.js').indexOf('const later =')).replace(/export \{.*;/,'' )+'\nthis.api={later,runTimer,heroFx,asSkill};',state);
   const toon=vm.createContext({legendFeedback:()=>{},THREE,scene,mergeVertices:g=>g});
   vm.runInContext(strip(read('render/toon.js'))+'\nthis.api={toon,disposeOwned};',toon);
-  const env=vm.createContext({legendFeedback:()=>{},THREE,G,scene,camera:new THREE.PerspectiveCamera(),...F,...state.api,...toon.api,hero,Q:{},P:{},PB:{},
+  const env=vm.createContext({legendFeedback:()=>{},THREE,G,scene,mobileApp,camera:new THREE.PerspectiveCamera(),...F,...state.api,...toon.api,hero,Q:{},P:{},PB:{},
     stat:{dmg:()=>100,range:()=>2.6,rate:()=>2.08,skillMul:()=>1},
     play:(_ch,name)=>{animations.push(name);return true;},groundY:()=>0,passAt:()=>true,
     banner:no,emit:no,debris:no,ringFx:no,knock:no,Snd:{play:no,whoosh:no},

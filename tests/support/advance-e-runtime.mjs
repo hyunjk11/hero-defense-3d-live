@@ -16,6 +16,9 @@ const strip=s=>s.replace(/^import .*;.*$/gm,'').replace(/\bexport (?=(?:const|fu
 const cueContext=vm.createContext({THREE});
 vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/skill-cues.js',import.meta.url),'utf8'))+';this.create=createSkillCues;',cueContext);
 export const createSkillCues=cueContext.create;
+const emblemContext=vm.createContext({THREE});
+vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/gear-emblems.js',import.meta.url),'utf8'))+';this.create=createGearEmblems;',emblemContext);
+const createGearEmblems=emblemContext.create;
 export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,legendSource=null,mobileApp=false) {
   const no=()=>{},G={t:0,phase:'wave',enemies:[],fxs:[],legendForce:true},scene=new THREE.Scene(),hits=[],casts=[],timers=[];
   const hero={cls,C:{level},eq:{},lsk:null,adv:{k:branch},max:1000,hp:600,atkT:0,licd:0,lcd:0,dead:0,face:0,g:new THREE.Group(),ch:{acts:{}},path:[]};
@@ -36,7 +39,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
   vm.runInContext(strip(advanceSource??fs.readFileSync(new URL('../../src/heroes/advance-e.js',import.meta.url),'utf8'))+';this.cast=castAdvanceE;this.cues=typeof skillCues===\'undefined\'?null:skillCues;',adv);env.castAdvanceE=adv.cast;
   const feed=createWeaponFeed(),rows=[],root={ownerDocument:{createElement:()=>({remove(){const i=rows.indexOf(this);if(i>=0)rows.splice(i,1);}})},appendChild:n=>rows.push(n)};
   Object.assign(env,{weaponProcFeed:feed,document:{getElementById:()=>root},performance:{now:()=>G.t*1000}});
-  const lf=vm.createContext({THREE,mobileApp,weaponProcFeed:feed,document:{getElementById:()=>root},performance:{now:()=>G.t*1000},createSkillCues,scene,G,groundY:()=>0,Snd:env.Snd});
+  const lf=vm.createContext({THREE,mobileApp,weaponProcFeed:feed,document:{getElementById:()=>root},performance:{now:()=>G.t*1000},createSkillCues,createGearEmblems,scene,G,groundY:()=>0,Snd:env.Snd});
   vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/legend-feedback.js',import.meta.url),'utf8'))+';this.feedback=legendFeedback;this.pool=pool;',lf);env.legendFeedback=lf.feedback;
   const path=new URL('../../src/heroes/legend.js',import.meta.url);
   vm.runInContext(strip(legendSource??fs.readFileSync(path,'utf8'))+'\nthis.api={legendProc,legendActive,legendCd,castLegend,updLegend,updLegendHero,updLeap};',env);

@@ -1,5 +1,6 @@
 // ================= 격투가 진서윤: 3연타(주먹·주먹·회전 돌려차기 · 넉백 없음) · 장풍 충전(0.4초 약 / 1.2초 관통) · [Q] 냥냥 진각 · 전설(냥냥 난타 / 맹호 돌진) =================
 // cls === 'fighter' 일 때만 호출됨 (다른 영웅 코드 경로 불변). 수치 = data/fighter.js FT. 시각 효과 난수는 Math.random (게임 난수 rand() 미사용 → 회귀 결정성)
+import { mobileApp } from '../ui/mobile-mode.js';
 import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
 import { G, later, heroFx } from '../core/state.js';
@@ -323,6 +324,58 @@ export function pawCanProc(t, attack) {
   if (attack?.mode === 'ranged') return d <= FT.jpRange;
   return !t.E.fly && d < stat.range() + 1 && (d < .8 || (dx * Math.sin(hero.face) + dz * Math.cos(hero.face)) / d > .4);
 }
+// PC equipment paw silhouettes are separate from the normal golden palm.
+const procPaws = typeof mobileApp === 'undefined' || mobileApp ? null : (() => {
+  let slots;
+  const positions=[[0,-.21,.46],[-.48,.34,.18],[-.17,.60,.18],[.17,.60,.18],[.48,.34,.18]];
+  function acquire(mode,i,p) {
+    if(!slots){
+      // Five pads in one mesh per outline layer: 3 draws instead of 15 per paw.
+      const layers=[1.28,1.1,.88].map((scale,j)=>{
+        const xyz=[];
+        for(const [x,y,r] of positions) for(let k=0;k<22;k++){
+          const a=k*Math.PI/11,b=(k+1)*Math.PI/11,z=j*.012,sx=r*scale*(r>.4?1.17:1),sy=r*scale;
+          xyz.push(x,y,z,x+Math.cos(a)*sx,y+Math.sin(a)*sy,z,x+Math.cos(b)*sx,y+Math.sin(b)*sy,z);
+        }
+        const geom=new THREE.BufferGeometry();geom.setAttribute('position',new THREE.Float32BufferAttribute(xyz,3));return geom;
+      });
+      slots=Array.from({length:16},()=>{
+        const g=new THREE.Group(),materials=[0,1,2].map(()=>new THREE.MeshBasicMaterial({
+          side:THREE.DoubleSide,transparent:true,depthWrite:false,toneMapped:false
+        }));
+        for(let j=0;j<3;j++){const mesh=new THREE.Mesh(layers[j],materials[j]);mesh.renderOrder=13+j;g.add(mesh);}
+        return {g,materials,used:false};
+      });
+    }
+    const slot=slots.find(s=>!s.used);
+    if(!slot)return null;
+    slot.used=true;
+    const {g,materials}=slot;
+    g.name='pc-gear-pawstorm-'+mode;
+    g.position.copy(p);g.quaternion.copy(camera.quaternion);
+    g.scale.setScalar(mode==='melee'?.83:.85);
+    materials[0].color.setHex(0x351142);materials[1].color.setHex(0xffedf9);
+    materials[2].color.setHex(i%2?0xbc55ff:0xe6319b);
+    materials.forEach(m=>{m.opacity=1;});
+    scene.add(g);
+    return slot;
+  }
+  function release(slot){slot.used=false;slot.g.removeFromParent();}
+  function impact(p,i,h){
+    const slot=acquire('melee',i,p);if(!slot)return;
+    const terrain=G.tiles;let t=0;
+    FX.push(dt=>{
+      t+=dt;
+      if(t>=.24||h.dead>0||h.warpT>0||G.tiles!==terrain||G.screen==='town'||!['build','wave'].includes(G.phase)){release(slot);return false;}
+      slot.g.quaternion.copy(camera.quaternion);
+      slot.g.scale.setScalar(.83+.52*t/.24);
+      slot.materials.forEach(m=>{m.opacity=Math.min(1,1.55*(1-t/.24));});
+      return true;
+    });
+  }
+  return {acquire,release,impact};
+})();
+
 export function pawstorm(t, s, attack) { G.ftN.paw++; const h = hero;
   if (attack?.mode === 'ranged') {
     const origin = h.g.position.clone(), dir = t.g.position.clone().sub(origin).setY(0);
@@ -337,15 +390,17 @@ export function pawstorm(t, s, attack) { G.ftN.paw++; const h = hero;
     return;
   }
   for (let i = 0; i < (s.hits || 6); i++) later(.06 + i * .07, () => { if (hero.dead > 0) return; lsk = true; try { const f = fwd(), R = stat.range() + 1, c = hero.g.position;
-    for (const e of alive()) { if (e.E.fly) continue; const dx = e.g.position.x - c.x, dz = e.g.position.z - c.z, d = Math.hypot(dx, dz); if (d < R && (d < .8 || (dx * f.x + dz * f.z) / d > .4)) hurt(e, stat.dmg() * s.mul, '#ffc0e0', false, { x: c.x, z: c.z, kind: 'melee' }); }
-    const p = c.clone().addScaledVector(f, 1.4 + Math.random() * .6).setY(c.y + .9 + Math.random() * .9); p.x += (Math.random() - .5) * 1.2; pawMark(p, .55, .2, i % 2 ? 0xffb0d0 : ORANGE); Snd.play('hit', { pos: p, rate: 1.7 + i * .05, vol: .5 }); } finally { lsk = false; } });
+    let impact;
+    for (const e of alive()) { if (e.E.fly) continue; const dx = e.g.position.x - c.x, dz = e.g.position.z - c.z, d = Math.hypot(dx, dz); if (d < R && (d < .8 || (dx * f.x + dz * f.z) / d > .4)) { hurt(e, stat.dmg() * s.mul, '#ffc0e0', false, { x: c.x, z: c.z, kind: 'melee' }); if(procPaws&&(!impact||e===t))impact=e; } }
+    const p = c.clone().addScaledVector(f, 1.4 + Math.random() * .6).setY(c.y + .9 + Math.random() * .9); p.x += (Math.random() - .5) * 1.2; if(!procPaws)pawMark(p, .55, .2, i % 2 ? 0xffb0d0 : ORANGE); else if(impact){const hit=impact.g.position.clone();hit.y+=1.35;procPaws.impact(hit,i,h);} Snd.play('hit', { pos: p, rate: 1.7 + i * .05, vol: .5 }); } finally { lsk = false; } });
   if (h.ch.acts.PunchCombo) { play(h.ch, 'PunchCombo', { once: true, force: true, speed: 2.2 }); h.atkT = .55; } }
 // 고정 출발점/방향, 최대 10. 발당 첫 적 1회만 타격하며 재발동하지 않는다.
 function pawBolt(origin, dir, y, dmg, i) {
-  const g = pawMesh(i % 2 ? 0xffb0d0 : ORANGE); g.scale.setScalar(.5);
-  g.position.copy(origin).setY(y);
-  g.quaternion.copy(camera.quaternion); scene.add(g); let dist = 0;
-  const done = () => { scene.remove(g); disposeOwned(g); return false; };
+  const p=origin.clone().setY(y),slot=procPaws?.acquire('ranged',i,p);
+  const g=slot?.g||(!procPaws?pawMesh(i % 2 ? 0xffb0d0 : ORANGE):new THREE.Object3D());
+  if(!slot){g.scale.setScalar(.5);g.position.copy(p);if(!procPaws){g.quaternion.copy(camera.quaternion);scene.add(g);}}
+  let dist = 0;
+  const done = () => { if(slot)procPaws.release(slot);else if(!procPaws){ scene.remove(g); disposeOwned(g); } return false; };
   Snd.play('bolt', { pos: g.position, rate: 1.7 + i * .05, vol: .35 });
   FX.push(dt => {
     if (hero.dead > 0 || hero.lsk !== 'pawstorm' || !['build', 'wave'].includes(G.phase)) return done();
