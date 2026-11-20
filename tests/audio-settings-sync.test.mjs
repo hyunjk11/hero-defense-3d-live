@@ -5,15 +5,17 @@ import fs from 'node:fs';
 const source=fs.readFileSync(new URL('../src/ui/input.js',import.meta.url),'utf8');
 const start=source.indexOf('(function sndUI()');
 const code=source.slice(start,source.indexOf('})();',start)+5);
-function setup(){
+function setup(mobile=false){
   const nodes=Object.fromEntries(['bgmOn','sfxOn','bgmVol','sfxVol','bgMute','sndBtn','sndPanel'].map(id=>{
     const classes=new Set(id==='sndPanel'?['hidden']:[]),events={};
     return [id,{checked:false,value:0,events,classList:{contains:c=>classes.has(c),toggle(c,force){const next=force??!classes.has(c);next?classes.add(c):classes.delete(c);return next;}},addEventListener:(type,fn)=>events[type]=fn}];
   }));
-  const cfg={bgmOn:true,sfxOn:true,bgm:.6,sfx:.8,bgMute:true},keys={};let saves=0;
+  const cfg={bgmOn:true,sfxOn:true,bgm:.6,sfx:.8,bgMute:true},keys={};let saves=0,scrolls=0;
   const Snd={cfg,apply(){},bgSync(){},save(){saves++},play(){},unlock(){}};
-  vm.runInNewContext(code,{$:id=>nodes[id],Snd,addEventListener:(type,fn)=>keys[type]=fn});
-  return {cfg,nodes,keys,saves:()=>saves};
+  const document={body:{classList:{contains:c=>mobile&&c==='mobileBattle'}}};
+  nodes.sndPanel.scrollIntoView=({block})=>{assert.equal(block,'start');scrolls++};
+  vm.runInNewContext(code,{$:id=>nodes[id],Snd,document,addEventListener:(type,fn)=>keys[type]=fn});
+  return {cfg,nodes,keys,saves:()=>saves,scrolls:()=>scrolls};
 }
 test('opening sound settings reflects late account restore without writing preferences',()=>{
  const x=setup();Object.assign(x.cfg,{bgmOn:false,sfxOn:false,bgm:.23,sfx:.47,bgMute:false});
@@ -40,4 +42,10 @@ test('reopening reflects another account and legacy background default without w
  const saves=x.saves(),before=JSON.stringify(x.cfg);x.nodes.sndBtn.onclick();
  assert.equal(x.nodes.bgmOn.checked,false);assert.equal(Number(x.nodes.sfxVol.value),52);assert.equal(x.nodes.bgMute.checked,true);
  assert.equal(x.saves(),saves);assert.equal(JSON.stringify(x.cfg),before);
+});
+
+test('mobile drawer brings sound options into view on opening only',()=>{
+ const mobile=setup(true), desktop=setup();
+ for(const x of [mobile,desktop]){x.nodes.sndBtn.onclick();x.nodes.sndBtn.onclick();x.nodes.sndBtn.onclick();assert.equal(x.saves(),1);}
+ assert.equal(mobile.scrolls(),2);assert.equal(desktop.scrolls(),0);
 });

@@ -9,6 +9,7 @@ import { HARD_REWARD_VERSION, collectionOdds, collectionCount } from '../data/ha
 import { selectedSummary } from './skill-tree.js';
 import { Snd } from '../audio/audio.js';
 import { $, esc } from '../core/util.js';
+import { mobileApp as isMobile } from './mobile-mode.js';
 import { definePanel } from './panel.js';
 import * as Acc from '../account/account.js';
 import * as ST from '../data/stages.js';
@@ -41,16 +42,33 @@ export function openStageSel(id = null) {
 export function closeStageSel(silent) { if (ui.open && !silent) Snd.play('ui'); ui.open = false; SP.hide(); hideTip(); stageOverlay(false); }
 const SP = definePanel('stage', { id: 'stagePanel', z: 40, isOpen: () => ui.open, close: s => closeStageSel(s) });
 const starStr = n => [0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}">★</i>`).join('');
+function mountStageAction(id) {
+  if (!isMobile) return;
+  const action = $('stInfo').querySelector('#' + id);
+  $('stActions').replaceChildren(...(action ? [action] : []));
+}
 function render() {
   if (!ui.open) return; const s = HG.viewSave(), chapters=ui.hard?ST.HARD_CHAPTERS:ST.CHAPTERS, C = chapters.find(c => c.id === ui.ch);
-  $('stTabs').innerHTML = `<div class="treeTabs"><button class="ftab ${!ui.hard?'on':''}" id="stNormal">일반</button><button class="ftab ${ui.hard?'on':''}" id="stHard">하드 ${hardOpen(s)?'':'🔒'}</button></div>`+chapters.map(c => `<button class="chtab ${ui.ch === c.id ? 'on' : ''} ${(ui.hard?ST.stageUnlocked(s,c.stages[0].id):ST.chapterUnlocked(s,c.id)) ? '' : 'locked'}" data-c="${c.id}" style="--cc:${c.color}"><b>${c.id}. ${c.short}</b><small>★ ${c.stages.reduce((n,x)=>n+ST.stars(s,x.id),0)}/${c.stages.length * 3}</small></button>`).join('') + (ui.hard?'':`<button class="chtab chal ${ui.ch === 0 ? 'on' : ''}" data-c="0" style="--cc:#ff5a7a"><b>도전 모드</b><small>최고 ${s.bestWave}웨이브</small></button>`);
+  const tabs = $('stTabs'), sc = tabs.scrollLeft;
+  tabs.innerHTML = `<div class="treeTabs"><button class="ftab ${!ui.hard?'on':''}" id="stNormal">일반</button><button class="ftab ${ui.hard?'on':''}" id="stHard">하드 ${hardOpen(s)?'':'🔒'}</button></div>`+chapters.map(c => `<button class="chtab ${ui.ch === c.id ? 'on' : ''} ${(ui.hard?ST.stageUnlocked(s,c.stages[0].id):ST.chapterUnlocked(s,c.id)) ? '' : 'locked'}" data-c="${c.id}" style="--cc:${c.color}"><b>${c.id}. ${c.short}</b><small>★ ${c.stages.reduce((n,x)=>n+ST.stars(s,x.id),0)}/${c.stages.length * 3}</small></button>`).join('') + (ui.hard?'':`<button class="chtab chal ${ui.ch === 0 ? 'on' : ''}" data-c="0" style="--cc:#ff5a7a"><b>도전 모드</b><small>최고 ${s.bestWave}웨이브</small></button>`);
+  if (isMobile) {
+    $('stModeTabs').replaceChildren(tabs.querySelector('.treeTabs'));
+    const challenge = tabs.querySelector('.chal'); if (challenge) $('stModeTabs').append(challenge);
+    tabs.scrollLeft = sc;
+    const selected = tabs.querySelector('.on');
+    if (selected) {
+      if (selected.offsetLeft < tabs.scrollLeft) tabs.scrollLeft = selected.offsetLeft;
+      else if (selected.offsetLeft + selected.offsetWidth > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = selected.offsetLeft + selected.offsetWidth - tabs.clientWidth;
+    }
+  }
   $('stNormal').onclick=()=>{ui.hard=false;ui.ch=1;ui.sel='1-1';render();};$('stHard').onclick=()=>{ui.hard=true;ui.ch=1;ui.sel='hard-1-1';render();};
-  document.querySelectorAll('#stTabs .chtab').forEach(b => b.onclick = () => { ui.ch = +b.dataset.c; const c = chapters.find(x => x.id === ui.ch); ui.sel = c ? (c.stages.find(x => ST.stageUnlocked(s, x.id) && !ST.stars(s, x.id)) || c.stages[0]).id : null; Snd.play('select'); render(); });
+  document.querySelectorAll('#stagePanel .chtab').forEach(b => b.onclick = () => { ui.ch = +b.dataset.c; const c = chapters.find(x => x.id === ui.ch); ui.sel = c ? (c.stages.find(x => ST.stageUnlocked(s, x.id) && !ST.stars(s, x.id)) || c.stages[0]).id : null; Snd.play('select'); render(); });
   $('stTotal').innerHTML = ui.hard?(hardOpen(s)?`하드 ${ui.ch}장`: '일반 10-6 클리어 후 해금'):`총 별 <b>★ ${ST.totalStars(s)}</b> · 다음 별 보상 상자까지 ${ST.STAR_STEP - ST.totalStars(s) % ST.STAR_STEP}개`;
   const map = $('stMap'), info = $('stInfo');
   if (!C) {
     map.style.background = 'linear-gradient(160deg,#4a1a2a,#140810)'; map.innerHTML = floaties(['⚔️', '💀', '🔥', '👑']) + `<div class="chalBig"><div class="chalIco">♾️</div><div class="chalT">끝없는 도전</div><div class="chalD">5웨이브마다 보상 상자 · 보스 장비 드롭</div><div class="chalBest">최고 기록 <b>${s.bestWave}</b> 웨이브</div></div>`;
     info.innerHTML = '<div class="sn">도전 모드</div><div class="sd">웨이브 제한 없음 · 패배하거나 귀환할 때까지</div><button class="gbtn main bigGo" id="stChalGo">🌀 도전 시작</button>';
+    mountStageAction('stChalGo');
     $('stChalGo').onclick = () => { closeStageSel(true); hooks.challenge(); }; bindTips(map, s); return;
   }
   map.style.background = C.bg;
@@ -65,6 +83,7 @@ function render() {
   const extra=collectionCount(S,S.waves,true,!k,rewardVersion);
   const reward = ui.hard ? hardReward(S, S.waves, true, !k, s.hero,undefined,null,rewardVersion) : null;
   info.innerHTML = `<div class="sn">${S.no} · ${S.n}${S.boss ? ' <span class="bossT">챕터 보스</span>' : ''}</div><div class="sd">웨이브 ${S.waves} · 포털 ${S.spawns.length}개 · 몬스터 체력 ×${S.hp}</div><div class="prop" style="--cc:${C.color}"><b>${C.propN}</b> ${C.propD}</div>${S.hint ? `<div class="sd">💡 ${esc(S.hint)}</div>` : ''}<div class="conds">${ST.STAR_D.map((d, i) => `<div class="${i < k ? 'got' : ''}">${i < k ? '★' : '☆'} ${d}</div>`).join('')}</div><div class="rw">영혼석 ${ui.hard?reward.souls:ST.stageReward(S.id, !k)}${ui.hard?' · 장비 상자 '+reward.items.length+'개':k ? ' (재도전)' : ' + 첫 클리어 장비 1개'}</div>${dropHtml(P.dropPreview(S.id, s.hero, s),extra)}${k&&u&&HG.HG.features.repeatTarget===1?targetHtml(S.id):''}<div class="sd">${esc(selectedSummary(s.hero))}</div>${ui.hard&&HG.HG.features.hardParty===1?partnerHtml(s.hero):''}${u ? '<button class="gbtn main bigGo" id="stGo">⚔ 출정!</button>' : `<div class="warn">🔒 ${ui.hard?!hardOpen(s)?'일반 10-6':HG.HG.features.hard!==1?'로그인·하드 서버 연결':'이전 하드 스테이지':ST.chapterUnlocked(s, C.id) ? '이전 스테이지' : '이전 챕터 보스'}를 클리어하면 열려요</div>`}`;
+  mountStageAction('stGo');
   if ($('stGo')) $('stGo').onclick = () => { closeStageSel(true); hooks.start(S.id); }; bindTips(info, s);
   const partner=$('hardPartner'); if(partner)partner.onchange=()=>{if(!writePartner(s.hero,partner.value)){partner.value=readPartner(s.hero)||'';partner.setCustomValidity('편성을 저장하지 못했습니다.');partner.reportValidity();}else partner.setCustomValidity('');};
   const target=$('repeatTarget');if(target)target.onchange=()=>{if(!writeTarget(S.id,target.value)){target.value=readTarget(S.id)||'';target.setCustomValidity('선택을 저장하지 못했습니다.');target.reportValidity();}else target.setCustomValidity('');};

@@ -1,0 +1,127 @@
+.mobileOnly{display:none!important}
+.mobileApp #scr_town .mobileOnly:not(.hidden){display:flex!important}
+body.mobileApp{
+  --mobile-top:max(8px,env(safe-area-inset-top));
+  --mobile-right:max(8px,env(safe-area-inset-right));
+  --mobile-bottom:max(8px,env(safe-area-inset-bottom));
+  --mobile-left:max(8px,env(safe-area-inset-left));
+}
+.mobileApp #app canvas{touch-action:none}
+.mobileApp #scr_intro .tag,.mobileApp #scr_intro .ver,
+.mobileApp #mnAdmin,.mobileApp #twAdmin{display:none!important}
+.mobileApp #scr_intro .logo{max-width:calc(100vw - var(--mobile-left) - var(--mobile-right))}
+.mobileApp #scr_intro .logo h1{font-size:clamp(30px,9vw,66px);letter-spacing:.05em}
+.mobileApp #scr_intro .crest{font-size:clamp(32px,14dvh,70px)}
+.mobileApp #scr_intro .press{bottom:calc(var(--mobile-bottom) + 5px);max-width:85vw;text-align:center;letter-spacing:normal}
+.mobileApp #scr_menu .fcard,.mobileApp #scr_login .fcard{max-width:calc(100vw - var(--mobile-left) - var(--mobile-right));max-height:calc(100dvh - var(--mobile-top) - var(--mobile-bottom))}
+.mobileApp #scr_town{display:block;padding:0}
+.mobileApp #scr_town .twTop{
+  display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
+  position:absolute;top:var(--mobile-top);left:50%;width:max-content;
+  max-width:calc(100vw - var(--mobile-left) - var(--mobile-right));
+  transform:translateX(-50%);gap:5px;z-index:2;
+}
+.mobileApp .twTop>.pill:nth-child(n+4):not(.mailBtn),.mobileApp .twTop .lbl{display:none}
+.mobileApp .twTop .pill{align-items:center;flex-wrap:nowrap;min-width:0;padding:5px 9px;gap:5px}
+.mobileApp .twTop .pill b{font-size:14px;flex-basis:auto}
+.mobileApp .twTop .mailBtn{min-height:44px;min-width:44px;justify-content:center}
+.mobileApp #scr_town .twAcct{position:absolute;left:50%;top:calc(var(--mobile-top) + 50px);transform:translateX(-50%);z-index:1}
+.mobileApp #scr_town #twHint,.mobileApp #scr_town #twBonus{display:none}
+.mobileApp #scr_town .twBottom,.mobileApp #scr_town .twRail{
+  position:absolute;left:auto;top:auto;bottom:var(--mobile-bottom);transform:none;
+  display:flex;flex-wrap:nowrap;gap:4px;margin:0;
+  max-width:calc(100% - var(--mobile-left) - var(--mobile-right));
+  border:0;background:none;box-shadow:none;padding:2px;
+}
+.mobileApp #scr_town .twBottom{right:var(--mobile-right);width:auto}
+.mobileApp #scr_town .twRail{flex-direction:row;right:auto;left:var(--mobile-left);max-height:none;overscroll-behavior:contain;overflow-x:auto;width:max-content}
+.mobileApp #scr_town .twRail .railBtn,.mobileApp #scr_town .twBottom .gbtn{
+  display:flex;position:relative;align-items:center;justify-content:center;flex:0 0 auto;
+  width:44px;min-width:44px;min-height:44px;padding:0;font-size:18px;touch-action:manipulation
+}
+.mobileApp #scr_town .twRail .railBtn>span,.mobileApp .railSep{display:none}
+.mobileApp #scr_town .twRail :is(#twBag,#twStor){gap:3px}
+.mobileApp #scr_town .twRail .railBtn>small{position:static;font-size:10px;line-height:1}
+.mobileApp #twChestN{position:absolute;right:1px;bottom:1px;top:auto;left:auto;padding:1px 2px;font-size:8px;line-height:1;background:#120f1c;border-radius:4px}
+.mobileApp #scr_town .twBottom #twGo{font-size:19px}
+.mobileApp #scr_town .twLeft{
+  position:absolute;left:auto;right:var(--mobile-right);top:auto;bottom:calc(var(--mobile-bottom) + 55px);z-index:4;
+  width:min(250px,calc(100% - var(--mobile-left) - var(--mobile-right)));
+  max-height:calc(100% - var(--mobile-top) - var(--mobile-bottom) - 108px);
+  display:none;overflow:auto;overscroll-behavior:contain
+}
+.mobileApp #scr_town.mobileHeroOpen:not(.stageOpen) .twLeft{display:flex}
+.mobileApp #twHeroes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.mobileApp #twHeroes .hcard{min-width:0;width:100%;padding:5px 6px;overflow-wrap:anywhere}
+.mobileApp #twHeroes .hcard small{font-size:10px}
+.mobileApp #twHeroes .hcard.locked small{display:none}
+.mobileApp #twHeroes .hcard .heroBadges{flex-wrap:wrap}
+.mobileApp #scr_town .bigPanel,.mobileApp #scr_town #twBless,.mobileApp #adminPanel,
+.mobileApp #dgPanel,.mobileApp #statOv{
+  left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);
+  width:min(950px,calc(100vw - var(--mobile-left) - var(--mobile-right)));
+  max-width:none;max-height:calc(100dvh - var(--mobile-top) - var(--mobile-bottom));
+  overflow:auto;overscroll-behavior:contain;
+  padding:9px 12px 14px;touch-action:pan-y
+}
+.mobileApp #scr_town #stagePanel{left:50%;right:auto;top:50%;width:min(950px,calc(100vw - var(--mobile-left) - var(--mobile-right)));max-height:calc(100dvh - var(--mobile-top) - var(--mobile-bottom))}
+.mobileApp #scr_town .ui-panel>.gtitle:first-of-type,.mobileApp #dgPanel>.gtitle:first-of-type{
+  padding-inline:48px;font-size:clamp(15px,3vw,22px);line-height:1.35;min-height:33px;margin:2px 0 5px;letter-spacing:0
+}
+.mobileApp #scr_town .ui-panel>.ui-x,.mobileApp #dgPanel .ui-x{
+  position:sticky;align-self:flex-end;top:0;right:auto;margin:0 0 -50px;width:44px;max-width:44px;min-height:44px;min-width:44px;flex:0 0 44px
+}
+/* Stage map: mode controls and departure are outside the independently scrolling detail. */
+.stNavigation{display:contents}
+#stModeTabs:empty,#stActions:empty{display:none}
+.mobileApp #scr_town #stagePanel{
+  display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  height:calc(100dvh - var(--mobile-top) - var(--mobile-bottom));gap:5px;overflow:hidden;
+}
+.mobileApp #scr_town #stagePanel>.gtitle{display:grid;place-items:center;margin:0;min-height:44px;font-size:clamp(15px,2.7vw,22px)}
+.mobileApp #scr_town #stagePanel>#stClose{position:absolute;top:8px;right:12px;margin:0;width:44px;height:44px}
+.mobileApp #stagePanel .stNavigation{display:flex;align-items:center;gap:5px;min-width:0}
+.mobileApp #stagePanel #stModeTabs{display:flex;align-items:center;gap:4px;flex:none}
+.mobileApp #stagePanel #stModeTabs>.treeTabs{display:flex;gap:4px;flex-wrap:nowrap;margin:0}
+.mobileApp #stagePanel #stTabs{
+  position:relative;display:flex;flex:1 1 auto;min-width:0;height:48px;align-items:center;gap:4px;padding:0 2px;
+  flex-wrap:nowrap;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;overscroll-behavior:contain;
+}
+.mobileApp #stagePanel .chtab,.mobileApp #stagePanel .treeTabs button{flex:0 0 auto;min-width:44px;min-height:44px;padding:3px 6px}
+.mobileApp #stagePanel .chtab small{display:none}
+.mobileApp #stagePanel .chtab b,.mobileApp #stagePanel .treeTabs button{font-size:12px}
+.mobileApp #stagePanel .stTotal{font-size:11px;align-self:center}
+.mobileApp #stagePanel .stBody{grid-template-columns:minmax(0,1fr) minmax(170px,37%);gap:8px;min-height:0;overflow:hidden}
+.mobileApp #stagePanel .stMap{align-self:stretch;height:100%;min-height:0}
+.mobileApp #stagePanel .stInfo{min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;touch-action:pan-y;gap:6px;padding:2px 4px 5px 0;word-break:keep-all}
+.mobileApp #stagePanel .stInfo>*{flex:none}
+.mobileApp #stagePanel .stInfo .conds{display:grid;grid-template-columns:minmax(0,1fr);gap:1px}
+.mobileApp #stagePanel .stInfo .prop,.mobileApp #stagePanel .snode .nm{display:none}
+.mobileApp #stagePanel .snode{width:44px;height:44px;min-width:0;min-height:0;padding:0;white-space:nowrap}
+.mobileApp #stagePanel .snode .num{white-space:nowrap;overflow-wrap:normal;word-break:normal;font-size:13px;line-height:1;font-variant-numeric:tabular-nums}
+.mobileApp #stagePanel .snode.boss{width:48px;height:48px}
+.mobileApp #stagePanel .snode.boss .num{font-size:19px}
+.mobileApp #stagePanel #stActions{display:flex;justify-content:flex-end;min-width:0}
+.mobileApp #stagePanel #stActions:empty{display:block;height:0}
+.mobileApp #stagePanel #stActions .gbtn{width:max(170px,37%);min-height:44px;margin:0;padding:4px 8px;font-size:15px}
+.mobileApp #townLabels .mobileLabelClipped,.mobileApp #townLabels .tlabel.deco{visibility:hidden}
+.mobileApp #townLabels .tlabel{font-size:clamp(10px,1.6vw,13px);padding:3px 6px}
+.mobileApp #townLabels .tlabel small{display:none}
+.mobileApp .pauseOv .pH,.mobileApp #pauseOv .pH{display:none}
+@media(max-width:700px){
+  .mobileApp #scr_town .twRail{bottom:calc(var(--mobile-bottom) + 51px)}
+  .mobileApp #scr_town .twLeft{bottom:calc(var(--mobile-bottom) + 102px);max-height:calc(100% - var(--mobile-top) - var(--mobile-bottom) - 145px)}
+  .mobileApp #townLabels .tlabel{font-size:10px;padding:2px 5px}
+}
+@media(max-width:470px){
+  .mobileApp #stagePanel .stBody{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,46%) minmax(0,1fr);overflow:auto}
+  .mobileApp #stagePanel #stActions .gbtn{width:100%}
+}
+
+.mobileApp .sndHint{display:none}
+.mobileApp :is(#gConfirm .acBox,.dgBless .dgBBox){
+  max-height:calc(100dvh - var(--mobile-top) - var(--mobile-bottom));
+  overflow:auto;overscroll-behavior:contain;touch-action:pan-y
+}
+.mobileApp .dgBC{gap:6px}
+.mobileApp .dgBc{flex:1 1 0;min-width:0;padding:8px 6px;word-break:keep-all;overflow-wrap:anywhere}

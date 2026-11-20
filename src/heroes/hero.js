@@ -136,7 +136,7 @@ function updHero(dt) {
   h.ch.mixer.update(dt); if (h.adv) advUpd(dt); // 전직: 오라·무기 스케일·불꽃 바닥·성역
   if (h.dead > 0) { h.dead -= dt; if (h.dead <= 0) { h.hp = h.max; h.hb.show(true); h.g.position.set(tileX(CORE[0] - 1), 0, tileZ(CORE[1])); play(h.ch, 'Cheer', { once: true }); h.atkT = 1.2; emit(P, h.g.position.x, 1, h.g.position.z, 40, 0x8aff9a, 5, .8); ringFx(h.g.position, 2.5, 0x8aff9a, .6); } return; }
   const fwd = new THREE.Vector3(-Math.sin(cam.theta), 0, -Math.cos(cam.theta)), right = new THREE.Vector3(-fwd.z, 0, fwd.x), mv = new THREE.Vector3();
-  let fromPath = false; if (h === G.hero && movementAllowed(h)) { if (keys.w) mv.add(fwd); if (keys.s) mv.sub(fwd); if (keys.d) mv.add(right); if (keys.a) mv.sub(right); } // 키보드 = 조작 영웅만 (파티)
+  let fromPath = false; if (h === G.hero && movementAllowed(h)) { if(G.trialAxis)mv.addScaledVector(fwd,G.trialAxis.y).addScaledVector(right,G.trialAxis.x); if (keys.w) mv.add(fwd); if (keys.s) mv.sub(fwd); if (keys.d) mv.add(right); if (keys.a) mv.sub(right); } // 키보드 = 조작 영웅만 (파티)
   if (h.warpCd > 0) h.warpCd -= dt;
   if (h.leap) { updLeap(dt); h.hb.set(h.hp / h.max); return; } // 천지파열무 도약 중
   if (h.ft && h.ft.leap) { asSkill(updFtLeap, dt); h.hb.set(h.hp / h.max); return; } // 격투가: 냥냥 진각 도약 · 맹호 돌진 · 백호진천권(제자리) 중

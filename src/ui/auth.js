@@ -2,6 +2,7 @@
 import { Snd } from '../audio/audio.js';
 import { $ } from '../core/util.js';
 import { G } from '../core/state.js';
+import { mobileApp } from './mobile-mode.js';
 import * as Acc from '../account/account.js';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); // flow.js 와 같은 정의 (util.esc 는 null → '' 이라 그대로 둠)
 // 화면 전환(show)은 flow.js 가 가진 SCREENS 상태 — initAuth 로 받음
@@ -40,6 +41,6 @@ export function refreshMenu() {
   if (G.screen !== 'menu') return; const s = Acc.load(), A = Acc.A;
   $('mnAcct').innerHTML = A.user ? `<b>${esc(A.user.email)}</b><br><span class="sync s_${A.sync}">${Acc.syncText()}</span>` : `<b>게스트</b><br><span class="sync">이 기기에만 저장됩니다</span>`;
   if (document.activeElement !== $('mnNick')) $('mnNick').value = s.nick || '';
-  $('mnCont').disabled = !(s.stats.runs > 0 || s.souls > 0); $('mnSummary').innerHTML = `영혼석 <b>${s.souls}</b> · 최고 웨이브 <b>${s.bestWave}</b> · 출정 ${s.stats.runs}회`;
+  $('mnCont').disabled = !mobileApp && !(s.stats.runs > 0 || s.souls > 0); $('mnSummary').innerHTML = `영혼석 <b>${s.souls}</b> · 최고 웨이브 <b>${s.bestWave}</b> · 출정 ${s.stats.runs}회`;
   $('mnAuth').textContent = A.user ? '로그아웃' : '로그인 / 회원가입';
 }

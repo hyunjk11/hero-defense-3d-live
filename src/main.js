@@ -39,6 +39,8 @@ import { separate, updEnemies, updLod, groundY } from './monsters/ai.js';
 import { Q } from './render/quality.js';
 import './ui/gfx.js';
 import './ui/speed.js';
+import { startTouchControls } from './ui/mobile-controls.js';
+import { mobileApp } from './ui/mobile-mode.js';
 import { updAutoWave } from './ui/autowave.js'; // Q-13 다음 웨이브 자동 시작 (설정, 기본 off)
 import { updAutoSkill } from './heroes/autoskill.js'; // ⚡ 스킬 자동 사용 (설정, 기본 off)
 import './ui/help.js'; // Q-3 단축키 안내 (H/?)
@@ -81,6 +83,8 @@ function updLighting(dt) {
 }
 initQFeedback(scene,groundY,()=>G,()=>Q.perf);
 const heroRange = createHeroRange(scene);
+if (mobileApp) document.body.classList.add('mobileApp');
+let refreshTouch=null;
 let lastT = performance.now(), hudT = 0;
 function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt, i === 0 ? raw : 0); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
   Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
@@ -100,7 +104,7 @@ function step(dt, practiceClockDt = dt) {
     if (G.prof) { const pf = G.prof, tm = (k, f) => { const t0 = performance.now(); f(); pf[k] = (pf[k] || 0) + performance.now() - t0; };
       tm('hero', () => { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); }); tm('enemies', () => updEnemies(dt)); tm('separate', () => separate(dt)); tm('towers', () => updTowers(dt)); tm('projs', () => updProjs(dt)); updLegend(dt); }
     else { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); updEnemies(dt); separate(dt); updTowers(dt); updProjs(dt); updLegend(dt); } if (hero.skillCd > 0) hero.skillCd -= dt; updAutoSkill(dt);
-    if (keys.w || keys.a || keys.s || keys.d || hero.path.length) cam.target.lerp(new THREE.Vector3(hero.g.position.x * .4, 0, hero.g.position.z * .4 + 1), dt * 2);
+    if (keys.w || keys.a || keys.s || keys.d || G.trialAxis?.x || G.trialAxis?.y || hero.path.length) cam.target.lerp(new THREE.Vector3(hero.g.position.x * .4, 0, hero.g.position.z * .4 + 1), dt * 2);
   }
   G.distT -= dt; if (G.distDirty && G.distT <= 0) { computeDist(); G.distT = .35; }
   for (const t of G.dirty) { refreshTile(t); if (t.shk > 0) t.shk -= dt; else G.dirty.delete(t); }
@@ -108,7 +112,7 @@ function step(dt, practiceClockDt = dt) {
   portalDisk.rotation.z -= dt * 2.5; if (rand() < .6) emit(P, portal.position.x + rnd(-.3, .3), rnd(.6, 3.2), portal.position.z + rnd(-1.4, 1.4), 1, 0xc07aff, 1.5, .8, 2, .3);
   crystal.rotation.y += dt * 1.2; crystal.position.y = 3.6 + Math.sin(G.t * 2) * .2; coreRings.forEach((r, k) => r.rotation.z += dt * (k ? -1.5 : 1));
   if (moveMark.visible) { moveMark.scale.multiplyScalar(1 - dt * 3); moveMark.material.opacity = moveMark.scale.x; if (moveMark.scale.x < .2) moveMark.visible = false; }
-  G.shake = Math.max(0, G.shake - dt * 1.8); updateCam(); hudT += dt; if (hudT > .15) { hudT = 0; if (G.phase !== 'select' && G.phase !== 'loading' && G.phase !== 'town' && G.phase !== 'menu') refreshHud(); }
+  G.shake = Math.max(0, G.shake - dt * 1.8); updateCam(); refreshTouch?.(); hudT += dt; if (hudT > .15) { hudT = 0; if (G.phase !== 'select' && G.phase !== 'loading' && G.phase !== 'town' && G.phase !== 'menu') refreshHud(); }
 }
 genMap(); initTerrainColors(); refreshAll(); buildPortal(); buildCore(); computeDist(); updateCam(); loop();
 // 첫 로딩 계획 (P-2 지연 로딩). ?test/?skipintro(테스트·영웅 선택 화면) = 전부 먼저 (?lazy 로 끌 수 있음)
@@ -124,5 +128,8 @@ function bootPlan() {
   return { first, bg: uniq(order).filter(k => !first.includes(k)) };
 }
 const PLAN = bootPlan(); G.loadPlan = PLAN;
-loadAssets(PLAN.first).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) startFlow(); else showSelect(); })
+loadAssets(PLAN.first).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (mobileApp || QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) {
+    if (mobileApp) refreshTouch = startTouchControls();
+    startFlow();
+  } else showSelect(); })
   .catch(err => { console.warn(err); $('loadTxt').textContent = '모델을 불러오지 못했습니다. 새로고침 해주세요.'; });

@@ -1,0 +1,105 @@
+#trialStick,#trialActions,#trialMark{display:none}
+/* APK only: keep the field open between the movement thumb and action thumb. */
+.mobileBattle #hud{--ml:max(8px,env(safe-area-inset-left));--mr:max(8px,env(safe-area-inset-right));--mt:max(6px,env(safe-area-inset-top));--mb:max(6px,env(safe-area-inset-bottom));--stick:clamp(76px,16vmin,100px)}
+.mobileBattle #trialStick{position:absolute;display:block;left:var(--ml);bottom:var(--mb);width:var(--stick);height:var(--stick);border-radius:50%;border:2px solid #e2c77caa;background:#19162599;z-index:7;touch-action:none;pointer-events:auto}
+.mobileBattle #trialActions:not([hidden]){position:fixed;display:flex;gap:3px;padding:4px;border:1px solid #bd9957;border-radius:12px;background:#181421f2;pointer-events:auto;z-index:12}
+.mobileBattle #trialMark:not([hidden]){position:fixed;display:block;width:20px;height:14px;border:2px solid #fff09e;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:5}
+.mobileBattle #hud #build{left:var(--ml);right:auto;top:auto;bottom:calc(var(--mb) + var(--stick) + 8px);width:auto;height:auto;max-height:none;border:0;background:none;padding:0;box-shadow:none}
+.mobileBattle #build>:not(#startWave),.mobileBattle #help,.mobileBattle #tip,.mobileBattle #modeInd{display:none!important}
+.mobileBattle #build #startWave{margin:0;padding:4px;min-width:48px;height:44px;font-size:18px}
+.mobileBattle #bottom{position:absolute;left:auto;top:auto;right:var(--mr);bottom:var(--mb);width:max-content;max-width:calc(100% - var(--stick) - var(--ml) - var(--mr) - 12px);transform:none;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:3px;align-items:end}
+.mobileBattle #bottom>button{width:auto;min-width:42px;max-width:84px;min-height:44px;padding:3px 5px;font-size:12px;white-space:normal}
+.mobileBattle #bottom #heroBox{min-width:68px;max-width:116px;margin:0;padding:4px}.mobileBattle #bottom .bar{width:100%;max-width:110px}
+.mobileBattle #mobileBattleMenu{position:absolute;right:var(--mr);top:var(--mt);width:44px;height:44px;border:1px solid #c9a24a;background:#17142ae8;color:#fff2c6;border-radius:12px;z-index:9;pointer-events:auto;font:24px/1 system-ui;touch-action:manipulation}
+.mobileBattle #mobileBattleTools{position:absolute;right:var(--mr);top:calc(var(--mt) + 48px);width:min(310px,calc(100% - var(--ml) - var(--mr)));max-height:calc(100dvh - var(--mt) - var(--mb) - 54px);box-sizing:border-box;display:flex;flex-direction:column;gap:5px;overflow:auto;overscroll-behavior:contain;pointer-events:auto;z-index:10;border:1px solid #bc9e64;background:#171424f7;border-radius:12px;padding:8px;touch-action:pan-y}
+.mobileBattle #mobileBattleTools[hidden]{display:none}
+.mobileBattle #hud #mobileBattleTools>*{position:static;inset:auto;transform:none;flex:none;margin:0;max-width:none;max-height:none;width:auto}
+.mobileBattle #hud #mobileBattleTools #cam{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-start}
+.mobileBattle #mobileBattleTools #cam button{min-width:44px;min-height:44px}
+.mobileBattle #hud #top{left:var(--ml);right:auto;top:var(--mt);width:max-content;max-width:calc(100% - var(--ml) - var(--mr) - 52px);transform:none;display:flex;align-items:center;justify-content:flex-start;gap:3px;flex-wrap:wrap}
+.mobileBattle #hud #top .pill{font-size:11px;min-width:0;height:auto;padding:4px 6px}
+.mobileBattle #hud #top .core .bar{width:38px;max-width:8vw}
+.mobileBattle #hud #hardPartyBar{left:auto;right:var(--mr);top:calc(var(--mt) + 49px);width:135px;max-width:42vw}
+.mobileBattle #hud #hardPartyBar button{height:44px;min-height:44px}
+.mobileBattle #hud #tinfo{top:auto;bottom:calc(var(--mb) + 65px);right:var(--mr);left:auto;width:min(190px,50vw);max-height:calc(100dvh - 150px);overflow:auto}
+.mobileBattle #hud #statOv{top:calc(var(--mt) + 50px);bottom:auto;right:var(--mr);left:auto;max-width:calc(100vw - var(--ml) - var(--mr));max-height:calc(100dvh - 68px);overflow:auto}
+.mobileBattle.dungeonRun #hud #dgBar{left:var(--ml);bottom:calc(var(--mb) + var(--stick) + 8px);max-width:calc(100vw - 16px);gap:3px}
+.mobileBattle.dungeonRun #dgBar .dgP{width:48px;height:44px;padding:1px;overflow:hidden;box-sizing:border-box}.mobileBattle.dungeonRun .dgP .dgIc{font-size:16px}.mobileBattle.dungeonRun .dgP .dgNm{font-size:10px}
+.mobileBattle.dungeonRun .dgP .dgHp,.mobileBattle.dungeonRun .dgP .dgUlt{width:34px}
+.mobileBattle.dungeonRun #hud #dgJoint{left:calc(var(--ml) + var(--stick) + 8px);bottom:var(--mb);min-width:44px;width:auto;max-width:110px;padding:4px;min-height:44px;font-size:11px}
+.mobileBattle.dungeonRun #hud #dgAuto{left:calc(var(--ml) + var(--stick) + 8px);bottom:calc(var(--mb) + 48px);min-height:40px;font-size:11px}
+.mobileBattle.dungeonRun #hud #heroEffects{bottom:calc(var(--mb) + 64px);max-width:35vw;left:auto;right:var(--mr);transform:none}
+.mobileBattle.dungeonRun #mobileBattleTools [data-tool="barricade"],.mobileBattle.dungeonRun #mobileBattleTools #retreat{display:none!important}
+@media(max-width:540px){.mobileBattle #bottom #heroBox{flex:0 0 100%;max-width:105px}.mobileBattle #hud #bottom{max-width:55vw}.mobileBattle #hud #hardPartyBar{top:calc(var(--mt) + 69px)}}
+@media(max-height:440px){.mobileBattle #hud #top .pill{padding:3px 5px}.mobileBattle #bossHud{top:48px;max-width:40vw}.mobileBattle #hud #bottom{gap:2px}.mobileBattle #bottom .heroEffect{max-height:20px}}
+.mobileBattle #bottom>button small,.mobileBattle #mobileBattleTools button[data-key]::after{display:none}
+.mobileBattle #hud #statOv{
+  left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);
+  width:min(420px,calc(100vw - var(--ml) - var(--mr)));
+  max-height:calc(100dvh - var(--mt) - var(--mb));
+}
+
+/* The camera stays on the field. Only settings and utilities live in the drawer. */
+.mobileBattle #hud{
+  --camera-row:var(--mt);
+  --tools-row:calc(var(--mt) + 49px);
+  --status-space:345px;
+  --side-bottom:calc(var(--mb) + 70px);
+}
+.mobileBattle #hud #top{max-width:calc(100% - var(--ml) - var(--mr) - var(--status-space))}
+.mobileBattle #hud #top .pill{gap:4px;line-height:1.15}
+.mobileBattle #hud #top .pill b{font-size:14px}
+.mobileBattle #hud #top .pill .lbl{font-size:11px}
+.mobileBattle #hud #camTop{
+  left:auto;right:calc(var(--mr) + 49px);top:var(--camera-row);
+  display:grid;grid-template-columns:repeat(6,44px);gap:4px;z-index:8
+}
+.mobileBattle #hud #camTop>button{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:19px}
+.mobileBattle #hud #camTop>button:is(#tiltUp,#tiltDown){font-size:18px}
+.mobileBattle #hud #mobileBattleTools{
+  top:var(--tools-row);max-height:calc(100dvh - var(--tools-row) - var(--side-bottom));
+  scrollbar-gutter:stable;padding:7px 8px 10px
+}
+.mobileBattle #hud #mobileBattleTools>button{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  min-height:44px;padding:6px 8px;border:1px solid #c9a24a99;border-radius:8px;
+  background:linear-gradient(var(--btn-top),var(--btn-bot));color:var(--ink);
+  font:600 13px/1.2 system-ui;text-align:center;touch-action:manipulation;
+}
+.mobileBattle #hud #mobileBattleTools>button:disabled{opacity:.55}
+.mobileBattle #hud #mobileBattleTools>#sndBtn{width:44px;height:44px;min-width:44px;margin:0}
+.mobileBattle #hud #mobileBattleTools button[data-tool] small{color:var(--gold-hi)}
+.mobileBattle #hud #mobileBattleTools #sndPanel{width:auto}
+.mobileBattle #hud #bottom>button{
+  width:clamp(48px,8vw,68px);min-width:48px;height:50px;min-height:48px;
+  border-radius:13px;box-sizing:border-box
+}
+.mobileBattle #hud #bottom>button span{white-space:normal;word-break:keep-all}
+.mobileBattle #hud #heroName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mobileBattle #hud #tinfo{bottom:var(--side-bottom);max-height:calc(100dvh - var(--tools-row) - var(--side-bottom))}
+.mobileBattle #stageClear>.scBox,.mobileBattle #over{
+  max-height:100dvh;padding:max(6px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right))
+  max(6px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+  overflow:auto;overscroll-behavior:contain
+}
+.mobileBattle #stageClear>.scBox{max-width:100vw}
+.mobileBattle #over h1,.mobileBattle .scT{font-size:clamp(24px,6vw,40px)}
+.mobileBattle #over .overBtns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.mobileBattle #over button{margin:0;min-height:44px;padding:5px 9px;font-size:14px}
+.mobileBattle #stageClear .scBtns .gbtn{min-height:44px;padding:5px 9px;font-size:14px}
+@media(max-width:755px){
+  .mobileBattle #hud{--camera-row:calc(var(--mt) + 49px);--tools-row:calc(var(--mt) + 98px);--status-space:49px}
+  .mobileBattle #hud #camTop{right:var(--mr)}
+  .mobileBattle #hud #hardPartyBar{top:var(--tools-row)}
+  .mobileBattle #bossHud{left:var(--mobile-left);top:50px;transform:none;max-width:min(35vw,200px)}
+}
+@media(max-height:340px){
+  .mobileBattle .scStars{margin:3px 0}
+  .mobileBattle .scStars i{font-size:42px}
+  .mobileBattle #stageClear>.scBox{max-height:calc(100dvh - 12px)}
+}
+.mobileBattle #trialActions button:disabled{opacity:.34;filter:grayscale(1);cursor:default}
+
+.mobileBattle #trialStick i{position:absolute;left:50%;top:50%;width:38px;height:38px;border-radius:50%;transform:translate(-50%,-50%);background:#ffe298ad;pointer-events:none}
+.mobileBattle #trialActions button{display:grid;justify-items:center;align-content:center;min-width:46px;height:48px;padding:2px;border:1px solid #735d3d;border-radius:8px;color:#fff2d1;background:#302939;cursor:pointer;touch-action:manipulation;font:20px/1 system-ui}
+.mobileBattle #trialActions small{font:700 11px/1.2 system-ui;color:#ffda78}

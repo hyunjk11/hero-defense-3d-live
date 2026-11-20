@@ -19,6 +19,7 @@ import { showSelect, choose } from './select.js';
 import * as HG from '../account/hero-growth.js';
 import { initGrowthUI, refreshGrowthUI } from './hero-growth.js';
 import * as Acc from '../account/account.js';
+import { mobileApp } from './mobile-mode.js';
 import * as P from '../account/progress.js';
 import * as GR from '../data/growth.js';
 import * as SX from '../account/steel.js';
@@ -56,6 +57,11 @@ let shopNear = false; const closeShopUI = () => { closeShop(true); closeMail(tru
 
 const TOWN_Z = -150, TOWN = new THREE.Vector3(0, 0, TOWN_Z), esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['intro', 'login', 'menu', 'town'];
+function setMobileHeroPicker(open) {
+  if (!mobileApp) return;
+  $('scr_town').classList.toggle('mobileHeroOpen', open);
+  $('twHeroToggle').setAttribute('aria-expanded', String(open));
+}
 let town = null, th = null, tKeys = {}, labels = [], portalPos = null, departing = false, toast = 0;
 function show(id) { for (const s of SCREENS) $('scr_' + s).classList.toggle('hidden', s !== id); G.screen = id; G.screenMusic = id === 'intro' ? 'wave' : 'build'; }
 function hideAll() { for (const s of SCREENS) $('scr_' + s).classList.add('hidden'); G.screen = null; G.screenMusic = null; }
@@ -161,7 +167,7 @@ function spawnTownHero() {
   disposeHeroModel(th); th = makeHeroModel(hc, null, alt); th.cls = hc; updateChapterGear(th, E.equippedItems(s, hc)); th.g.position.set(0, 0, 4); th.g.rotation.y = Math.PI; town.add(th.g); play(th, 'Idle'); th.goal = null; heroRingColor();
 }
 export function enterTown() {
-  hideAll(); $('select').classList.add('hidden'); if (!town) buildTown(); town.visible = true; spawnTownHero(); show('town'); G.phase = 'town'; departing = false; blessNear = false; closeBless(); smithNear = false; portalNear = false; labNear = false; shopNear = false; closeShopUI(); closeAdmin(true); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); dgNear = false; closeDungeon(true);
+  hideAll(); setMobileHeroPicker(false); $('select').classList.add('hidden'); if (!town) buildTown(); town.visible = true; spawnTownHero(); show('town'); G.phase = 'town'; departing = false; blessNear = false; closeBless(); smithNear = false; portalNear = false; labNear = false; shopNear = false; closeShopUI(); closeAdmin(true); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); dgNear = false; closeDungeon(true);
   void HG.refresh();
   cam.target.set(0, 1, TOWN_Z - 2); cam.r = 34; cam.phi = .78; cam.theta = 0; G.nightTarget = 0; refreshTown(); if (Acc.A.user) Sh.refresh({ maxAgeMs: 5000 }).catch(() => {}); showNotices().catch(() => {}); // 마을 입장 시 우편·소유권·공지 갱신
   const lr = sessionStorage.getItem('hd3d_live_lastRun'); if (lr) { sessionStorage.removeItem('hd3d_live_lastRun'); const r = JSON.parse(lr), show2 = () => (r.reason === 'clear' && r.resultShown === true) ? undefined : popup(`<h3>${r.reason === 'clear' ? `스테이지 ${ST.stageNo(r.stage)} 클리어! <span class="popStars">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</span>` : r.reason === 'retreat' ? '무사히 귀환했습니다' : r.stage ? `스테이지 ${ST.stageNo(r.stage)} 실패 · 코어가 파괴되었습니다` : '코어가 파괴되었습니다'}</h3>도달 웨이브 <b>${r.wave}</b> · 처치 <b>${r.kills}</b><br>획득 영혼석 <b class="soul">+${r.got}</b>${r.best ? '<br><span class="newbest">★ 최고 기록 갱신!</span>' : ''}${lootLines(r.loot || [])}`); if (chestCount()) setTimeout(() => openChestUI(show2), 600); else show2(); }
@@ -189,7 +195,7 @@ function refreshTown() {
   $('twAcct').classList.toggle('hidden', !Acc.serverSaveState() && (!A.user || ['saved','local'].includes(A.sync)));
   const hh = VISIBLE_HEROES.map(h => { const l = s.heroLv[h], lock = !Sh.heroOwned(h); return `<button class="hcard ${h === cls ? 'sel' : ''} ${lock ? 'locked' : ''} ${CLASSES[h].paid ? 'paid' : ''}" data-h="${h}"><b>${lock ? '🔒 ' : ''}${heroN(h)}</b><small>${lock ? '상점에서 구매' : heroBadges(HG.available()?HG.level(h):null,l.hp,l.atk)}</small>${!lock && AD.advOf(h, s.adv[h]) ? `<em class="advT" style="--ac:${AD.advOf(h, s.adv[h]).c}">${AD.advOf(h, s.adv[h]).icon} ${AD.advOf(h, s.adv[h]).n}</em>` : ''}${lock ? '' : `<span class="dots">${heroDots(s, h)}</span>`}</button>`; }).join(''); if ($('twHeroes')._h !== hh) { $('twHeroes')._h = hh; $('twHeroes').innerHTML = hh; }
   refreshGear();
-  document.querySelectorAll('#twHeroes .hcard').forEach(b => b.onclick = () => { if (!Sh.heroOwned(b.dataset.h)) { Snd.play('select'); openShop('hero_' + b.dataset.h); return; } if (b.dataset.h === cls) return; Snd.play('select'); Acc.update(d => ({ ...d, hero: b.dataset.h })); spawnTownHero(); play(th, 'Cheer', { once: true }); th.cheerT = 1.6; });
+  document.querySelectorAll('#twHeroes .hcard').forEach(b => b.onclick = () => { if (!Sh.heroOwned(b.dataset.h)) { Snd.play('select'); openShop('hero_' + b.dataset.h); return; } if (b.dataset.h === cls) return; Snd.play('select'); Acc.update(d => ({ ...d, hero: b.dataset.h })); spawnTownHero(); if (th?.cls === b.dataset.h) { play(th, 'Cheer', { once: true }); th.cheerT = 1.6; } setMobileHeroPicker(false); });
   $('blessHero').textContent = AD.advTitle(cls, s.adv[cls]) || heroN(cls); if (blessOpen && blessTab === 'adv') renderAdv();
   // 축복 버튼은 한 번만 만들고 내용/disabled만 갱신 (동기화 상태 변경 등으로 refreshTown이 자주 불려도 버튼이 교체되지 않아 클릭이 한 번에 들어감)
   const wrap = $('twPerm'); if (!wrap._built) { wrap._built = true; wrap.innerHTML = Object.keys(P.PERM).map(k => `<button class="perm" data-k="${k}"></button>`).join('');
@@ -219,27 +225,45 @@ async function startChallengeRun() {
 function bindUI() {
   initGrowthUI(); HG.onGrowth(() => { if (G.screen === 'town') refreshTown(); });
   $('scr_intro').onclick = () => afterIntro(); addEventListener('keydown', e => { if (G.screen === 'intro' && !e.repeat) afterIntro(); });
+  if (mobileApp) {
+    $('twHeroToggle').onclick = () => {
+      const open = $('twHeroToggle').getAttribute('aria-expanded') !== 'true';
+      if (open) { closeDungeon(true); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); }
+      setMobileHeroPicker(open);
+    };
+    for (const [id, icon, label] of [['twGo','🌀','출정'],['twPractice','🎯','연습장'],['twMenu','☰','메뉴']]) {
+      $(id).textContent = icon; $(id).setAttribute('aria-label', label); $(id).title = label;
+    }
+    $('scr_town').addEventListener('click', e => {
+      if (e.target.closest('button') && !e.target.closest('#twHeroToggle,#twHeroPicker')) setMobileHeroPicker(false);
+    }, true);
+    escLayer('mobileHeroPicker', 20, () => $('twHeroToggle').getAttribute('aria-expanded') === 'true', () => setMobileHeroPicker(false));
+  }
   $('lgIn').onclick = () => doAuth('in'); $('lgUp').onclick = () => doAuth('up'); $('lgPw').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('in'); });
   $('lgGuest').onclick = () => { Snd.play('confirm'); try { Acc.playGuest(); toMenu(); } catch (e) { $('lgMsg').textContent = e.message; } };
   $('mnCont').onclick = () => { Snd.play('confirm'); enterTown(); };
   $('mnNew').onclick = async () => { const s = Acc.load(); if ((s.stats.runs > 0 || s.souls > 0) && !(await askConfirm({ title: '새로 시작', icon: '⚠', body: '새로 시작하면 영혼석·영웅 강화·기록이 모두 초기화됩니다.\n계속할까요?', ok: '새로 시작', tone: 'danger' }))) return;
     Snd.play('confirm'); Acc.store({ ...P.empty(), nick: s.nick, settings: s.settings }); enterTown(); };
-  $('mnSet').onclick = () => { Snd.play('ui'); $('mnSettings').classList.toggle('hidden'); syncSet(); };
+  $('mnSet').onclick = () => {
+    Snd.play('ui'); const settings = $('mnSettings'), closed = settings.classList.toggle('hidden'); syncSet();
+    if (mobileApp) (closed ? $('mnSet') : settings).scrollIntoView({block: closed ? 'nearest' : 'start'});
+  };
   for (const id of ['stBgm', 'stSfx', 'stBgmOn', 'stSfxOn', 'stBgMute']) $(id).addEventListener('input', () => { const C = Snd.cfg; C.bgm = $('stBgm').value / 100; C.sfx = $('stSfx').value / 100; C.bgmOn = $('stBgmOn').checked; C.sfxOn = $('stSfxOn').checked; C.bgMute = $('stBgMute').checked; Snd.apply(); Snd.bgSync(); Snd.save(); });
   $('mnNickSave').onclick = async () => { Snd.play('ui'); await Acc.saveNick($('mnNick').value); refreshMenu(); };
   $('mnAuth').onclick = async () => { Snd.play('ui'); try { if (Acc.A.user) { await Acc.signOut(); } else Acc.A.mode = ''; show('login'); refreshLogin(); } catch (e) { banner(e.message, '#ffb0a0', 5000); } };
   // U-9a/Q-15 (2026-10-23): 오른쪽 '시설 바로가기' 레일 — 걷지 않고 바로 패널 열기 (걷기 경로는 그대로). 다른 큰 패널은 닫고 엶
   const railGo = { smith: () => { closeDungeon(true); closeBless(); closeShopUI(); closeStageSel(true); openSmith(); }, lab: () => { closeDungeon(true); doOpenLab(); }, shop: () => { closeDungeon(true); doOpenShop(); }, dungeon: () => openDungeon(), bless: () => { closeDungeon(true); openBless(); } };
-  document.querySelectorAll('#twRail .railBtn[data-go]').forEach(b => { if (b.dataset.go === 'dungeon' && !DG_OPEN) b.classList.add('hidden'); b.onclick = e => { e.stopPropagation(); const f = railGo[b.dataset.go]; if (f) f(); }; });
-  $('twPractice').onclick = () => { if (!Acc.saveAllowed()) return; preparePractice(); go({ practice: true }); };
-  $('twGo').onclick = () => { closeDungeon(true); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); openStageSel(); };
+  document.querySelectorAll('#twRail .railBtn[data-go]').forEach(b => { if (b.dataset.go === 'dungeon' && !DG_OPEN) b.classList.add('hidden'); b.onclick = e => { e.stopPropagation(); setMobileHeroPicker(false); const f = railGo[b.dataset.go]; if (f) f(); }; });
+  $('twPractice').onclick = () => { setMobileHeroPicker(false); if (!Acc.saveAllowed()) return; preparePractice(); go({ practice: true }); };
+  $('twGo').onclick = () => { setMobileHeroPicker(false); closeDungeon(true); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); openStageSel(); };
   initStageSel({ challenge: () => depart(), start: (id) => departStage(id) }); $('twMenu').onclick = () => { Snd.play('ui'); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); if (th) { disposeHeroModel(th); th = null; } town.visible = false; G.phase = 'menu'; cam.target.set(0, 1.5, 22); cam.r = 13.5; cam.phi = 1.3; toMenu(); };
   $('retreat').onclick = async () => { if (G.phase !== 'build') { Snd.play('error'); return; } if (!(await askConfirm({ title: '마을로 귀환', icon: '🏠', body: '지금까지의 보상을 가지고 마을로 귀환할까요?', ok: '귀환' }))) return; if (G.phase !== 'build') { Snd.play('error'); return; } onRunEnd('retreat'); };
   $('overTown').onclick = () => goTown();
   $('overRetry').onclick = () => { if (STAGE) departStage(STAGE.id); else if (DUNGEON) reload(); else go({ challenge: true }); }; // Q-6: 스테이지 판은 같은 스테이지 재도전 (보상은 onRunEnd 에서 이미 저장)
   if (STAGE) $('overRetry').textContent = '🔁 재도전';
   addEventListener('keydown', e => { if (G.screen === 'town' && !typing(e)) tKeys[e.key.toLowerCase()] = true; }); addEventListener('keyup', e => tKeys[e.key.toLowerCase()] = false);
-  renderer.domElement.addEventListener('pointerdown', e => { if (G.screen !== 'town' || e.button !== 0 || !th) return; const m = new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1), rc = new THREE.Raycaster(); rc.setFromCamera(m, camera);
+  const townFieldTap = e => { if (G.screen !== 'town' || e.button !== 0 || !th) return;
+    setMobileHeroPicker(false); const m = new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1), rc = new THREE.Raycaster(); rc.setFromCamera(m, camera);
     if (revealing()) return; if (shopBld && rc.intersectObject(shopBld, true).length > 0) { th.goals = null; th.goal = shopFront(); if (Math.hypot(th.g.position.x - SHOP_P.x, th.g.position.z - SHOP_P.y) < 4.4) doOpenShop(); return; }
     if (lab && rc.intersectObject(lab, true).length > 0) { th.goals = null; th.goal = labFront(); if (Math.hypot(th.g.position.x - LAB.x, th.g.position.z - LAB.y) < 4.6) doOpenLab(); return; }
     if (dungeonBld && rc.intersectObject(dungeonBld, true).length > 0) { th.goals = null; th.goal = dungeonFront(); if (Math.hypot(th.g.position.x - DUNGEON_P.x, th.g.position.z - DUNGEON_P.y) < 4.6) openDungeon(); return; } // 던전 원정 건물
@@ -247,8 +271,10 @@ function bindUI() {
     const towerHit = rc.intersectObject(tower, true).length > 0; // 여신탑 클릭 → 섬으로 걸어가서 축복 창
     const p = new THREE.Vector3(); if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p)) return; p.sub(TOWN).setY(0);
     if (towerHit || Math.hypot(p.x - LAKE.x, p.z - LAKE.y) < LR + .3) { routeToTower(); if (Math.hypot(th.g.position.x - LAKE.x, th.g.position.z - LAKE.y) < 3.4) openBless(); }
-    else { th.goal = p; th.goals = null; } });
-  $('blessClose').onclick = () => closeBless(); $('twBag').onclick = () => { closeShopUI(); closeStageSel(true); closeLab(true); openInv(); }; $('twStor').onclick = () => { closeShopUI(); closeStageSel(true); closeLab(true); openInv('stor'); }; $('twChest').onclick = () => { if (revealing()) return; closeShopUI(); closeStageSel(true); closeLab(true); closeBless(); openChestUI(); };
+    else { th.goal = p; th.goals = null; }
+  };
+  bindTownField(townFieldTap);
+  $('blessClose').onclick = () => closeBless(); $('twBag').onclick = () => { setMobileHeroPicker(false); closeShopUI(); closeStageSel(true); closeLab(true); openInv(); }; $('twStor').onclick = () => { setMobileHeroPicker(false); closeShopUI(); closeStageSel(true); closeLab(true); openInv('stor'); }; $('twChest').onclick = () => { if (revealing()) return; closeShopUI(); closeStageSel(true); closeLab(true); closeBless(); openChestUI(); };
   initDungeonUI({ closeOthers: () => { closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); } });
   initNotice();
   initShop({ onChange: () => refreshTown(), closeOthers: k => { closeBless(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); if (k !== 'shop') closeShop(true); if (k !== 'mail') closeMail(true); }, cheer: () => { if (th) { play(th, 'Cheer', { once: true }); th.cheerT = 1.6; } } });
@@ -260,6 +286,48 @@ function bindUI() {
   initGear({ onChange: () => refreshTown(), cheer: () => { if (th) { play(th, 'Cheer', { once: true }); th.cheerT = 1.6; } } });
   escLayer('advConfirm', 60, () => !$('advConfirm').classList.contains('hidden'), () => closeAdvConfirm());
 }
+function bindTownField(tap) {
+  const field = renderer.domElement;
+  if (!mobileApp) { field.addEventListener('pointerdown', tap); return; }
+  const points = new Map();
+  let single = null, pinch = null;
+  const clear = () => { points.clear(); single = null; pinch = null; };
+  const distance = () => {
+    const [a,b] = points.values(); return Math.hypot(a.x-b.x,a.y-b.y);
+  };
+  field.addEventListener('pointerdown', e => {
+    if (G.screen !== 'town' || e.button !== 0) return;
+    if (e.pointerType === 'mouse') { tap(e); return; }
+    const point = {x:e.clientX,y:e.clientY};
+    points.set(e.pointerId,point);
+    field.setPointerCapture(e.pointerId);
+    if (points.size === 1) single = point;
+    else {
+      single = null;
+      pinch = points.size === 2 ? {base:Math.max(1,distance()), radius:cam.r} : null;
+    }
+  });
+  field.addEventListener('pointermove',e=>{
+    const point = points.get(e.pointerId);
+    if (!point) return;
+    if (G.screen !== 'town') { clear(); return; }
+    if (single && Math.hypot(e.clientX-point.x,e.clientY-point.y) > 9) single = null;
+    if (points.size === 2 && pinch) {
+      points.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      cam.r = Math.min(55,Math.max(18,pinch.radius * pinch.base / Math.max(1,distance())));
+    }
+  });
+  const end = e => {
+    const point = points.get(e.pointerId);
+    if (!point) return;
+    if (e.type === 'pointerup' && single && points.size === 1 && Math.hypot(e.clientX-point.x,e.clientY-point.y) <= 9) tap(e);
+    points.delete(e.pointerId); single = null;
+    pinch = points.size === 2 ? {base:Math.max(1,distance()),radius:cam.r} : null;
+  };
+  for (const type of ['pointerup','pointercancel','lostpointercapture']) field.addEventListener(type,end);
+  addEventListener('blur',clear);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)clear();});
+}
 function syncSet() { const C = Snd.cfg; $('stBgm').value = Math.round(C.bgm * 100); $('stSfx').value = Math.round(C.sfx * 100); $('stBgmOn').checked = C.bgmOn; $('stSfxOn').checked = C.sfxOn; $('stBgMute').checked = C.bgMute !== false; }
 
 // ---------- 매 프레임 ----------
@@ -268,7 +336,13 @@ export function updFlow(dt) {
   const inTown = !!(town && town.visible);
   if (inTown !== sunInTown) { sunInTown = inTown; const o = inTown ? TOWN : _zero; sun.position.set(-22 + o.x, 42, 26 + o.z); sun.target.position.copy(o); sun.target.updateMatrixWorld(); } // 마을에서도 그림자
   if (!inTown) return; updTown(G.t, dt); updShop(dt);
-  for (const L of labels) { L.obj.getWorldPosition(_v); _v.y += L.y; _v.project(camera); const vis = G.screen === 'town' && _v.z < 1; L.el.style.display = vis ? '' : 'none'; if (vis) { const lx = (_v.x + 1) / 2 * innerWidth, ly = (1 - _v.y) / 2 * innerHeight, R = twTopRect(); L.el.style.transform = `translate(-50%,-100%) translate(${lx}px,${ly}px)`; if (!L.h) { L.h = L.el.offsetHeight; L.w = L.el.offsetWidth; } L.el.classList.toggle('under', !!R && ly - L.h < R.bottom && lx + L.w / 2 > R.left && lx - L.w / 2 < R.right); } }
+  for (const L of labels) { L.obj.getWorldPosition(_v); _v.y += L.y; _v.project(camera); const vis = G.screen === 'town' && _v.z < 1; L.el.style.display = vis ? '' : 'none'; if (vis) { const lx = (_v.x + 1) / 2 * innerWidth, ly = (1 - _v.y) / 2 * innerHeight, R = twTopRect(); L.el.style.transform = `translate(-50%,-100%) translate(${lx}px,${ly}px)`; if (L.vw !== innerWidth || !L.h) { L.vw = innerWidth; L.h = L.el.offsetHeight; L.w = L.el.offsetWidth; }
+      const under = !!R && ly - L.h < R.bottom && lx + L.w / 2 > R.left && lx - L.w / 2 < R.right;
+      L.el.classList.toggle('under', under);
+      if (mobileApp) {
+        const bottom = innerHeight - (innerWidth > 700 ? 56 : 108);
+        L.el.classList.toggle('mobileLabelClipped', under || lx-L.w/2<8 || lx+L.w/2>innerWidth-8 || ly-L.h<8 || ly>bottom);
+      } } }
   if (!th || G.screen !== 'town') return; th.mixer.update(dt);
   const fwd = new THREE.Vector3(-Math.sin(cam.theta), 0, -Math.cos(cam.theta)), right = new THREE.Vector3(-fwd.z, 0, fwd.x), mv = new THREE.Vector3();
   if (tKeys.w || tKeys.arrowup) mv.add(fwd); if (tKeys.s || tKeys.arrowdown) mv.sub(fwd); if (tKeys.d || tKeys.arrowright) mv.add(right); if (tKeys.a || tKeys.arrowleft) mv.sub(right);

@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import fs f
 import {releaseMap} from '../scripts/stamp-browser-release.mjs';
 test('browser release stamps every module, including dependencies not only entrypoint',()=>{
  const r=releaseMap(process.cwd()),html=fs.readFileSync('index.html','utf8'),map=JSON.parse(html.match(/<script type="importmap">([^<]*)<\/script>/)[1]);
- assert.ok(html.includes(`href="style.css?v=${r.version}"`));
+ for(const p of ['style','mobile-app','mobile-battle'])assert.ok(html.includes(`href="${p}.css?v=${r.version}"`));
  assert.deepEqual(map.imports,r.imports);assert.ok(r.files.length>250);
  for(const p of ['src/main.js','src/world/towers.js','src/world/beam.js','src/data/towers.js','src/ui/hud.js','src/account/account.js'])assert.equal(map.imports['./'+p],'./'+p+'?v='+r.version);
  for(const p of ['practice-storage','analytics'])assert.ok(html.includes(`src="./src/${p}.js?v=${r.version}"`));

@@ -104,7 +104,7 @@ document.querySelectorAll('.tool').forEach(b => { const c = TOWERS[b.dataset.too
   const sync = () => { $('bgmOn').checked = C.bgmOn; $('sfxOn').checked = C.sfxOn; $('bgmVol').value = Math.round(C.bgm * 100); $('sfxVol').value = Math.round(C.sfx * 100); $('bgMute').checked = C.bgMute !== false; $('sndBtn').classList.toggle('muted', !C.bgmOn && !C.sfxOn); }; sync();
   const upd = () => { C.bgmOn = $('bgmOn').checked; C.sfxOn = $('sfxOn').checked; C.bgm = $('bgmVol').value / 100; C.sfx = $('sfxVol').value / 100; C.bgMute = $('bgMute').checked; Snd.apply(); Snd.bgSync(); Snd.save(); $('sndBtn').classList.toggle('muted', !C.bgmOn && !C.sfxOn); };
   ['bgmOn', 'sfxOn', 'bgmVol', 'sfxVol', 'bgMute'].forEach(id => $(id).addEventListener('input', upd)); $('sfxVol').addEventListener('change', () => Snd.play('coin', { force: true }));
-  $('sndBtn').onclick = () => { sync(); Snd.unlock(); $('sndPanel').classList.toggle('hidden'); Snd.play('ui'); }; upd();
+  $('sndBtn').onclick = () => { sync(); Snd.unlock(); const box = $('sndPanel'), closed = box.classList.toggle('hidden'); if (!closed && document.body.classList.contains('mobileBattle')) box.scrollIntoView({block:'start'}); Snd.play('ui'); }; upd();
   addEventListener('keydown', e => { if (e.key.toLowerCase() === 'm' && !e.repeat) { sync(); const on = !(C.bgmOn || C.sfxOn); $('bgmOn').checked = $('sfxOn').checked = on; upd(); } });
 })();
 $('repairAllBtn').onclick = () => { if (G.paused || G.navigating || G.dungeon || !['build', 'wave'].includes(G.phase)) return; repairAll(); refreshHud(); };

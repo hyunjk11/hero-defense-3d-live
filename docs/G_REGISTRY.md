@@ -221,7 +221,7 @@
 | `tiles` | core/state.js | 5 | 기본 상태 (state.js 초기값) |
 | `tileXZ` | main.js | 37 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `timers` | core/state.js | 0 | 기본 상태 (state.js 초기값) |
-| `tool` | core/state.js · main.js · ui/input.js | 7 | 기본 상태 (state.js 초기값) |
+| `tool` | core/state.js · main.js · ui/input.js · ui/mobile-controls.js | 7 | 기본 상태 (state.js 초기값) |
 | `toTile` | main.js | 22 | main.js 가 노출하는 값/함수 |
 | `towerRateK` | main.js | 10 | main.js 가 노출하는 값/함수 |
 | `towers` | core/state.js | 83 | 기본 상태 (state.js 초기값) |
@@ -234,6 +234,7 @@
 | `townSmith` | ui/flow.js | 1 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `townTeleport` | ui/flow.js | 11 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `townTower` | ui/flow.js | 5 | 함수 훅 (다른 모듈·테스트가 호출) |
+| `trialAxis` | ui/mobile-controls.js | 0 | 모바일 이동 스틱 축 (PC에는 미설정) |
 | `unjamN` | monsters/ai.js | 0 | 계측/카운터 (테스트·통계용) |
 | `unstuckN` | heroes/hero.js | 0 | 계측/카운터 (테스트·통계용) |
 | `upgradeTower` | main.js | 8 | main.js 가 노출하는 값/함수 |
