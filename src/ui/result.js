@@ -111,7 +111,7 @@ async function directReturn(reason){
  })();directReturnJob=job;
  try{await job;}finally{if(directReturnJob===job)directReturnJob=null;}
 }
-export async function goTown() { if (G.xpPendingWrite && !await G.xpPendingWrite) { const run = G.xpRun; G.xpPendingWrite = HG.checkpoint(run, G.completedWaves || 0, !!(STAGE && G.completedWaves >= STAGE.waves), true, STAGE?.hard?ST.starsFor(G.coreHp,G.coreMax):1,sumKills()); if (!await G.xpPendingWrite) { alert('XP 완료 기록을 기기에 저장하지 못했습니다. 공간을 확인하고 귀환을 다시 눌러 주세요.'); return; } } go({ town: 1 }, 400); }
+export async function goTown() { if (G.xpPendingWrite && !await G.xpPendingWrite) { const run = G.xpRun; G.xpPendingWrite = HG.checkpoint(run, G.completedWaves || 0, !!(STAGE && G.completedWaves >= STAGE.waves), true, STAGE?.hard?ST.starsFor(G.coreHp,G.coreMax):1,sumKills(),G.runBossKills||[]); if (!await G.xpPendingWrite) { alert('XP 완료 기록을 기기에 저장하지 못했습니다. 공간을 확인하고 귀환을 다시 눌러 주세요.'); return; } } go({ town: 1 }, 400); }
 
 function repeatRewardText(run, result) {
   if (!run?.repeat || !run.target || !result) return '';
@@ -130,7 +130,7 @@ HG.onGrowth(refreshRunXP);
 
 function hardClear(){
   if(G.runSaved)return;G.runSaved=true;G.phase='over';const stars=ST.starsFor(G.coreHp,G.coreMax);
-  G.xpPendingWrite=HG.checkpoint(G.xpRun,G.completedWaves||0,true,true,stars,sumKills());
+  G.xpPendingWrite=HG.checkpoint(G.xpRun,G.completedWaves||0,true,true,stars,sumKills(),G.runBossKills||[]);
   renderNormalClear({stars,hard:true});
 }
 function hardEnd(reason){

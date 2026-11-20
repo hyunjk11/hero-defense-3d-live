@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {G} from '../core/state.js';
-import {tileX,tileZ,toTile,inGrid,T} from '../core/grid.js';
+import {tileX,tileZ,toTile,inGrid,T,STAGE} from '../core/grid.js';
+import {mobileApp} from '../ui/mobile-mode.js';
 import {scene} from '../render/scene.js';
 import {shareGeo,disposeOwned} from '../render/toon.js';
 import {P,emit,ringFx,dmgText} from '../render/vfx.js';
@@ -30,8 +31,14 @@ function begin(e,kind,S,points=[]){const from=e.g.position.clone().setY(0),qs=po
  else if(kind==='ring')marks=[circle(from,S.ringRadius||S.radius,c,S.inner)];
  else if(kind==='salvo')marks=qs.map(p=>circle(p,S.radius,c));
  else marks=[circle(from,kind==='ward'?S.range:kind==='awaken'?3:S.radius,kind==='ward'?0x8ce4dd:c)];
+ // On PC Hard, raised terrain and towers must not hide the boss's attack footprint.
+ const clearWarning=!mobileApp&&STAGE?.hard&&(STAGE.ch===9||STAGE.ch===10)&&e.E.boss&&['line','cleave','breath','ring','salvo'].includes(kind);
+ if(clearWarning){
+  for(const mark of marks)for(const mesh of mark.children){mesh.material.depthTest=false;mesh.material.toneMapped=false;mesh.renderOrder=22;}
+  for(const mark of marks)mark.children[0].material.opacity=.40;
+ }
  if(['line','cleave','breath'].includes(kind))e.g.rotation.y=heading;
- e.endCast={kind,S,from,end,heading,points:qs,marks,t:S.windup,duration:S.windup,hp:e.hp};e.castT=S.windup;count('endWarnings');
+ e.endCast={kind,S,from,end,heading,points:qs,marks,clearWarning,t:S.windup,duration:S.windup,hp:e.hp};e.castT=S.windup;count('endWarnings');
 }
 function spawn(e,S){const n=Math.min(summonRoom(G.enemies,S.spawn,S.cap,S.count),(S.budget||S.cap)-(e.endSummoned||0)),[c,r]=toTile(e.g.position.x,e.g.position.z);let done=0;
  // Spawn beside the summoner, never on a wall, structure, core or outside the map.
@@ -49,7 +56,7 @@ function finish(e,c){const S=c.S,C=color(e);
 }
 export function endgameTick(e,dt){const S=e.E.endgame;if(!S)return false;e.endCd??=S.first;e.endStrikeT=Math.max(0,(e.endStrikeT||0)-dt);
  if(e.endCast){const c=e.endCast;if(S.interrupt&&c.kind!=='awaken'&&c.hp-e.hp>=e.max*S.interrupt){cancel(e);e.endCd=S.every*.65;count('endInterrupts');dmgText(e.g.position.clone().setY(e.E.h+.3),'시전 차단','#ddc6ff');return false;}
-  c.t-=dt;e.castT=Math.max(0,c.t);for(const m of c.marks)m.children[0].material.opacity=.2+.25*(1-Math.max(0,c.t/c.duration));if(c.t<=0){c.marks.forEach(remove);e.endCast=null;e.castT=0;finish(e,c);e.endCd=S.every*(e.endAwakened?S.phase.everyK:1);}return true;}
+  c.t-=dt;e.castT=Math.max(0,c.t);for(const m of c.marks)m.children[0].material.opacity=(c.clearWarning ? .40 : .2)+.25*(1-Math.max(0,c.t/c.duration));if(c.t<=0){c.marks.forEach(remove);e.endCast=null;e.castT=0;finish(e,c);e.endCd=S.every*(e.endAwakened?S.phase.everyK:1);}return true;}
  if(e.endRecover>0){e.endRecover=Math.max(0,e.endRecover-dt);if(!e.endRecover)e.armor=e.endAwakened?S.phase.armor:e.E.armor;return true;}
  if(S.phase&&!e.endAwakened&&e.hp<=e.max*S.phase.at){begin(e,'awaken',S.phase);return true;}
  e.endCd-=dt;if(e.endCd>0||e.stunT>0)return false;

@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {pathToFileURL} from 'node:url';import path from 'node:path';
 const root=process.argv[2]?pathToFileURL(path.resolve(process.argv[2])+path.sep):new URL('../',import.meta.url),mod=p=>import(new URL(p,root));
 const {MemoryStore}=await mod('server/memory-store.mjs'),{execute}=await mod('server/operations.mjs'),P=await mod('src/account/progress.js'),H=await mod('src/data/hero-growth.js');
+const {runEconomyOperation}=await mod('server/economy.mjs');
 const values=new Map();globalThis.localStorage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};globalThis.sessionStorage={getItem:()=>null,setItem(){},removeItem(){}};
 globalThis.addEventListener=()=>{};globalThis.document={addEventListener(){},visibilityState:'visible'};globalThis.location={hostname:'localhost',search:''};globalThis.fetch=()=>{throw Error('NETWORK FORBIDDEN');};globalThis.setTimeout=()=>0;globalThis.clearTimeout=()=>{};
 let tail=Promise.resolve();Object.defineProperty(globalThis,'navigator',{configurable:true,value:{locks:{request:(_key,fn)=>{const p=tail.then(fn);tail=p.catch(()=>{});return p;}}}});
@@ -12,7 +13,7 @@ function fixture(){
  const wallet={...H.initialGrowth(save),user_id:uid};wallet.xp.mage=H.totalXP(20);
  const db=new MemoryStore({hd3d_progress:[{user_id:uid,data:save,merged:true,updated_at:new Date(now).toISOString()},{user_id:users.b.id,data:{...P.empty(),souls:1000},merged:true,updated_at:new Date(now).toISOString()}],hd3d_profiles:Object.values(users).map(u=>({id:u.id,nickname:'Test'})),hd3d_growth_wallet:[wallet]});
  const control={offline:true,hold:false,lose:false,failBefore:false,clock:now+60000,calls:[]};let release=()=>{},seen=()=>{};
- const run=(user,op)=>db.transaction(tx=>execute(tx,user,op,{now:control.clock}));
+ const run=(user,op)=>control.bonusContract?runEconomyOperation(db,user,op,{now:control.clock}):db.transaction(tx=>execute(tx,user,op,{now:control.clock}));
  class Query{
   constructor(table){this.q={kind:'query',table,action:'select',filters:{}};}
   select(columns){this.q.columns=columns;this.q.returning=true;return this;}eq(k,v){this.q.filters[k]=v;return this;}update(values){this.q.action='update';this.q.values=values;return this;}insert(values){this.q.action='insert';this.q.values=values;return this;}upsert(values){this.q.action='upsert';this.q.values=values;return this;}maybeSingle(){this.q.single=true;return this;}
@@ -77,4 +78,21 @@ test('nonmodal waiting cannot start a second run, invest, change build, claim ma
  assert.equal((await D.dgStart()).blocked,true);assert.equal((await S.spStart(1)).blocked,true);assert.equal((await Shop.claim(1)).ok,false);
  assert.equal(f.control.calls.length,n);assert.equal(A.load().souls,1000);assert.equal(A.load().heroLv.mage.hp,0);
  f.control.offline=false;await C.refresh();receipt(f);assert.equal(A.serverSaveState(),null);
+});
+test('first-clear boss waves survive offline checkpoint, journal merge and lost committed reply',async()=>{
+ const f=fixture();f.control.bonusContract=true;const run=await C.startRun('hard-1-1','mage');assert.equal(run?.hardFirstBonus,1);
+ f.control.clock+=120000;
+ const call=f.control.calls.find(x=>x.name==='hd3d_growth_start');assert.equal(call.args.p_hardFirstBonus,1);
+ await C.checkpoint(run,5,false,false,1,5,[5]);await tail;
+ const read=()=>JSON.parse(values.get('hd3d_live_growth_v1_'+f.uid+'_outbox')).rewards[run.token];
+ assert.equal(Object.hasOwn(read(),'p_bossKills'),false);
+ await C.checkpoint(run,10,true,true,3,11,[10,5,5,0,11,'5']);await tail;
+ await C.checkpoint(run,10,true,true,3,11,[]);await tail;
+ assert.deepEqual(read().p_bossKills,[5,10]);
+ f.control.offline=false;f.control.lose=true;
+ assert.equal(await C.retry(),false);
+ const paid=structuredClone(f.cloud()),requests=()=>f.control.calls.filter(x=>x.name==='hd3d_growth_progress'&&x.args.p_finish);
+ assert.equal(await C.refresh(),true);
+ assert.deepEqual(f.cloud(),paid);assert.equal(read(),undefined);
+ assert.deepEqual(requests().at(-1).args.p_bossKills,[5,10]);assert.equal(C.HG.hardRewards[run.token].chests,paid.chests.length);
 });

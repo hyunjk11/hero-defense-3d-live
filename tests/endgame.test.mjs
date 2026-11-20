@@ -31,10 +31,10 @@ check('80 unique names, grade stats, set bonuses, 16 icons and cleaned item iden
  icons.add(endgameIcon({c:ch,s:['armor','acc'].includes(row)?row:'weapon',h:row}));}
  assert.equal(names.size,80);assert.equal(icons.size,16);for(const icon of icons)assert.ok(icon.includes('class="endgameItemIcon"'));assert.ok(fs.readFileSync(new URL('../style.css',import.meta.url),'utf8').includes('.machineItemIcon,.endgameItemIcon{'));
 });
-function fixture(){
+function fixture(STAGE=null,mobileApp=false){
  const scene=new THREE.Scene(),G={stats:{},enemies:[],towers:[],heroes:[],t:0,tiles:Array.from({length:24},()=>Array.from({length:16},()=>({t:0})))},hits=[];
  const no=()=>{};G.heroDamage=(n,h)=>{h.hp-=n;hits.push(n);};
- const ctx=vm.createContext({THREE,G,scene,...geometry,T:{BEDROCK:5,CORE:7},tileX:n=>n,tileZ:n=>n,toTile:(x,z)=>[Math.round(x),Math.round(z)],inGrid:(c,r)=>c>=0&&r>=0&&c<24&&r<16,shareGeo:g=>{g.userData.shared=true;return g;},disposeOwned:o=>o.traverse?.(m=>{if(m.geometry&&!m.geometry.userData.shared)m.geometry.dispose();if(m.material)m.material.dispose();}),P:{},emit:no,ringFx:no,dmgText:no,banner:no,Snd:{play:no,roar:no}});
+ const ctx=vm.createContext({THREE,G,scene,STAGE,mobileApp,...geometry,T:{BEDROCK:5,CORE:7},tileX:n=>n,tileZ:n=>n,toTile:(x,z)=>[Math.round(x),Math.round(z)],inGrid:(c,r)=>c>=0&&r>=0&&c<24&&r<16,shareGeo:g=>{g.userData.shared=true;return g;},disposeOwned:o=>o.traverse?.(m=>{if(m.geometry&&!m.geometry.userData.shared)m.geometry.dispose();if(m.material)m.material.dispose();}),P:{},emit:no,ringFx:no,dmgText:no,banner:no,Snd:{play:no,roar:no}});
  vm.runInContext(strip(read('monsters/endgame.js'))+'\nthis.api={initEndgame,endgameTick,updateEndgame,clearEndgame,endgameKilled,endgameEffects};',ctx);
  const enemy=(type,x=10,z=8)=>{const E=ETYPES[type],g=new THREE.Group();g.position.set(x,0,z);scene.add(g);const e={E,g,hp:E.hp,max:E.hp,armor:E.armor,stunT:0,type};G.enemies.push(e);return e;};
  ctx.api.initEndgame({spawnEnemy:(type,m,p)=>{const e=enemy(type,p.x,p.z);e.hp=e.max=e.E.hp*m;return e;},damageTower:(t,n)=>{t.hp-=n;hits.push(n);}});
@@ -58,4 +58,26 @@ check('interrupt and caster death cancel damage/summon and dispose marks',()=>{f
 check('ward expiration, no stacking, death and clear cleanup',()=>{const f=fixture(),e=f.enemy('void_lantern'),a=f.enemy('void_walker',11,8);f.cast(e);f.finish(e);assert.equal(a.shield,a.max*.12);assert.equal(f.endgameEffects().wards,1);f.updateEndgame(5.1);assert.equal(a.shield,0);assert.equal(a.endWard,null);f.cast(e);f.finish(e);f.endgameKilled(a);assert.equal(f.endgameEffects().wards,0);f.clearEndgame();assert.deepEqual(JSON.parse(JSON.stringify(f.endgameEffects())),{traces:0,wards:0,casting:0});});
 check('finite summon budget, simultaneous cap and invalid spawn tiles',()=>{const f=fixture(),e=f.enemy('rift_caller');f.hero();for(let i=0;i<6;i++){f.cast(e);f.finish(e);for(const x of f.G.enemies)if(x.E.child)x.dead=true;}assert.equal(e.endSummoned,12);e.endCd=0;f.endgameTick(e,.1);assert.ok(!e.endCast);const a=fixture(),b=a.enemy('rift_caller');a.hero();for(const col of a.G.tiles)for(const t of col)t.t=5;a.cast(b);a.finish(b);assert.equal(a.G.enemies.length,1);});
 check('boss phase occurs once, changes armor and cooldown, no direct damage',()=>{const f=fixture(),e=f.enemy('boss_dragon');f.hero();e.hp=e.max*.4;f.endgameTick(e,.1);assert.equal(e.endCast.kind,'awaken');f.finish(e);assert.equal(e.armor,.1);assert.ok(Math.abs(e.endCd-9.6)<1e-9);assert.equal(f.hits.length,0);f.endgameTick(e,.1);assert.ok(!e.endCast);});
+check('only PC Hard end bosses render damaging telegraphs above terrain; hit and lifetime stay identical',()=>{
+ for(const [ch,id,kinds] of [[9,'boss_abyss',['line','ring','gate']],[10,'boss_dragon',['breath','salvo','ring']]]){
+  for(const kind of kinds){
+   const results=[];
+   for(const [stage,mobile,over] of [[{ch,hard:true},false,kind!=='gate'],[{ch,hard:true},true,false],[{ch,hard:false},false,false]]){
+    const f=fixture(stage,mobile),e=f.enemy(id),h=f.hero(),c=f.cast(e,kind);
+    assert.equal(c.kind,kind);
+    const marks=[...c.marks];for(const mark of marks)for(const mesh of mark.children){
+     assert.equal(mesh.material.depthTest,!over);assert.equal(mesh.material.depthWrite,false);assert.equal(mesh.material.toneMapped,!over);assert.equal(mesh.renderOrder,over?22:0);
+    }
+    if(over)for(const mark of marks)assert.equal(mark.children[0].material.opacity,.40);
+    f.endgameTick(e,.01);
+    if(over)for(const mark of marks)assert.ok(mark.children[0].material.opacity>.40);
+    f.finish(e);assert.equal(e.endCast,null);assert.equal(marks.every(m=>!m.parent),true);
+    results.push({hp:h.hp,duration:c.duration,hits:[...f.hits]});
+   }
+   assert.deepEqual(results[0],results[1]);assert.deepEqual(results[0],results[2]);
+  }
+ }
+ const f=fixture({ch:9,hard:true}),e=f.enemy('rift_lancer');f.hero();
+ assert.equal(f.cast(e).marks[0].children[0].material.depthTest,true);
+});
 console.log(`endgame ${cases} groups passed`);

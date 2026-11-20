@@ -8,6 +8,7 @@ import { CLASSES } from '../data/heroes.js';
 import { ls } from '../core/store.js';
 import { durableSet } from './durable.js';
 import { isMissingErr } from './adminlogic.js';
+import { mobileApp } from '../ui/mobile-mode.js';
 
 export const HG = { owner: null, session: -1, status: 'idle', growth: null, message: '', pending: 0, hasInvestment: false, rewardXP: {}, hardRewards: {}, features: {}, buildBusy:false };
 const listeners = [], prefix = 'hd3d_live_growth_v1_', guestKey = prefix + 'guest_ledger';
@@ -123,25 +124,29 @@ export async function startRun(stage, hero) {
   const u = owner(), s = stamp();
   const partner = hard ? (await import('./hard-party.js')).readPartner(hero) : null;
   if (!valid(s)) return null;
-  const a = { ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero };
+  const hardFirstBonus = hard && u !== 'guest' && !mobileApp && HG.features.hardFirstBonus === 1;
+  const a = { ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(hardFirstBonus?{p_hardFirstBonus:1}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero };
   try {
     // Retry the same start ID after a lost response; no progress exists until it is acknowledged.
     const r = await locked(u, async () => { try { return await rpc(u, 'start', a); } catch { return rpc(u, 'start', a); } });
     if (!valid(s)) return null; accept(r, s); if (!r.ok) throw new Error(r.reason);
     if (hard && (r.party?.length !== 2 || r.party[0] !== hero || r.party[1] !== a.p_partner || !r.loadouts?.[hero] || !r.loadouts?.[a.p_partner])) throw new Error('출정 편성 불일치');
-    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
+    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
   } catch (e) { if (valid(s)) { HG.status = 'error'; HG.message = 'XP 출정 준비 실패 · 연결을 확인해 주세요. ' + (e.message || e); emit(); } return null; }
 }
 // Navigation awaits this durable checkpoint; a shared cross-tab lock serializes journal edits.
-export async function checkpoint(run, completed, win = false, finish = false, stars = 1, kills = 0) {
+export async function checkpoint(run, completed, win = false, finish = false, stars = 1, kills = 0, bossKills = []) {
   if (!run) return true;
   if (owner() !== run.owner || Acc.sessionId() !== run.session) return false;
   const u = run.owner, s = stamp();
+  const firstBosses = run.hardFirstBonus===1 && win && finish && Array.isArray(bossKills)
+    ? bossKills.filter(n=>Number.isSafeInteger(n)&&n>=1&&n<=completed) : null;
   try {
     await locked(u, () => {
       if (!valid(s)) return; const out = readOut(u), old = out.rewards[run.token];
       out.rewards[run.token] = { p_token: run.token, p_stage:run.stage, p_completed: Math.max(old?.p_completed || 0, completed), p_win: !!win || !!old?.p_win, p_finish: !!finish || !!old?.p_finish, p_stars:Math.max(old?.p_stars||1,Math.min(3,stars|0)) };
       if(String(run.stage||'').startsWith('hard-'))out.rewards[run.token].p_kills=Math.max(old?.p_kills||0,Number.isSafeInteger(kills)&&kills>=0?Math.min(kills,1000000):0);
+      if(firstBosses || old?.p_bossKills)out.rewards[run.token].p_bossKills=[...new Set([...(old?.p_bossKills||[]),...(firstBosses||[])])].sort((a,b)=>a-b);
       write(outKey(u), out); HG.pending = Object.keys(out.rewards).length + Object.keys(out.modes || {}).length + !!out.investment + !!out.build;
     }); emit(); void retry(); return true;
   } catch (e) { HG.message = 'XP 완료 기록 저장 실패: ' + (e.message || e); emit(); return false; }

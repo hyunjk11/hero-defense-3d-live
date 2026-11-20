@@ -10,7 +10,8 @@ import { changeTree, treeBuild } from '../src/data/skill-tree.js';
 import { HARD_STAGES, cleanHard, hardReward } from '../src/data/hard.js';
 import { cleanTarget, validTarget } from '../src/data/repeat-target.js';
 import { HARD_REWARD_VERSION } from '../src/data/hard-collection.js';
-import { STAGES, getStage, stageUnlocked, stars } from '../src/data/stages.js';
+import { waveBoss } from '../src/core/roster.js';
+import { STAGES, getStage, stageUnlocked, stars, STAR_STEP } from '../src/data/stages.js';
 const idOK = id => typeof id === 'string' && /^[a-zA-Z0-9-]{8,80}$/.test(id);
 const intOK = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
 export async function growthWallet(c) {
@@ -30,9 +31,21 @@ export async function creditMode(c, mode, token, cumulative) {
   if (cumulative > previous) { H.credit(w, cumulative - previous); await c.put('growth_wallet', w); await c.put('growth_receipts', { id: key, user_id: c.uid, mode, token, amount: cumulative, at: c.iso }); }
   return { xp: Math.max(previous, cumulative), growth: growthView(w) };
 }
-export async function growth(c, name, a) {
+const hardStarCount=hard=>Object.values(hard.st).reduce((sum,n)=>sum+n,0);
+const validHardBosses=(bosses,stage,wave)=>Array.isArray(bosses)&&bosses.length<=wave&&bosses.every((n,i)=>Number.isSafeInteger(n)&&n>=1&&n<=wave&&!!waveBoss(stage,n)&&(i===0||n>bosses[i-1]));
+function appendHardFirst(reward,s,hero,bosses,starTier,random){
+  const add=odds=>{
+    const slot=E.SLOT_KEYS[Math.floor(random()*E.SLOT_KEYS.length)];
+    if(s.ch>=3)odds[0]=0;
+    const g=E.rollGrade(odds,random);
+    (reward.items??=[]).push({k:'gear',s:slot,...(slot==='weapon'?{h:hero}:{}),g,c:s.ch});
+  };
+  for(const wave of bosses)if(random()<E.BOSS_DROP)add(E.bossOdds(wave));
+  if(starTier)add(E.chestOdds(2+starTier));
+}
+export async function growth(c, name, a, {hardFirstBonus=false}={}) {
   c.requirePlayer();
-  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION}, growth: growthView(await growthWallet(c)) };
+  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{})}, growth: growthView(await growthWallet(c)) };
   if(name==='build') {
     if(!idOK(a.p_id)||!intOK(a.p_revision,H.MAX_XP)||!await owned(c,a.p_hero))return failure('invalid');
     const key=c.uid+'~tree~'+a.p_id,body=JSON.stringify([a.p_hero,a.p_branch,a.p_preset,a.p_tier,a.p_choice,a.p_revision]);
@@ -57,9 +70,11 @@ export async function growth(c, name, a) {
   if (name === 'start') {
     if (!validTarget(a.p_target) || !idOK(a.p_id) || !['campaign', 'challenge'].includes(a.p_mode) || !await owned(c, a.p_hero)) return failure('invalid');
     const key = c.uid + '~' + a.p_id, old = await c.get('growth_runs', key), stage = a.p_mode === 'campaign' ? a.p_stage : null;
+    const firstBonusRequested=hardFirstBonus&&a.p_hardFirstBonus===1;
+    if(hardFirstBonus&&a.p_hardFirstBonus!==undefined&&(!firstBonusRequested||!HARD_STAGES[stage]))return failure('invalid');
     const partyRequested = a.p_partyVersion !== undefined || a.p_partner !== undefined;
     if (partyRequested && (a.p_partyVersion !== HARD_PARTY_VERSION || !HARD_STAGES[stage] || a.p_mode !== 'campaign' || !validPartner(a.p_hero, a.p_partner) || !await owned(c, a.p_partner))) return failure('invalid_party');
-    if (old) return (old.partner || null) === (a.p_partner || null) && (old.partyVersion || null) === (a.p_partyVersion || null) && old.stage === stage && old.hero === a.p_hero && old.mode === a.p_mode && (old.requestedTarget || null) === cleanTarget(a.p_target) ? { ok: true, token: old.token, growth: growthView(await growthWallet(c)), build: old.build, ...(old.party?{party:old.party,loadouts:old.loadouts}:{}), target: old.target || null, repeat: !!old.repeat } : failure('id_reused');
+    if (old) return (old.partner || null) === (a.p_partner || null) && (old.partyVersion || null) === (a.p_partyVersion || null) && (old.repeat||!!old.hardFirstBonus===firstBonusRequested) && old.stage === stage && old.hero === a.p_hero && old.mode === a.p_mode && (old.requestedTarget || null) === cleanTarget(a.p_target) ? { ok: true, token: old.token, growth: growthView(await growthWallet(c)), build: old.build, ...(old.party?{party:old.party,loadouts:old.loadouts}:{}), target: old.target || null, repeat: !!old.repeat, ...(old.hardFirstBonus?{hardFirstBonus:1}:{}) } : failure('id_reused');
     const p = await c.get('progress', c.uid);
     if (stage && (!getStage(stage) || !stageUnlocked({...p?.data,growth:growthView(await growthWallet(c))}, stage))) return failure('locked');
     if (a.p_mode === 'campaign' && !stage) return failure('invalid');
@@ -69,8 +84,8 @@ export async function growth(c, name, a) {
     const loadouts = party ? Object.fromEntries(party.map(h => [h, { perm: structuredClone(p.data.heroLv[h] || {hp:0,atk:0}), equip:E.bonus(p.data,h), legend:E.legendOf(p.data,h), adv:advOf(h,p.data.adv?.[h]), heroLevel:H.levelOf(w.xp[h]), heroTree:treeBuild(w.trees,h,typeof p.data.adv?.[h]==='string'?p.data.adv[h]:p.data.adv?.[h]?.b,H.levelOf(w.xp[h])), heroGear:E.equippedItems(p.data,h) }])) : null;
     const repeat = !!stage && stars({...p?.data,growth:growthView(w)},stage)>0;
     const target = repeat ? cleanTarget(a.p_target) : null;
-    const run = { ...(party?{party,loadouts,partner:a.p_partner,partyVersion:HARD_PARTY_VERSION}:{}), build, repeat, target, requestedTarget: cleanTarget(a.p_target), id: key, user_id: c.uid, token: a.p_id, mode: a.p_mode, hero: a.p_hero, stage, completed: 0, xp: 0, won: false, done: false, started_at: c.iso, version: H.VERSION, ...(HARD_STAGES[stage]?{hardRewardVersion:HARD_REWARD_VERSION}:{}) };
-    await c.put('growth_runs', run); return { ok: true, token: run.token, build:run.build, ...(party?{party,loadouts}:{}), target:run.target, repeat:run.repeat, growth: growthView(w) };
+    const run = { ...(party?{party,loadouts,partner:a.p_partner,partyVersion:HARD_PARTY_VERSION}:{}), build, repeat, target, requestedTarget: cleanTarget(a.p_target), id: key, user_id: c.uid, token: a.p_id, mode: a.p_mode, hero: a.p_hero, stage, completed: 0, xp: 0, won: false, done: false, started_at: c.iso, version: H.VERSION, ...(HARD_STAGES[stage]?{hardRewardVersion:HARD_REWARD_VERSION}:{}), ...(firstBonusRequested&&!repeat?{hardFirstBonus:1}:{}) };
+    await c.put('growth_runs', run); return { ok: true, token: run.token, build:run.build, ...(party?{party,loadouts}:{}), target:run.target, repeat:run.repeat, ...(run.hardFirstBonus?{hardFirstBonus:1}:{}), growth: growthView(w) };
   }
   if (name === 'progress') {
     if (!idOK(a.p_token) || !intOK(a.p_completed, 9999) || typeof a.p_win !== 'boolean' || typeof a.p_finish !== 'boolean') return failure('invalid');
@@ -81,6 +96,8 @@ export async function growth(c, name, a) {
     // Telemetry only: kills never change XP, souls or loot. Old clients omit it.
     if(s?.hard&&a.p_kills!==undefined&&!intOK(a.p_kills,1000000))return failure('invalid');
     if (s && a.p_completed > s.waves || a.p_win && (!s || a.p_completed !== s.waves)) return failure('invalid');
+    const hardBosses=r.hardFirstBonus&&a.p_bossKills!==undefined?a.p_bossKills:[];
+    if(r.hardFirstBonus&&!validHardBosses(hardBosses,s,a.p_completed))return failure('invalid');
     // Sanity floor, not proof of gameplay. No expiry of acknowledged or offline pending rewards.
     if ((c.now - Date.parse(r.started_at)) / 1000 < a.p_completed * 2) return failure('too_fast');
     const completed = Math.max(r.completed, a.p_completed), win = r.won || a.p_win;
@@ -91,11 +108,18 @@ export async function growth(c, name, a) {
     if(s?.hard)r.kills=Math.max(r.kills||0,a.p_kills||0);
     if(s?.hard&&r.done){
       w.hard=cleanHard(w.hard);const first=!w.hard.st[s.id];
+      const extra=!!r.hardFirstBonus&&!r.repeat&&first&&win;
+      const starBefore=extra?Math.floor(hardStarCount(w.hard)/STAR_STEP):0;
       if(win)w.hard.st[s.id]=Math.max(w.hard.st[s.id]||0,Number.isInteger(a.p_stars)&&a.p_stars>=1&&a.p_stars<=3?a.p_stars:1);
       // Only an actual repeat departure with a finishing acknowledgement uses the new contract.
       // The client's version/count/grade/target fields cannot upgrade an old run or receipt.
       const rewardVersion=r.repeat&&a.p_finish?r.hardRewardVersion:1;
-      const reward=hardReward(s,completed,win,first,r.hero,c.random,win&&!first&&r.repeat?r.target:null,rewardVersion);r.reward={souls:reward.souls,chests:reward.items?.length||0};
+      const reward=hardReward(s,completed,win,first,r.hero,c.random,win&&!first&&r.repeat?r.target:null,rewardVersion);
+      if(extra){
+        const starAfter=Math.floor(hardStarCount(w.hard)/STAR_STEP);
+        appendHardFirst(reward,s,r.hero,hardBosses,starAfter>starBefore?starAfter:0,c.random);
+      }
+      r.reward={souls:reward.souls,chests:reward.items?.length||0};
       if(reward.souls||reward.items?.length||r.kills){
         const p=await c.get('progress',c.uid);if(!p) return failure('missing_save');
         let next=p.data,loot=[];

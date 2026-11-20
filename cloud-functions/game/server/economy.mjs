@@ -110,5 +110,5 @@ export async function runEconomyOperation(rawStore,user,op,options={}){
   if(name==='dungeon_buy')return directDungeonBuy(store,user,a,options);
   if(name==='spire_start')return directSpireStart(store,user,a,options);
  }
- return runOperation(store,user,op,options);
+ return runOperation(store,user,op,{...options,hardFirstBonus:true});
 }
