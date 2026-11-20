@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import * as THREE from '../lib/three.module.js';
+const src=fs.readFileSync(new URL('../src/render/gear-artillery.js',import.meta.url),'utf8');
+const env=vm.createContext({THREE});
+vm.runInContext(src.replace(/^import .*;$/gm,'').replace(/export function /,'function ')+'\nthis.create=createGearArtilleryFx;',env);
+const setup=()=>{const scene=new THREE.Scene();return {scene,fx:env.create({scene,groundY:()=>-.46})};};
+test('artillery reticle is immediate, shell falls to the saved target, and warning expires on time',()=>{
+  const {scene,fx}=setup();
+  assert.equal(scene.children.length,0);
+  fx.mark(3,5,.52,3.25);
+  const [group]=scene.children, [glyph,shell]=group.children;
+  assert.deepEqual(group.position.toArray(),[3,-.46,5]);
+  assert.equal(group.visible,true);
+  assert.equal(shell.visible,false);
+  assert.equal(glyph.scale.x,3.25*1.25);
+  fx.update(.1);
+  assert.equal(shell.visible,true);
+  const firstY=shell.position.y;
+  fx.update(.3);
+  assert.ok(shell.position.y<firstY);
+  fx.update(.12);
+  assert.equal(group.visible,false);
+});
+test('impact advances one shader and two instanced batches, then expires',()=>{
+  const {scene,fx}=setup();
+  fx.strike(3,5);
+  const [g]=scene.children,[glyph,dust,sparks]=g.children;
+  const opacity=dust.material.opacity;
+  assert.ok(dust.isInstancedMesh&&sparks.isInstancedMesh);
+  fx.update(.34);
+  assert.equal(glyph.material.uniforms.time.value,.5);
+  assert.ok(dust.material.opacity<opacity);
+  fx.update(.34);
+  assert.equal(g.visible,false);
+});
+test('reuse caps allocation and a stale canceler cannot cancel a slot reused by a different warning',()=>{
+  const {scene,fx}=setup();
+  const cancel=fx.mark(0,0);
+  for(let i=1;i<100;i++){fx.mark(i,i);fx.strike(i,i);}
+  assert.equal(scene.children.length,8);
+  cancel();
+  assert.ok(scene.children.every(g=>g.visible));
+  fx.clear();
+  assert.ok(scene.children.every(g=>!g.visible));
+  const cancelCurrent=fx.mark(9,8);
+  assert.equal(scene.children[0].visible,true);
+  cancelCurrent();
+  assert.equal(scene.children[0].visible,false);
+  fx.mark(Infinity,0);
+  fx.strike(0,NaN);
+  assert.ok(scene.children.every(g=>!g.visible));
+});

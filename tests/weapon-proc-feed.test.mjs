@@ -27,8 +27,9 @@ test('failed roll, dead target, no equipped proc, and manual innate E do not ann
  f.hero.C.level=10;assert.equal(f.api.castLegend(new f.THREE.Vector3(0,0,3)),true);
  assert.equal(f.rows.length,0);assert.equal(f.hero.licd,0);
 });
-test('ricochet announces the first actual bounce, not its roll, individual hits or an isolated target',()=>{
+test('legacy mobile ricochet announces the first actual bounce, not its roll, individual hits or an isolated target',()=>{
  const f=heroSetup('gunner','ricochet'),t=f.target();f.G.gunN={ricochet:0};
+ f.env.equipProc=key=>LSK[key];
  const src=fs.readFileSync(new URL('../src/heroes/gunner.js',import.meta.url),'utf8');
  Object.assign(f.env,{tracer:()=>{},hurt:f.env.hurt0});
  f.env.ricochet=vm.runInContext('let lsk=false;('+src.slice(src.indexOf('export function ricochet')+7,src.indexOf('// 장미 탄막 (active)')).trim()+')', f.env);

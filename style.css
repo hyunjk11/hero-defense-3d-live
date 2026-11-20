@@ -719,6 +719,7 @@ body:not(.dungeonRun) #dgAuto,body.dungeonRun.dgAllAuto #autoSkillBtn{display:no
 #camTop{position:absolute;top:calc(12px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));display:flex;gap:5px;pointer-events:auto;z-index:var(--z-hud-top)}
 #camTop button{width:34px;height:34px;font-size:15px;opacity:.85}#camTop button:hover{opacity:1;border-color:var(--gold-hi)}
 #sndPanel{right:calc(12px + env(safe-area-inset-right));bottom:auto;top:calc(54px + env(safe-area-inset-top));z-index:var(--z-hud-top);max-height:calc(100dvh - 140px);overflow-y:auto}
+body:not(.mobileApp) #sndPanel{z-index:calc(var(--z-toast) + 1)}
 @media (pointer:coarse){#camTop button{width:var(--hit);height:var(--hit)}#sndPanel{top:calc(68px + env(safe-area-inset-top))}}
 /* Q-4a 알림 배지 (2026-10-23): 받을 도감 보상이 있으면 🎒 가방 버튼 오른쪽 위 빨간 점 (.ui-badge 모양 = .newDot) */
 #twBag,.railBtn{position:relative}#twBag.hasNew::after,.railBtn.hasNew::after{content:'';position:absolute;top:5px;right:6px;width:9px;height:9px;border-radius:50%;background:#ff5a5a;box-shadow:0 0 6px #ff5a5a;pointer-events:none}

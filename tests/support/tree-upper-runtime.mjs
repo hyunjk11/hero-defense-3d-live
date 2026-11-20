@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import * as THREE from '../../lib/three.module.js';
 import { LSK } from '../../src/account/equip.js';
+import { ARTILLERY, equipProc } from '../../src/data/gear-proc-pc.js';
 import { eSkillFor, eKeyFor } from '../../src/data/hero-e.js';
 import { procTargets } from '../../src/data/legend-procs.js';
 const strip=s=>s.replace(/^import .*;.*$/gm,'').replace(/\bexport (?=(?:const|function|let))/g,'');
@@ -11,7 +12,7 @@ export function fixture(cls='mage',level=10,lsk=null,baseline=false) {
   const no=()=>{},G={t:0,phase:'wave',enemies:[],fxs:[],legendForce:true},scene=new THREE.Scene(),hits=[],casts=[],timers=[];
   const hero={cls,C:{level},eq:{},lsk,licd:0,lcd:0,dead:0,face:0,g:new THREE.Group(),ch:{acts:{}},path:[]};
   const FX=[];
-  const env=vm.createContext({legendFeedback:()=>{},skillAllowed,THREE,G,hero,scene,LSK,eSkillFor,eKeyFor,procTargets,treeESkill,treeCooldown,treeSkillUsed,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
+  const env=vm.createContext({legendFeedback:()=>{},skillAllowed,THREE,G,hero,scene,LSK,ARTILLERY,equipProc,eSkillFor,eKeyFor,procTargets,treeESkill,treeCooldown,treeSkillUsed,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
     heroFx:()=>FX,asSkill:(f,...args)=>f(...args),later:(time,f)=>timers.push({time,f}),
     stat:{dmg:()=>100,skillMul:()=>1,range:()=>10},heroTip:()=>hero.g.position.clone(),mouseGround:new THREE.Vector3(),passAt:()=>true,groundY:()=>0,
     hurt0:(e,d)=>{if(e.dead)return;const loss=Math.min(e.hp,d*(1-(e.E.armor||0)));e.hp-=loss;hits.push({target:e.id,loss});if(e.hp<=0)e.dead=true;},

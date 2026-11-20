@@ -4,7 +4,7 @@ import { treeESkill, treeCooldown } from './skill-tree.js';
 import { levelMods, focusMods, FOCUS_MAX } from './hero-growth.js';
 import { CLASSES } from './heroes.js';
 import { applyAdv } from './advance.js';
-import { LSK } from '../account/equip.js';
+import { equipProc } from './gear-proc-pc.js';
 import { eInfoFor, eDescription, E_LEVEL } from './hero-e.js';
 
 export const NOM = Object.freeze({ rate: 1, dmg: 1, crit: 0, critD: 0, range: 1, cd: 1, taken: 1 }); // hero.js NOM 과 같음 (던전 밖)
@@ -62,7 +62,7 @@ export function breakdown(cls, L = {}, m = {}) {
 }
 // 장착한 전설 무기 효과
 export function effectsOf(lsk, cdr = 0) {
-  const s = LSK[lsk]; if (!s) return [];
+  const s = equipProc(lsk); if (!s) return [];
   return [{ kind: 'legend', n: s.n, tag: s.type === 'proc' ? `공격 시 ${Math.round(s.chance * 100)}% 발동` : `[E] 재사용 ${r1(s.cd * (1 - Math.min(CDR_CAP, cdr) / 100))}초`, d: s.d }];
 }
 

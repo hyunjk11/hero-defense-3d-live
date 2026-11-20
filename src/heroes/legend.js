@@ -18,7 +18,9 @@ import { play } from '../render/characters.js';
 import { makeArrow } from '../combat/projectiles.js';
 import { hurt as hurt0 } from '../monsters/enemy.js';
 import { groundY } from '../monsters/ai.js';
-import { LSK } from '../account/equip.js';
+import { ARTILLERY, artilleryTargets, equipProc } from '../data/gear-proc-pc.js';
+import { createGearArtilleryFx } from '../render/gear-artillery.js';
+import { weaponProcFeed } from '../ui/weapon-proc-feed.js';
 import { eSkillFor, eKeyFor } from '../data/hero-e.js';
 import { procTargets } from '../data/legend-procs.js';
 import { banner } from '../ui/hud.js';
@@ -38,7 +40,7 @@ const ADD = c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opac
 const alive = () => G.enemies.filter(e => !e.dead && e.dying === undefined);
 const d2 = (e, x, z) => { const dx = e.g.position.x - x, dz = e.g.position.z - z; return dx * dx + dz * dz; };
 const fade = (m, dur) => { scene.add(m); G.fxs.push({ m, t: 0, dur, kind: 'fade' }); };
-export const legendSkill = () => hero && hero.lsk ? LSK[hero.lsk] : null;
+export const legendSkill = () => hero?.lsk ? equipProc(hero.lsk) : null;
 export const heroEKey = () => hero ? eKeyFor(hero.cls, hero.C.level || 1, hero.adv) : null;
 export const legendActive = () => {const s=hero?eSkillFor(hero.cls,hero.C.level||1,hero.adv):null;return hero?.treeMods?treeESkill(s,hero.treeMods):s;};
 export const legendCd = () => { const s = legendActive(); if(!s)return 0;const base=s.cd*(1-Math.min(40,hero.eq?.cdr||0)/100);return hero.treeMods?.eCd?treeCooldown(base,s.cd,hero.treeMods.eCd):base; };
@@ -72,10 +74,44 @@ function legendProc0(t, attack) {
   if (s.max && !procTargets(s, t, G.enemies, G.t, attack).length) return;
   if (LR() >= (G.legendForce ? 1 : s.chance)) return; hero.licd = s.icd; count(hero.lsk);
   const oldProc = ({ multishot, frostorb, boomerang, overdrill, pawstorm })[hero.lsk];
+  if (s === ARTILLERY) { artillery(t,s); return; }
   // A ricochet needs a second target. Report it only when the first tracer really appears.
   if (hero.lsk === 'ricochet') { const caster = hero; ricochet(t,s,4,true,() => legendFeedback(caster,t,s,[],FX,true)); return; }
   if (oldProc) { legendFeedback(hero,t,s,[],FX,true); oldProc(t, s, attack); } else impactProc(t, s, attack);
 }
+let artilleryFx = null, artilleryMap = null;
+const battleFx = () => (!G.screen || G.screen === 'game' || G.screen === 'run') && ['build','wave'].includes(G.phase);
+export function updateGearArtillery(dt) {
+  if (!artilleryFx || artilleryMap === null) return;
+  if (G.tiles !== artilleryMap || !battleFx()) { artilleryFx.clear(); artilleryMap=null; return; }
+  artilleryFx.update(dt);
+}
+
+function artillery(target, s) {
+  if (!battleFx()) return;
+  const caster=hero, map=G.tiles, wave=G.wave;
+  const {x,z}=target.g.position, damage=stat.dmg()*s.mul;
+  const src={x:caster.g.position.x,z:caster.g.position.z,kind:'ranged'};
+  const fx=artilleryFx ||= createGearArtilleryFx({scene,groundY});
+  if (map!==artilleryMap) { fx.clear(); artilleryMap=map; }
+  const cancel=fx.mark(x,z,s.delay,s.radius);
+  weaponProcFeed.record(document.getElementById('weaponProcFeed'),G,caster,s,performance.now());
+  const point=new THREE.Vector3(x,groundY(x,z),z);
+  Snd.play('glass',{pos:point,rate:1.7,vol:.35});
+  Snd.whoosh(point,.46,1150,180,.44);
+  later(s.delay,()=> {
+    if (G.tiles!==map || G.wave!==wave || !battleFx() || (G.hero!==caster && !G.heroes?.includes(caster))) {
+      if (typeof cancel==='function') cancel();
+      return;
+    }
+    if (typeof cancel==='function') cancel();
+    fx.strike(x,z,s.radius);
+    Snd.play('boom',{pos:point,rate:.8,vol:.82});
+    G.shake=Math.max(G.shake||0,.22);
+    for(const e of artilleryTargets(G.enemies,x,z,G.t)) hurt(e,damage,'#ffda9c',true,src);
+  });
+}
+
 // Immediate bounded follow-up to a basic attack. No new timers/projectile ownership or recursive proc calls.
 function impactProc(t, s, attack) {
   const targets = procTargets(s, t, G.enemies, G.t, attack), dmg = stat.dmg() * s.mul;
