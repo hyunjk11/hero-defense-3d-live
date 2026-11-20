@@ -9,7 +9,12 @@ import { STAGE, DUNGEON } from '../core/grid.js'; // DUNGEON: 던전 원정 = �
 import { Q } from './quality.js';
 
 // ================= 렌더러/씬 =================
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+} catch (cause) {
+  throw Object.assign(new Error('WebGL renderer initialization failed', { cause }), { code: 'HD3D_WEBGL_UNAVAILABLE' });
+}
 // 픽셀 비율 상한: 고품질 1.75 (태블릿 1.5), 성능 모드 1.25 (src/render/quality.js)
 renderer.setPixelRatio(Q.pixelRatio()); renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;

@@ -2,6 +2,7 @@ import { ENDGAME, refreshEndgameTile, endgamePylon, endgameDeco } from '../rende
 import { MACHINE, refreshMachineTile, machinePylon, machineDeco } from '../render/machine-environment.js';
 import { STORM, refreshStormTile, stormPylon, stormDeco } from '../render/storm-environment.js';
 import { PALETTES } from '../data/chapters/palettes.js';
+import { terrainInstances } from '../render/terrain-instances.js';
 import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -55,19 +56,33 @@ function genDungeon() { const R = mulberry32(4242), L = dungeonLayout(GW, GH), T
   for (let c = 0; c < GW; c++) { G.tiles[c] = []; for (let r = 0; r < GH; r++) { const t = TT[L[c][r]], hp = BLK[t] ? BLK[t].hp : 0; G.tiles[c][r] = { c, r, t, hp, max: hp, tower: null, bar: null, s: R(), s2: R(), s3: R(), shk: 0, ck: (c + r) % 2 ? .03 : 0, dwall: L[c][r] === 'W' }; } } }
 const tileAt = (c, r) => G.tiles[c][r];
 const groundIM = IM(new RoundedBoxGeometry(S * .97, .8, S * .97, 2, .12), toon(0xffffff), NT, .02);
-const dirtIM = IM(new RoundedBoxGeometry(1.84, 1, 1.84, 3, .3), toon(0xffffff), NT, .035);
-const capIM = IM(new RoundedBoxGeometry(1.94, .34, 1.94, 3, .16), toon(0xffffff), NT, .03);
-const trunkIM = IM(new THREE.CylinderGeometry(.15, .24, 1, 8), toon(0x8a5530), NT, .03);
-const leafIM = IM(new THREE.IcosahedronGeometry(1, 2), toon(0xffffff), NT * 2, .035);
+const terrainBatches=[], terrainMatrixFlag={};
+function terrainIM(geo,mat,count,ol,shadow){
+  let outline;
+  const mesh=IM(geo,mat,count,ol,shadow,o=>{outline=o;});
+  const batch=terrainInstances(mesh,outline,count);
+  batch.instanceMatrix=terrainMatrixFlag;
+  terrainBatches.push(batch);
+  return batch;
+}
+const beforeTerrainRender=scene.onBeforeRender;
+scene.onBeforeRender=function(...args){
+  beforeTerrainRender.apply(this,args);
+  for(const batch of terrainBatches)batch.compact();
+};
+const dirtIM = terrainIM(new RoundedBoxGeometry(1.84, 1, 1.84, 3, .3), toon(0xffffff), NT, .035);
+const capIM = terrainIM(new RoundedBoxGeometry(1.94, .34, 1.94, 3, .16), toon(0xffffff), NT, .03);
+const trunkIM = terrainIM(new THREE.CylinderGeometry(.15, .24, 1, 8), toon(0x8a5530), NT, .03);
+const leafIM = terrainIM(new THREE.IcosahedronGeometry(1, 2), toon(0xffffff), NT * 2, .035);
 const rockGeo = (() => { const g = new THREE.IcosahedronGeometry(1, 1); const p = g.attributes.position, R = mulberry32(7), m = new Map();
   for (let i = 0; i < p.count; i++) { const k = `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`; if (!m.has(k)) m.set(k, .82 + R() * .3); const f = m.get(k); p.setXYZ(i, p.getX(i) * f, p.getY(i) * f * .8, p.getZ(i) * f); }
   g.computeVertexNormals(); return g; })();
-const rockIM = IM(rockGeo, toon(0xffffff), NT * 2, .035);
-const tuftIM = IM(new THREE.ConeGeometry(.09, .42, 5), toon(0xffffff), NT * 3, 0, false);
-const flowerIM = IM(new THREE.IcosahedronGeometry(.11, 1), toon(0xffffff, { emissive: 0x222222 }), NT * 2, 0, false);
-const pebbleIM = IM(new THREE.DodecahedronGeometry(.16, 0), toon(0x8a6a4a), NT * 3, .02);
+const rockIM = terrainIM(rockGeo, toon(0xffffff), NT * 2, .035);
+const tuftIM = terrainIM(new THREE.ConeGeometry(.09, .42, 5), toon(0xffffff), NT * 3, 0, false);
+const flowerIM = terrainIM(new THREE.IcosahedronGeometry(.11, 1), toon(0xffffff, { emissive: 0x222222 }), NT * 2, 0, false);
+const pebbleIM = terrainIM(new THREE.DodecahedronGeometry(.16, 0), toon(0x8a6a4a), NT * 3, .02);
 const bedrock = new THREE.Group(); scene.add(bedrock);
-const crackIM = VOLCANO ? IM(new THREE.BoxGeometry(.07, .03, 1.1), glow(0xff5a14, .9), NT * 2, 0, false) : null;
+const crackIM = VOLCANO ? terrainIM(new THREE.BoxGeometry(.07, .03, 1.1), glow(0xff5a14, .9), NT * 2, 0, false) : null;
 function initTerrainColors() {
   for (let c = 0; c < GW; c++) for (let r = 0; r < GH; r++) {
     const t = tileAt(c, r), i = c * GH + r;
@@ -87,7 +102,6 @@ function initTerrainColors() {
     for (let k = 0; k < 2; k++) flowerIM.setColorAt(i * 2 + k, tmpC.set((VOLCANO ? [0xff6a1a, 0xffa040, 0xc83a10, 0xff8a2a] : [0xff8ac0, 0xffe05a, 0xffffff, 0xa0c8ff])[Math.floor(t.s3 * 4 + k * 1.7) % 4])); // 화산: 꽃 대신 불씨 알갱이
     if (t.t === T.BEDROCK && !t.lava) makeBedrock(t);
   }
-  for (const im of [dirtIM, capIM, leafIM, rockIM, tuftIM, flowerIM]) im.instanceColor.needsUpdate = true;
   if (RUINS) trunkIM.material.color.setHex(0x4a3a2e);
   if (VOLCANO) { trunkIM.material.color.setHex(0x2e2220); buildLavaMesh([...LAVA].map(k => k.split(',').map(Number))); }
 }

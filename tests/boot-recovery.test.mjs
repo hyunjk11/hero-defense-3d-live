@@ -9,9 +9,18 @@ assert.ok(html.indexOf('id="bootRecovery"') < html.indexOf(loader), 'recovery is
 assert.ok(html.indexOf('src="./src/practice-storage.js"') < html.indexOf(loader), 'storage isolation runs before main import');
 for (const [search,ready,expected] of [['?town=1',false,1],['?practice=1',true,1],['?practice=1',false,0]]) {
   let imports=0;const links=[];const loading={appendChild:a=>links.push(a)},text={textContent:''};
-  vm.runInNewContext(loader.replace("import('./src/main.js')",'loadMain()'),{URLSearchParams,location:{search,pathname:'/game/'},window:{practiceStorageReady:ready},loadMain:()=>imports++,document:{getElementById:id=>id==='loading'?loading:text,createElement:()=>({})}});
+  vm.runInNewContext(loader.replace("import('./src/main.js')",'loadMain()'),{URLSearchParams,location:{search,pathname:'/game/'},window:{practiceStorageReady:ready},loadMain:()=>{imports++;return Promise.resolve();},document:{getElementById:id=>id==='loading'?loading:text,createElement:()=>({})}});
   assert.equal(imports,expected);
   if (!expected) { assert.equal(links[0].href,'/game/?town=1'); assert.match(text.textContent,/격리/); }
+}
+// An actual dynamic-import rejection is not a SCRIPT element error.
+for (const [err,expected] of [[{code:'HD3D_WEBGL_UNAVAILABLE'},/3D 그래픽/],[new Error('module unavailable'),/게임을 불러오지/]]) {
+  const effects=[], msg={textContent:'모델 불러오는 중…'};
+  const loading={classList:{contains:()=>false},querySelector:()=>({classList:{add:key=>effects.push(['spinner',key])}})};
+  const retry={classList:{remove:key=>effects.push(['retry',key])}};
+  await vm.runInNewContext(loader.replace("import('./src/main.js')",'loadMain()'),{URLSearchParams,location:{search:''},window:{},loadMain:()=>Promise.reject(err),document:{getElementById:id=>({loading,loadTxt:msg,loadRetry:retry}[id])},console:{error:x=>effects.push(x)}});
+  assert.match(msg.textContent,expected);
+  assert.deepEqual(effects,[['spinner','hidden'],['retry','hidden'],err]);
 }
 assert.ok(!/fetch|localStorage|sessionStorage|Math\.random|import\(/.test(source));
 function fixture(hidden=false){

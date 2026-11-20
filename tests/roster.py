@@ -100,12 +100,12 @@ def forest_abilities(pw, url, errs):
       o.telegraph = warn; o.warn_ring = warnVis; o.casting = !t.cast; o.rate_k = G.towerRateK(tw); const s0 = tw.shots; G.sim(2.2); o.shots_rooted = tw.shots - s0; o.roots_visible = tw.dfx.roots.visible;
       G.sim(.6); const s1 = tw.shots; G.sim(2); o.shots_after = tw.shots - s1; o.rate_after = G.towerRateK(tw); o.roots = G.stats.roots; o.roots_hidden_after = !tw.dfx.roots.visible;
       R_.clear(); o.ok = o.telegraph && o.warn_ring && o.rate_k === 0 && o.shots_rooted === 0 && o.roots_visible && o.shots_after >= 2 && o.rate_after === 1 && o.roots_hidden_after && Math.abs(o.t_warn - 4.2) < .2; return o; }""")
-    out['popup'] = pg.evaluate(r"""()=>{ localStorage.removeItem('hd3d_seenMon'); G.seenMon = null; const n = document.getElementById('note'); const o = {};
-      G.phase = 'build'; G.wave = 0; G.startWave(); o.w1 = n.classList.contains('hidden') ? '' : n.innerText.replace(/\s+/g, ' ').slice(0, 160); o.w1_cards = n.querySelectorAll('.nc.mon').length; G.spawnQ = [];
-      G.phase = 'build'; G.wave = 2; n.classList.add('hidden'); G.startWave(); o.w3 = n.classList.contains('hidden') ? '' : n.innerText.replace(/\s+/g, ' ').slice(0, 200); o.w3_types = [...n.querySelectorAll('.nc')].map(c => c.dataset.t); G.spawnQ = [];
+    out['popup'] = pg.evaluate(r"""()=>{ localStorage.removeItem('hd3d_live_seenMon'); G.seenMon = null; const n = document.getElementById('note'); const o = {};
+      G.phase = 'build'; G.wave = 0; G.startWave(); o.w1 = n.classList.contains('hidden') ? '' : n.innerText.replace(/\s+/g, ' ').slice(0, 160); o.w1_children = n.childElementCount; G.spawnQ = [];
+      G.phase = 'build'; G.wave = 2; n.classList.add('hidden'); G.startWave(); o.w3 = n.classList.contains('hidden') ? '' : n.innerText.replace(/\s+/g, ' ').slice(0, 200); o.w3_children = n.childElementCount; G.spawnQ = [];
       G.phase = 'build'; G.wave = 2; n.classList.add('hidden'); G.startWave(); o.repeat_hidden = n.classList.contains('hidden'); G.spawnQ = [];
-      o.saved = JSON.parse(localStorage.getItem('hd3d_seenMon') || '[]'); G.phase = 'build';
-      o.ok = o.w1.includes('신규 몬스터') && o.w1.includes('고블린') && o.w3_types.includes('slime') && o.repeat_hidden && o.saved.includes('slime') && o.saved.includes('goblin'); return o; }""")
+      o.saved = JSON.parse(localStorage.getItem('hd3d_live_seenMon') || '[]'); G.phase = 'build';
+      o.ok = o.w1.includes('신규 몬스터') && o.w1.includes('고블린') && o.w1_children === 0 && o.w3 === '신규 몬스터' && o.w3_children === 0 && o.repeat_hidden && o.saved.includes('slime') && o.saved.includes('goblin'); return o; }""")
     out['nan'] = pg.evaluate('()=>R_.nan()'); b.close()
     out['ok'] = all(v.get('ok') for k, v in out.items() if isinstance(v, dict)) and out['nan'] == 0; return out
 

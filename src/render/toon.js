@@ -51,11 +51,11 @@ function mk(geo, mat, x = 0, y = 0, z = 0, parent, ol = .035) {
   if (ol) addOutline(m, ol); if (parent) parent.add(m); return m;
 }
 const WHITE = new THREE.Color(1, 1, 1), dummy = new THREE.Object3D(), tmpC = new THREE.Color();
-function IM(geo, mat, count, ol = .03, shadow = true) {
+function IM(geo, mat, count, ol = .03, shadow = true, onOutline) {
   const m = new THREE.InstancedMesh(geo, mat, count); m.castShadow = shadow; m.receiveShadow = true; m.frustumCulled = false;
   m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); const z = new THREE.Matrix4().makeScale(0, 0, 0);
   for (let i = 0; i < count; i++) { m.setMatrixAt(i, z); m.setColorAt(i, WHITE); } scene.add(m);
-  if (ol) { const o = new THREE.InstancedMesh(olGeo(geo), outlineMat(ol), count); o.instanceMatrix = m.instanceMatrix; o.frustumCulled = false; scene.add(o); }
+  if (ol) { const o = new THREE.InstancedMesh(olGeo(geo), outlineMat(ol), count); o.instanceMatrix = m.instanceMatrix; o.frustumCulled = false; scene.add(o); onOutline?.(o); }
   return m;
 }
 function setI(im, i, x, y, z, sx, sy = sx, sz = sx, ry = 0, rx = 0) { dummy.position.set(x, y, z); dummy.rotation.set(rx, ry, 0); dummy.scale.set(sx, sy, sz); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix); im.instanceMatrix.needsUpdate = true; }
