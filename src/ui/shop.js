@@ -136,7 +136,7 @@ function renderMailActions(){
  let bar=$('mailActions');
  if(!bar){bar=document.createElement('div');bar.id='mailActions';bar.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';$('mailList').before(bar);}
  const busy=!!(ui.mailBusy||Sh.S.mailAction),ready=!!Acc.A.user&&Sh.S.status==='ok'&&!Sh.isBanned();
- bar.innerHTML='<button class="gbtn main" data-mail-action="all">모두 받기</button><button class="gbtn" data-mail-action="clean">받은 우편 정리</button>'+(Sh.S.archivedIds?.length?'<button class="gbtn" data-mail-action="undo">정리 취소</button>':'');
+ bar.innerHTML='<button class="gbtn main" data-mail-action="all">모두 받기</button><button class="gbtn" data-mail-action="clean">받은 우편 정리</button>'+(Sh.canUndoMailCleanup()?'<button class="gbtn" data-mail-action="undo">정리 취소</button>':'');
  for(const b of bar.querySelectorAll('button')){
   const k=b.dataset.mailAction;b.disabled=busy||!ready||(k==='all'?!Sh.claimableCount():k==='clean'?!Sh.cleanupCount():false);
   b.onclick=async()=>{

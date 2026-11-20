@@ -5,7 +5,8 @@ const memory=new Map(),handlers={};
 globalThis.localStorage={getItem:k=>memory.get(k)??null,setItem:(k,v)=>memory.set(k,String(v)),removeItem:k=>memory.delete(k)};
 globalThis.addEventListener=(k,f)=>(handlers[k]||=[]).push(f);
 globalThis.document={addEventListener(){},visibilityState:'visible'};
-globalThis.location={search:'',hostname:'localhost'};
+const mobile=process.env.HD3D_MAIL_MOBILE==='1';
+globalThis.location=new URL('https://hyunjk11.github.io/hero-defense-3d-live/'+(mobile?'?mobileApp=1':''));
 let current={id:'mail-ui-a',email:'a@example.invalid'},counter=0,pause=null,lose=false,grants=0,failRead=false;
 const states=new Map();const fresh=()=>({data:{...P.empty(),souls:1000,nick:'Tester'},merged:true,updated_at:'stamp-0'});
 const cloud=()=>{if(!states.has(current.id))states.set(current.id,fresh());return states.get(current.id);};
@@ -16,6 +17,7 @@ const client={atomicMail:true,
  maybeSingle:async()=>{if(table===CLOUD.tables.profiles)return {data:{nickname:'Tester'}};if(failRead){failRead=false;return {error:{code:'NETWORK_ERROR',message:'reload lost'}};}return {data:structuredClone(cloud())};},
  then(resolve,reject){let value;if(op==='update'){if(filters.updated_at!==cloud().updated_at)value={data:[]};else{Object.assign(cloud(),values,{updated_at:'stamp-'+(++counter)});value={data:[{updated_at:cloud().updated_at}]};}}else if(filters.archived===true){value=archiveReadFail?{error:{message:'archive read lost'}}:{data:(archives.get(filters.user_id)||[]).map(id=>({id}))};archiveReadFail=false;}else value={data:[]};return Promise.resolve(value).then(resolve,reject);}};return q;},
  async rpc(name,args){if(name==='hd3d_my_status')return {data:{admin:false,owner:false,banned:false}};
+  if(name==='hd3d_mail_archive_candidates'){assert.equal(mobile,false,'mobile must not depend on the PC candidate RPC');return {data:{ok:true,ids:args.p_restore?(archives.get(current.id)||[]):Shop.S.mail.filter(m=>m.claimed).map(m=>m.id)}};}
   if(name==='hd3d_mail_archive'){archiveCalls.push(args);const old=archives.get(current.id)||[];archives.set(current.id,args.p_restore?old.filter(id=>!args.p_ids.includes(id)):[...new Set([...old,...args.p_ids])]);return {data:{ok:true,restored:args.p_restore,ids:args.p_ids,skipped:[]}};}
   assert.equal(name,'hd3d_claim_mail');const owner=current.id,key=owner+'~'+args.p_mail_id,already=claimed.has(key);
   if(deferred.has(args.p_mail_id)){

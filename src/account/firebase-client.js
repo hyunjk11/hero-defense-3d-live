@@ -36,7 +36,7 @@ export async function createFirebaseClient(config, options = {}) {
   const requestTimeoutMs = Number.isFinite(options.requestTimeoutMs) && options.requestTimeoutMs > 0
     ? options.requestTimeoutMs : 30000;
   const timedOut = () => ({ data: null, error: { code: 'REQUEST_TIMEOUT', message: '서버 응답 확인이 지연되고 있습니다. 저장 상태를 다시 확인해 주세요.', status: 0, uncertain: true }, status: 0 });
-  const readonly = op => op.kind === 'query' && op.action === 'select' || op.kind === 'rpc' && ['hd3d_my_status','hd3d_is_admin','hd3d_is_owner','hd3d_is_banned'].includes(op.name);
+  const readonly = op => op.kind === 'query' && op.action === 'select' || op.kind === 'rpc' && ['hd3d_my_status','hd3d_is_admin','hd3d_is_owner','hd3d_is_banned','hd3d_mail_archive_candidates'].includes(op.name);
   const changed = () => ({ data: null, error: { code: 'ACCOUNT_CHANGED', message: 'Account session changed' }, status: 0 });
   async function dispatch(body, user, writing = false) {
     let timer, expired = false;

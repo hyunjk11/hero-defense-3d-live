@@ -1,4 +1,4 @@
-import { archiveMail } from './mail-actions.mjs';
+import { archiveMail, archiveCandidates } from './mail-actions.mjs';
 import { levelOf } from '../src/data/hero-growth.js';
 import { context, denied, integer, itemReward, text } from './common.mjs';
 import { growth } from './growth.mjs';
@@ -63,8 +63,10 @@ async function claimMail(c,a){
 // Only side-effect-free reads enter this path. Status RPCs that may initialize
 // wallets (growth/dungeon/spire) deliberately remain ordinary write transactions.
 const simpleStatus=new Set(['my_status','is_admin','is_owner','is_banned']);
+const isArchiveCandidateOp=op=>op?.kind==='rpc'&&typeof op.name==='string'&&op.name.replace(/^hd3d_/,'')==='mail_archive_candidates';
 export function isReadOperation(op){
   if(!op||typeof op!=='object'||Array.isArray(op))return false;
+  if(isArchiveCandidateOp(op))return true;
   if(op.kind==='query')return op.action==='select'&&typeof op.table==='string'&&op.table.startsWith('hd3d_')&&readTables.includes(op.table.slice(5));
   return op.kind==='rpc'&&typeof op.name==='string'&&simpleStatus.has(op.name.replace(/^hd3d_/,''));
 }
@@ -91,6 +93,7 @@ export async function runOperation(store,user,operation,options={}){
   const now=options.now??Date.now();
   const snapshot=await store.readOnly(async tx=>{
     const result=await execute(tx,user,operation,{...options,now,syncUserRecord:false});
+    if(isArchiveCandidateOp(operation))return {result,needsSync:false};
     const known=await tx.get('hd3d_users',user.id);
     return {result,needsSync:needsUserRecord(known,user,now)};
   },['admins','bans','users'].map(t=>['hd3d_'+t,user.id]));
@@ -106,11 +109,12 @@ export async function execute(tx,user,operation,options={}){
   if(!operation||typeof operation!=='object'||Array.isArray(operation))denied('invalid request','23514');
   const c=await context(tx,user,options);
   // Firebase supplies verified identity. Existing UIDs, save timestamps and local keys survive migration.
-  if(options.syncUserRecord!==false)await syncUserRecord(tx,user,c.now);
+  if(options.syncUserRecord!==false&&!isArchiveCandidateOp(operation))await syncUserRecord(tx,user,c.now);
   if(operation.kind==='query')return query(c,operation);
   if(operation.kind!=='rpc'||typeof operation.name!=='string')denied();
   const name=operation.name.replace(/^hd3d_/,''),a=operation.args||{};let result;
   if(name==='my_status')result={admin:c.admin,owner:c.owner,banned:!!c.ban,ban_reason:c.ban?.reason||null,banned_at:c.ban?.created_at||null};
+  else if(name==='mail_archive_candidates')result=await archiveCandidates(c,a);
   else if(name==='mail_archive')result=await archiveMail(c,a);
   else if(name==='claim_mail')result=await claimMail(c,a);
   else if(name.startsWith('growth_'))result=await growth(c,name.slice(7),a,{hardFirstBonus:options.hardFirstBonus,awakening:options.awakening});
