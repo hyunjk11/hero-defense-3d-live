@@ -38,6 +38,7 @@ export const eSkillFor = (cls,level,adv) => Number.isFinite(level)&&level>=E_LEV
 export const eKeyFor = (cls,level,adv) => eSkillFor(cls,level,adv)?.key||null;
 export const advanceEByKey = key => Object.values(ADV_E).flatMap(x=>Object.values(x)).find(x=>x.key===key)||null;
 export function eDescription(s){
+ if(s?.awakening)return s.n;
  if(!s?.kind)return s?.d||'';const n=x=>Math.round(x*100)/100,d=n(s.mul*100),r=n(s.area*(s.radius||1)),reach=n(s.reach*(s.reachMul||1));
  switch(s.kind){
   case 'fan':return `3갈래 화살 · 적마다 ${d}% 1회 · 거리 ${reach}`;

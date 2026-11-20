@@ -113,7 +113,7 @@ export async function execute(tx,user,operation,options={}){
   if(name==='my_status')result={admin:c.admin,owner:c.owner,banned:!!c.ban,ban_reason:c.ban?.reason||null,banned_at:c.ban?.created_at||null};
   else if(name==='mail_archive')result=await archiveMail(c,a);
   else if(name==='claim_mail')result=await claimMail(c,a);
-  else if(name.startsWith('growth_'))result=await growth(c,name.slice(7),a,{hardFirstBonus:options.hardFirstBonus});
+  else if(name.startsWith('growth_'))result=await growth(c,name.slice(7),a,{hardFirstBonus:options.hardFirstBonus,awakening:options.awakening});
   else if(name.startsWith('dungeon_'))result=await dungeon(c,name.slice(8),a);
   else if(name.startsWith('spire_'))result=await spire(c,name.slice(6),a);
   else if(name.startsWith('admin_'))result=await admin(c,name.slice(6),a);

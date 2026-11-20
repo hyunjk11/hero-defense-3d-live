@@ -23,6 +23,8 @@
 | `autoSkillN` | heroes/autoskill.js | 6 | ⚡ 자동 시전 횟수 (계측/카운터, 테스트용) |
 | `autoSkillT` | heroes/autoskill.js | 2 | ⚡ 다음 자동 판단까지 남은 시간 (게임 시간, 0.25초 주기) |
 | `autoWaveAt` | ui/autowave.js | 0 | Q-13 다음 웨이브 자동 시작 시각 (G.t 기준, 0 = 꺼짐) |
+| `awakeningLevel` | heroes/hero.js · ui/flow.js | 0 |  |
+| `awakeningUseE` | ui/flow.js | 0 |  |
 | `barRes` | ui/flow.js | 1 | 🧱 바리케이드 보강 연구 배수 (account/steel.js barMul, 판 시작 시 · 2026-10-24) |
 | `BARS` | main.js | 1 | main.js 가 노출하는 값/함수 |
 | `bgModels` | main.js | 0 | main.js 가 노출하는 값/함수 |

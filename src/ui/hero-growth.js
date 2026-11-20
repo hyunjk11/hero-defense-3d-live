@@ -9,6 +9,8 @@ import { eInfoFor, E_LEVEL } from '../data/hero-e.js';
 import { growthPreview, affordableLevel } from './growth-preview.js';
 import { esc } from '../core/util.js';
 import { G } from '../core/state.js';
+import { renderAwakening } from './awakening.js';
+import { awakeningLevel } from '../data/awakening.js';
 const $ = id => document.getElementById(id), num = x => x.toLocaleString('ko-KR');
 let selected, viewKey = '', currentLevel = 0, busy = null, message = '', initialized = false;
 const key = () => HG.HG.owner + ':' + Acc.sessionId();
@@ -26,7 +28,7 @@ export function mountGrowth(hero, save) {
       <div class="xpTargetRow"><label for="xpTarget">목표 레벨</label><input id="xpTarget" type="number" min="2" max="50" step="1" inputmode="numeric"><span id="xpNext"></span></div></div>
       <div id="xpPreview"></div><div class="xpActions"><button id="xpConfirm" type="button" class="gbtn main"></button><button id="xpCancel" type="button" class="gbtn">선택 취소</button><button id="xpRetry" type="button" class="gbtn hidden">연결·저장 확인</button></div>
       <p id="xpMessage" class="xpMessage" role="status" aria-live="polite"></p><small class="xpHelp">사용한 XP는 반환하거나 다른 영웅에게 옮길 수 없습니다.</small>
-      <details class="xpAdvance"><summary id="xpAdvanceTitle"></summary><div id="xpAdvanceChecks"></div></details>`;
+      <section id="awCard" class="awCard hidden" aria-label="각성"></section><details class="xpAdvance"><summary id="xpAdvanceTitle"></summary><div id="xpAdvanceChecks"></div></details>`;
     $('xpTarget').oninput = () => { message = ''; refreshCard(); };
     for (const [id, n] of [['xpOne',1],['xpFive',5],['xpMax',null]]) $(id).onclick = () => {
       message = ''; $('xpTarget').value = n === null ? affordableLevel(HG.HG.growth,selected) : Math.min(H.MAX_LEVEL,HG.level(selected)+n); refreshCard();
@@ -46,10 +48,12 @@ function refreshCard(save) {
   // Reuse only this synchronous render's snapshot; input/click handlers read afresh.
   save ||= Acc.load();
   if (viewKey!==key()) { message='';viewKey=key();currentLevel=0; }
+  renderAwakening(selected,save);
   const ready=HG.available(), level=HG.level(selected), waiting=busy?.key===key(), pending=!!HG.HG.hasInvestment;
   if (level!==currentLevel) { currentLevel=level;$('xpTarget').value=Math.min(H.MAX_LEVEL,level+1); }
   const max=level===H.MAX_LEVEL, locked=waiting||pending||!HG.enabled()||!Sh.heroOwned(selected), target=Number($('xpTarget').value);
-  $('xpHero').textContent=`${heroLabel(selected)} · ${ready?'Lv.'+level:'레벨 확인 중'}`;
+  const awakened=HG.awakeningEnabled()&&awakeningLevel(HG.HG.growth,selected,save.adv[selected])!==null;
+  $('xpHero').textContent=awakened?heroLabel(selected):`${heroLabel(selected)} · ${ready?'Lv.'+level:'레벨 확인 중'}`;
   $('xpBalance').textContent=ready?num(HG.HG.growth.balance):'—';
   $('xpControls').classList.toggle('hidden',max);
   $('xpTarget').min=Math.min(H.MAX_LEVEL,level+1);$('xpTarget').disabled=locked||max;
@@ -58,10 +62,11 @@ function refreshCard(save) {
   $('xpCancel').disabled=locked||max;
   $('xpNext').textContent=ready&&!max?`다음 레벨 ${num(H.nextXP(level))} XP`:'';
   const p=ready?growthPreview(save,HG.HG.growth,selected,target):null,q=p?.quote;
-  $('xpPreview').innerHTML=!ready?'<p class="xpHelp">성장 정보 확인 중…</p>':max?'<p class="xpMaxed">최고 레벨 50</p>':!q?.cost?'<p class="xpError">현재보다 높은 정수 레벨을 선택해 주세요. (최대 50)</p>':
+  $('xpPreview').innerHTML=!ready?'<p class="xpHelp">성장 정보 확인 중…</p>':max&&awakened?'':max?'<p class="xpMaxed">최고 레벨 50</p>':!q?.cost?'<p class="xpError">현재보다 높은 정수 레벨을 선택해 주세요. (최대 50)</p>':
     `<div class="xpCost"><b>Lv.${level} → Lv.${target}</b><span>필요 <strong>${num(q.cost)} XP</strong></span><span class="${q.left<0?'xpError':''}">${q.left<0?'부족 '+num(-q.left)+' XP':'투자 후 잔액 '+num(q.left)+' XP'}</span></div><div class="xpDeltas">${[['체력',p.before.hp,p.after.hp],['공격력',p.before.dmg,p.after.dmg],['스킬 피해 계수',p.before.skillMul*100,p.after.skillMul*100]].map(([n,a,b])=>`<div><span>${n}</span><b>${num(Math.round(a*100)/100)}${n==='스킬 피해 계수'?'%':''} → <em>${num(Math.round(b*100)/100)}${n==='스킬 피해 계수'?'%':''}</em></b></div>`).join('')}</div>`;
   const esk=eInfoFor(selected,save.adv[selected]);
-  if (ready && esk) $('xpPreview').insertAdjacentHTML('beforeend', `<p class="xpHelp">[E] ${esc(esk.n)} · ${level>=E_LEVEL?'해금 완료':q?.ok&&target>=E_LEVEL?'이번 투자로 해금됩니다':`영웅 Lv.${E_LEVEL}에 해금`}</p>`);
+  if (ready && esk && !awakened) $('xpPreview').insertAdjacentHTML('beforeend', `<p class="xpHelp">[E] ${esc(esk.n)} · ${level>=E_LEVEL?'해금 완료':q?.ok&&target>=E_LEVEL?'이번 투자로 해금됩니다':`영웅 Lv.${E_LEVEL}에 해금`}</p>`);
+  $('xpConfirm').classList.toggle('hidden',awakened);$('xpCancel').classList.toggle('hidden',awakened);
   $('xpConfirm').disabled=locked||!q?.ok||max;
   $('xpConfirm').textContent=waiting?'처리 확인 중…':max?'최고 레벨':q?.ok?`${num(q.cost)} XP로 ${target-level}레벨 올리기`:'XP 투자';
   const needsRetry=!!HG.HG.pending||['offline','missing','error'].includes(HG.HG.status);

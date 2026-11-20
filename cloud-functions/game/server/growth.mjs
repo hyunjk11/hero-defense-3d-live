@@ -1,3 +1,4 @@
+import { AWAKENING_VERSION, awakeningQuote, cleanAwakening, awakeningLevel } from '../src/data/awakening.js';
 import { validPartner, HARD_PARTY_VERSION } from '../src/data/hard-party.js';
 import * as E from '../src/account/equip.js';
 import { advOf } from '../src/data/advance.js';
@@ -43,9 +44,29 @@ function appendHardFirst(reward,s,hero,bosses,starTier,random){
   for(const wave of bosses)if(random()<E.BOSS_DROP)add(E.bossOdds(wave));
   if(starTier)add(E.chestOdds(2+starTier));
 }
-export async function growth(c, name, a, {hardFirstBonus=false}={}) {
+export async function growth(c, name, a, {hardFirstBonus=false,awakening=false}={}) {
   c.requirePlayer();
-  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{})}, growth: growthView(await growthWallet(c)) };
+  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{}),...(awakening?{awakening:AWAKENING_VERSION}:{})}, growth: growthView(await growthWallet(c)) };
+  if(name==='awaken'&&awakening){
+    if(Object.keys(a).some(k=>!['p_id','p_hero','p_level','p_revision'].includes(k))||!idOK(a.p_id)||!intOK(a.p_revision,H.MAX_XP)||!intOK(a.p_level,H.MAX_LEVEL)||!await owned(c,a.p_hero))return failure('invalid');
+    const key=c.uid+'~awakening~'+a.p_id,body=JSON.stringify([a.p_hero,a.p_level,a.p_revision]);
+    const prior=await c.get('growth_investments',key);if(prior&&prior.body!==body)return failure('id_reused');
+    const p=await c.get('progress',c.uid);if(!p)return failure('missing_save');
+    const resources=save=>({souls:save.souls||0,steel:save.mat?.steel||0,crystal:save.mat?.crystal||0});
+    const w=await growthWallet(c);
+    if(prior)return {...prior.result,already:true,resources:resources(p.data),growth:growthView(w)};
+    if(w.rev!==a.p_revision)return failure('conflict',{resources:resources(p.data),growth:growthView(w)});
+    const q=awakeningQuote(growthView(w),p.data,a.p_hero,a.p_level);
+    if(!q.ok)return failure(q.reason,{quote:q,resources:resources(p.data),growth:growthView(w)});
+    const next={...p.data,souls:(p.data.souls||0)-q.souls,mat:{...p.data.mat,steel:(p.data.mat?.steel||0)-q.steel,crystal:(p.data.mat?.crystal||0)-q.crystal}};
+    w.awakening={...cleanAwakening(w.awakening),[a.p_hero]:a.p_level};
+    w.balance-=q.xp;w.spent+=q.xp;w.rev++;
+    if(q.souls||q.steel||q.crystal)await c.put('progress',{...p,data:packSave(next),updated_at:new Date(Math.max(c.now,(Date.parse(p.updated_at)||0)+1)).toISOString()});
+    await c.put('growth_wallet',w);
+    const result={ok:true,hero:a.p_hero,level:a.p_level,xp:q.xp,souls:q.souls,steel:q.steel,crystal:q.crystal,id:a.p_id};
+    await c.put('growth_investments',{id:key,user_id:c.uid,body,result,at:c.iso});
+    return {...result,resources:resources(next),growth:growthView(w)};
+  }
   if(name==='build') {
     if(!idOK(a.p_id)||!intOK(a.p_revision,H.MAX_XP)||!await owned(c,a.p_hero))return failure('invalid');
     const key=c.uid+'~tree~'+a.p_id,body=JSON.stringify([a.p_hero,a.p_branch,a.p_preset,a.p_tier,a.p_choice,a.p_revision]);
@@ -70,22 +91,25 @@ export async function growth(c, name, a, {hardFirstBonus=false}={}) {
   if (name === 'start') {
     if (!validTarget(a.p_target) || !idOK(a.p_id) || !['campaign', 'challenge'].includes(a.p_mode) || !await owned(c, a.p_hero)) return failure('invalid');
     const key = c.uid + '~' + a.p_id, old = await c.get('growth_runs', key), stage = a.p_mode === 'campaign' ? a.p_stage : null;
+    const awakeningRequested=awakening&&a.p_awakeningVersion===AWAKENING_VERSION;
+    if(awakening&&a.p_awakeningVersion!==undefined&&!awakeningRequested)return failure('invalid');
     const firstBonusRequested=hardFirstBonus&&a.p_hardFirstBonus===1;
     if(hardFirstBonus&&a.p_hardFirstBonus!==undefined&&(!firstBonusRequested||!HARD_STAGES[stage]))return failure('invalid');
     const partyRequested = a.p_partyVersion !== undefined || a.p_partner !== undefined;
     if (partyRequested && (a.p_partyVersion !== HARD_PARTY_VERSION || !HARD_STAGES[stage] || a.p_mode !== 'campaign' || !validPartner(a.p_hero, a.p_partner) || !await owned(c, a.p_partner))) return failure('invalid_party');
-    if (old) return (old.partner || null) === (a.p_partner || null) && (old.partyVersion || null) === (a.p_partyVersion || null) && (old.repeat||!!old.hardFirstBonus===firstBonusRequested) && old.stage === stage && old.hero === a.p_hero && old.mode === a.p_mode && (old.requestedTarget || null) === cleanTarget(a.p_target) ? { ok: true, token: old.token, growth: growthView(await growthWallet(c)), build: old.build, ...(old.party?{party:old.party,loadouts:old.loadouts}:{}), target: old.target || null, repeat: !!old.repeat, ...(old.hardFirstBonus?{hardFirstBonus:1}:{}) } : failure('id_reused');
+    if (old) return (old.partner || null) === (a.p_partner || null) && (old.partyVersion || null) === (a.p_partyVersion || null) && (old.repeat||!!old.hardFirstBonus===firstBonusRequested) && !!old.awakeningVersion===awakeningRequested && old.stage === stage && old.hero === a.p_hero && old.mode === a.p_mode && (old.requestedTarget || null) === cleanTarget(a.p_target) ? { ok: true, token: old.token, growth: growthView(await growthWallet(c)), build: old.build, ...(old.party?{party:old.party,loadouts:old.loadouts}:{}), target: old.target || null, repeat: !!old.repeat, ...(old.hardFirstBonus?{hardFirstBonus:1}:{}), ...(old.awakeningVersion?{awakeningLevel:old.awakeningLevel}:{}) } : failure('id_reused');
     const p = await c.get('progress', c.uid);
     if (stage && (!getStage(stage) || !stageUnlocked({...p?.data,growth:growthView(await growthWallet(c))}, stage))) return failure('locked');
     if (a.p_mode === 'campaign' && !stage) return failure('invalid');
     const w = await growthWallet(c);
     const build=treeBuild(w.trees,a.p_hero,(typeof p?.data?.adv?.[a.p_hero]==='string'?p.data.adv[a.p_hero]:p?.data?.adv?.[a.p_hero]?.b),H.levelOf(w.xp[a.p_hero]));
     const party = partyRequested ? [a.p_hero, a.p_partner] : null;
-    const loadouts = party ? Object.fromEntries(party.map(h => [h, { perm: structuredClone(p.data.heroLv[h] || {hp:0,atk:0}), equip:E.bonus(p.data,h), legend:E.legendOf(p.data,h), adv:advOf(h,p.data.adv?.[h]), heroLevel:H.levelOf(w.xp[h]), heroTree:treeBuild(w.trees,h,typeof p.data.adv?.[h]==='string'?p.data.adv[h]:p.data.adv?.[h]?.b,H.levelOf(w.xp[h])), heroGear:E.equippedItems(p.data,h) }])) : null;
+    const launchAwakening=h=>awakeningLevel(w,h,p?.data?.adv?.[h]);
+    const loadouts = party ? Object.fromEntries(party.map(h => [h, { perm: structuredClone(p.data.heroLv[h] || {hp:0,atk:0}), equip:E.bonus(p.data,h), legend:E.legendOf(p.data,h), adv:advOf(h,p.data.adv?.[h]), heroLevel:H.levelOf(w.xp[h]), heroTree:treeBuild(w.trees,h,typeof p.data.adv?.[h]==='string'?p.data.adv[h]:p.data.adv?.[h]?.b,H.levelOf(w.xp[h])), heroGear:E.equippedItems(p.data,h), ...(awakeningRequested?{awakeningLevel:launchAwakening(h)}:{}) }])) : null;
     const repeat = !!stage && stars({...p?.data,growth:growthView(w)},stage)>0;
     const target = repeat ? cleanTarget(a.p_target) : null;
-    const run = { ...(party?{party,loadouts,partner:a.p_partner,partyVersion:HARD_PARTY_VERSION}:{}), build, repeat, target, requestedTarget: cleanTarget(a.p_target), id: key, user_id: c.uid, token: a.p_id, mode: a.p_mode, hero: a.p_hero, stage, completed: 0, xp: 0, won: false, done: false, started_at: c.iso, version: H.VERSION, ...(HARD_STAGES[stage]?{hardRewardVersion:HARD_REWARD_VERSION}:{}), ...(firstBonusRequested&&!repeat?{hardFirstBonus:1}:{}) };
-    await c.put('growth_runs', run); return { ok: true, token: run.token, build:run.build, ...(party?{party,loadouts}:{}), target:run.target, repeat:run.repeat, ...(run.hardFirstBonus?{hardFirstBonus:1}:{}), growth: growthView(w) };
+    const run = { ...(party?{party,loadouts,partner:a.p_partner,partyVersion:HARD_PARTY_VERSION}:{}), build, repeat, target, requestedTarget: cleanTarget(a.p_target), id: key, user_id: c.uid, token: a.p_id, mode: a.p_mode, hero: a.p_hero, stage, completed: 0, xp: 0, won: false, done: false, started_at: c.iso, version: H.VERSION, ...(HARD_STAGES[stage]?{hardRewardVersion:HARD_REWARD_VERSION}:{}), ...(firstBonusRequested&&!repeat?{hardFirstBonus:1}:{}), ...(awakeningRequested?{awakeningVersion:AWAKENING_VERSION,awakeningLevel:launchAwakening(a.p_hero)}:{}) };
+    await c.put('growth_runs', run); return { ok: true, token: run.token, build:run.build, ...(party?{party,loadouts}:{}), target:run.target, repeat:run.repeat, ...(run.hardFirstBonus?{hardFirstBonus:1}:{}), ...(awakeningRequested?{awakeningLevel:run.awakeningLevel}:{}), growth: growthView(w) };
   }
   if (name === 'progress') {
     if (!idOK(a.p_token) || !intOK(a.p_completed, 9999) || typeof a.p_win !== 'boolean' || typeof a.p_finish !== 'boolean') return failure('invalid');

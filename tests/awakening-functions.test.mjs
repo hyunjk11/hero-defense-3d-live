@@ -1,0 +1,74 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {MemoryStore} from '../server/memory-store.mjs';
+import {runEconomyOperation} from '../server/economy.mjs';
+import {runOperation} from '../server/operations.mjs';
+import * as A from '../src/data/awakening.js';
+import * as H from '../src/data/hero-growth.js';
+import * as P from '../src/account/progress.js';
+const user={id:'awakening-qa',email:'qa@example.invalid'},at=Date.parse('2026-11-20T00:00:00Z');
+const branch={mage:'frost',warrior:'paladin',fighter:'dragon'};
+function setup({saveEdit=()=>{},walletEdit=()=>{},paid=true}={}){
+ const save=P.empty(),w={...H.initialGrowth(save),user_id:user.id};
+ Object.assign(save,{st:{'10-6':3},souls:80000,mat:{steel:3000,crystal:3000}});
+ for(const [h,b] of Object.entries(branch)){save.adv[h]={b};save.heroLv[h]={atk:15,hp:15};w.xp[h]=H.totalXP(50);}
+ w.spent=H.totalXP(50)*3;w.balance=120000;w.earned=w.spent+w.balance;saveEdit(save);walletEdit(w);
+ const db=new MemoryStore({hd3d_progress:[{user_id:user.id,data:save,updated_at:new Date(at).toISOString()}],hd3d_growth_wallet:[w],hd3d_owned:paid?[{id:user.id+'~hero_fighter',user_id:user.id,item:'hero_fighter'}]:[]});
+ const rpc=(name,args={},legacy=false)=>(legacy?runOperation:runEconomyOperation)(db,user,{kind:'rpc',name:'hd3d_growth_'+name,args},{now:at}).then(r=>r.data);
+ const up=(id,hero,level,rev)=>rpc('awaken',{p_id:id,p_hero:hero,p_level:level,p_revision:rev});
+ const launch=(id,hero,extra)=>rpc('start',{p_id:id,p_hero:hero,p_mode:'campaign',p_stage:'hard-1-1',...extra});
+ return {db,rpc,up,launch,save:()=>P.clean(db.tables.hd3d_progress[0].data),wallet:()=>db.tables.hd3d_growth_wallet[0]};
+}
+test('exact branches, curve, base-level independence and cleaned records',()=>{
+ assert.deepEqual(A.awakeningMods(50),{dmg:1.3,hp:1.2});
+ assert.deepEqual(A.awakeningMods(null),{dmg:1,hp:1});
+ for(const [hero,b] of Object.entries(branch))assert.ok(A.awakeningSupported(hero,b)&&A.awakeningSupported(hero,{b})&&A.awakeningSupported(hero,{k:b}));
+ const f=setup(),g=f.wallet();assert.equal(A.awakeningQuote(g,f.save(),'mage',0).before,null);
+ g.awakening={mage:0,warrior:'40',fighter:51,mechanic:30};assert.deepEqual(H.cleanGrowth(g).awakening,{mage:0});
+ assert.deepEqual(A.awakeningQuote(g,f.save(),'mage',50),{ok:true,reason:null,before:0,target:50,xp:103880,souls:45500,steel:375,crystal:35});
+});
+test('unlock gates: paid ownership, base 50, two perm 15s, exact promotion',async()=>{
+ for(const [opt,reason] of [
+  [{saveEdit:s=>{delete s.adv.mage;}},'unsupported'], [{saveEdit:s=>{s.adv.mage='flame';}},'unsupported'],
+  [{saveEdit:s=>{s.heroLv.mage.hp=14;}},'permanent'], [{saveEdit:s=>{s.heroLv.mage.atk=14;}},'permanent'],
+  [{walletEdit:w=>{w.xp.mage=H.totalXP(50)-1;}},'base_level']
+ ]){const f=setup(opt);assert.equal((await f.up('gates-test','mage',0,0)).reason,reason);assert.equal(f.wallet().awakening,undefined);}
+ const f=setup({paid:false});assert.equal((await f.up('not-owned','fighter',0,0)).reason,'invalid');
+ assert.equal((await f.up('not-unlocked','mage',10,0)).reason,'locked');
+ assert.equal((await f.rpc('status')).features.awakening,1);assert.equal((await f.rpc('status',{},true)).features.awakening,undefined);
+});
+test('atomic costs leave base unchanged; stale revisions and receipt idempotence',async()=>{
+ const f=setup();assert.equal((await f.up('unlock-mage','mage',0,0)).growth.awakening.mage,0);
+ const q=await f.up('upgrade-mage','mage',50,1);assert.equal(q.level,50);assert.equal(q.xp,103880);
+ assert.deepEqual(q.resources,{souls:34500,steel:2625,crystal:2965});
+ assert.equal(f.wallet().earned+f.wallet().granted-f.wallet().spent,f.wallet().balance);
+ assert.equal(f.wallet().xp.mage,H.totalXP(50));
+ const before=structuredClone(f.db.tables);
+ assert.equal((await f.up('upgrade-mage','mage',50,1)).already,true);assert.deepEqual(f.db.tables,before);
+ assert.equal((await f.up('upgrade-mage','mage',49,1)).reason,'id_reused');
+ assert.equal((await f.up('new-stale-op','warrior',0,1)).reason,'conflict');
+});
+test('platform-neutral opt-in snapshots both Hard heroes, absent old client stays unchanged',async()=>{
+ const f=setup({walletEdit:w=>{w.awakening={mage:7,fighter:0,warrior:11};}});
+ const party={p_partyVersion:1,p_partner:'fighter'},old=await f.launch('legacy-hard','mage',party);
+ assert.ok(!Object.hasOwn(old,'awakeningLevel')&&!Object.hasOwn(old.loadouts.fighter,'awakeningLevel'));
+ const opts={...party,p_awakeningVersion:1},pc=await f.launch('new-hard-a','mage',opts);
+ assert.equal(pc.awakeningLevel,7);assert.equal(pc.loadouts.fighter.awakeningLevel,0);
+ f.db.tables.hd3d_progress[0].data.adv.mage={b:'flame'};
+ const next=await f.launch('new-hard-b','mage',opts);assert.equal(next.awakeningLevel,null);
+ assert.equal(next.loadouts.mage.awakeningLevel,null);assert.equal(next.growth.awakening.mage,7);
+ assert.equal((await f.launch('new-hard-a','mage',opts)).awakeningLevel,7);
+ assert.equal((await f.launch('new-hard-a','mage',party)).reason,'id_reused');
+});
+test('poor and failed writes debit nothing',async()=>{
+ const f=setup({saveEdit:s=>{s.souls=0;}});assert.ok((await f.up('unlock-poor','mage',0,0)).ok);
+ assert.equal((await f.up('try-poor','mage',5,1)).reason,'poor');assert.equal(f.wallet().awakening.mage,0);
+ const a=setup();await a.up('unlock-good','mage',0,0);
+ const before=structuredClone(a.db.tables),tx=a.db.transaction.bind(a.db);
+ a.db.transaction=fn=>tx(async t=>{
+  const put=t.put.bind(t);
+  t.put=async(name,row)=>{if(name==='hd3d_growth_investments')throw Error('Injected receipt failure');return put(name,row);};
+  return fn(t);
+ });
+ await assert.rejects(a.up('try-good','mage',5,1),/Injected/);assert.deepEqual(a.db.tables,before);
+});

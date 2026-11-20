@@ -1,3 +1,4 @@
+import { updateAwakeningAura } from './render/awakening-aura.js';
 import { updateMachineDeco } from './render/machine-environment.js';
 import { updateStormDeco } from './render/storm-environment.js';
 import './ui/saveconflict.js';
@@ -87,7 +88,7 @@ if (mobileApp) document.body.classList.add('mobileApp');
 let refreshTouch=null;
 let lastT = performance.now(), hudT = 0;
 function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt, i === 0 ? raw : 0); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
-  Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
+  Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { if(G.hero?.awakeningAura)updateAwakeningAura(G.hero,G); for(const h of G.heroes||[])if(h!==G.hero&&h.awakeningAura)updateAwakeningAura(h,G); heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
 G.Snd = Snd; G.sim = (sec, h = .05) => { for (let t = 0; t < sec; t += h) step(h); };
 function step(dt, practiceClockDt = dt) {
   updatePractice(dt, practiceClockDt);

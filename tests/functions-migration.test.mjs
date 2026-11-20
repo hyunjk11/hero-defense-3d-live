@@ -100,8 +100,8 @@ test('actual API start/reward retry and save CAS are unchanged across the Functi
 });
 test('deployment source contains exact dependency closure and preserves client/DB/gameplay config',()=>{
   const manifest=JSON.parse(fs.readFileSync(new URL('../cloud-functions/game-manifest.json',import.meta.url)));
-  assert.equal(Object.keys(manifest).length,61);
-  for(const rel of ['server/loadouts.mjs','src/account/loadouts.js'])assert.ok(manifest[rel],rel);
+  assert.equal(Object.keys(manifest).length,62);
+  for(const rel of ['server/loadouts.mjs','src/account/loadouts.js','src/data/awakening.js'])assert.ok(manifest[rel],rel);
   for(const [rel,expected] of Object.entries(manifest)){
     const source=fs.readFileSync(new URL('../'+rel,import.meta.url)),staged=fs.readFileSync(new URL('../cloud-functions/game/'+rel,import.meta.url));
     assert.deepEqual(staged,source,rel);assert.equal(crypto.createHash('sha256').update(source).digest('hex'),expected);

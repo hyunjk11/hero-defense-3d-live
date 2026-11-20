@@ -2,6 +2,7 @@ import { abyssalStrike } from '../data/abyssal-set.js';
 import { ABYSSAL_PROC } from '../data/boss-sets.js';
 import {legendFeedback} from '../render/legend-feedback.js';
 import { skillAllowed } from '../data/hard-party.js';
+import { awakeningESpec } from './awakening-e.js';
 import { castAdvanceE } from './advance-e.js';
 import { treeESkill, treeCooldown, treeSkillUsed } from '../data/skill-tree.js';
 // ================= 전설 무기 스킬 =================
@@ -42,14 +43,15 @@ const d2 = (e, x, z) => { const dx = e.g.position.x - x, dz = e.g.position.z - z
 const fade = (m, dur) => { scene.add(m); G.fxs.push({ m, t: 0, dur, kind: 'fade' }); };
 export const legendSkill = () => hero?.lsk ? equipProc(hero.lsk) : null;
 export const heroEKey = () => hero ? eKeyFor(hero.cls, hero.C.level || 1, hero.adv) : null;
-export const legendActive = () => {const s=hero?eSkillFor(hero.cls,hero.C.level||1,hero.adv):null;return hero?.treeMods?treeESkill(s,hero.treeMods):s;};
+export const legendActive = () => {const s=hero?eSkillFor(hero.cls,hero.C.level||1,hero.adv):null;return awakeningESpec(hero,hero?.treeMods?treeESkill(s,hero.treeMods):s);};
 export const legendCd = () => { const s = legendActive(); if(!s)return 0;const base=s.cd*(1-Math.min(40,hero.eq?.cdr||0)/100);return hero.treeMods?.eCd?treeCooldown(base,s.cd,hero.treeMods.eCd):base; };
 
 // 목표 지점: 마우스는 커서 위치, 터치(버튼을 누름)는 영웅 근처 적이 가장 많이 모인 곳 → 없으면 바라보는 방향
-function aim(maxD, at) {
+function aim(maxD, at, facingOnly=false) {
   const h = hero.g.position;
   if (at && at.isVector3) { const t = at.clone().setY(0); if (t.distanceTo(h) > maxD) t.sub(h).setY(0).setLength(maxD).add(h); return t; }
   if (lastPT === 'mouse' && mouseGround.lengthSq() > 0) { const t = mouseGround.clone().setY(0); if (t.distanceTo(h) > maxD) t.sub(h).setY(0).setLength(maxD).add(h); return t; }
+  if(facingOnly)return new THREE.Vector3(h.x+Math.sin(hero.face)*maxD,0,h.z+Math.cos(hero.face)*maxD);
   let best = null, bn = -1; const L = alive();
   for (const e of L) { if (d2(e, h.x, h.z) > maxD * maxD) continue; let n = 0; for (const o of L) if (d2(o, e.g.position.x, e.g.position.z) < 16) n++; if (n > bn) { bn = n; best = e; } }
   if (best) return new THREE.Vector3(best.g.position.x, 0, best.g.position.z);
@@ -173,7 +175,7 @@ function castLegend0(at) {
   const s = legendActive(); if (!s || !hero || hero.dead > 0 || hero.lcd > 0 || hero.eCastT > 0 || hero.leap || (hero.ft && hero.ft.leap) || (hero.mech && hero.mech.busy > 0) || (G.phase !== 'build' && G.phase !== 'wave')) { if (s && hero && hero.lcd > 0) Snd.play('error'); return false; }
   if (hero.warpT > 0) return false; hero.qPoseT=0;hero.ePoseT=0; hero.lcd = legendCd(); hero.spinT = 0; hero.roseT = 0; if (hero.swirl) hero.swirl.visible = false; const key = s.key; G.heroEN ||= {}; G.heroEN[key] = (G.heroEN[key] || 0) + 1;
   if (!s.kind) legendFeedback(hero,hero,s,[],FX,true);
-  if (s.kind) castAdvanceE(s, aim((s.reach*(s.reachMul||1)) || 1, at), FX); else if (key === 'rosebarrage') rosebarrage(s, aim(14, at)); else if (key === 'gigahammer') gigahammer(s, aim(12, at)); else if (key === 'tigerdash') tigerdash(s, aim(9, at)); else ({ pierce, meteorstorm, quake })[key](s, at);
+  if (s.kind) castAdvanceE(s, aim((s.reach*(s.reachMul||1)) || 1, at,s.awakening&&s.b==='dragon'), FX); else if (key === 'rosebarrage') rosebarrage(s, aim(14, at)); else if (key === 'gigahammer') gigahammer(s, aim(12, at)); else if (key === 'tigerdash') tigerdash(s, aim(9, at)); else ({ pierce, meteorstorm, quake })[key](s, at);
   if(!s.kind&&(key==='pierce'||key==='meteorstorm')){hero.ePoseT=Math.max(0,hero.atkT||0);hero.ePoseTerrain=G.tiles;}
   if(hero.treeMods?.weave||hero.treeMods?.pursuit||hero.treeMods?.pursuitRanged)treeSkillUsed(hero,'e',G.t);hero.autoSkillUntil = G.t + Math.max(.8, hero.atkT || 0); return true;
 }

@@ -1075,3 +1075,14 @@ body.practiceRun #top,body.practiceRun #hardPartyBar{display:none!important}
 #banner:not(.show):has(~ #weaponProcFeed:not(:empty)){transition:none}
 
 .settings .sndSub,#sndPanel .sndSub{padding-left:1.5em}.sndSub:has(input:disabled){opacity:.6}
+
+.awCard{margin-top:12px;padding-top:12px;border-top:1px solid #a896b966}
+.awHeading,.awChoices{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.awHeading{justify-content:space-between;margin-bottom:8px;color:#e1c6ff}
+.awCard .gbtn{min-height:44px}
+.awCard [aria-pressed="true"]{border-color:#e1c6ff;background:#8862aa42}
+.awChoices #awConfirm{flex:1}
+.awCard p{margin:7px 0 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.awCard p:empty{display:none}
+/* Reserve the pinned close-button hit area when the growth panel scrolls. */
+body.mobileApp .awCard{padding-inline-end:36px}

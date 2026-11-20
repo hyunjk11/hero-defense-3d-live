@@ -9,6 +9,7 @@ import { ls } from '../core/store.js';
 import { durableSet } from './durable.js';
 import { isMissingErr } from './adminlogic.js';
 import { mobileApp } from '../ui/mobile-mode.js';
+import { AWAKENING_VERSION } from '../data/awakening.js';
 
 export const HG = { owner: null, session: -1, status: 'idle', growth: null, message: '', pending: 0, hasInvestment: false, rewardXP: {}, hardRewards: {}, features: {}, buildBusy:false };
 const listeners = [], prefix = 'hd3d_live_growth_v1_', guestKey = prefix + 'guest_ledger';
@@ -21,6 +22,10 @@ export const onGrowth = f => listeners.push(f);
 export const enabled = () => HG.owner === owner() && HG.session === Acc.sessionId() && HG.status === 'ready';
 export const available = () => HG.owner === owner() && HG.session === Acc.sessionId() && !!HG.growth && ['ready', 'offline'].includes(HG.status);
 export const viewSave = (s = Acc.load()) => ({ ...s, growth: available() ? HG.growth : null });
+export const awakeningEnabled = () => !!Acc.A.user && available() && HG.features.awakening === AWAKENING_VERSION;
+const skillKey = h => prefix + owner() + '_aw_skill_' + h;
+export const awakeningSkill = h => awakeningEnabled() && ls.get(skillKey(h)) !== 'base';
+export function setAwakeningSkill(h, on) { if (awakeningEnabled()) ls.set(skillKey(h), on ? 'awake' : 'base'); }
 export const level = h => available() ? H.levelOf(HG.growth.xp[h]) : 1;
 const valid = s => s === stamp();
 async function locked(u, fn) {
@@ -39,11 +44,16 @@ async function rpc(u, name, args) {
 }
 const outKey = u => prefix + u + '_outbox';
 const readOut = u => parse(outKey(u)) || { rewards: {}, investment: null, dungeon: null, modes: {} };
+const pendingCount = out => Object.keys(out.rewards || {}).length + Object.keys(out.modes || {}).length + !!out.investment + !!out.build + !!out.awakening;
 export async function retry() {
   const u = owner(), s = stamp(); if (!u || !enabled()) return false;
   return locked(u, async () => {
-    if (!valid(s)) return false; const out = readOut(u); HG.hasInvestment = !!out.investment;
+    if (!valid(s)) return false; const out = readOut(u); HG.hasInvestment = !!out.investment; HG.pending = pendingCount(out);
     if (u === 'guest' && out.dungeon) { const r = await rpc(u, 'dungeon', out.dungeon); if (!valid(s)) return false; accept(r, s); out.dungeon = null; write(outKey(u), out); }
+    if (out.awakening && !await settleAwakening(u, s, out)) {
+      if (valid(s)) { HG.message = '각성 저장 확인 대기'; emit(); }
+      return false;
+    }
     if(out.build){const r=await rpc(u,'build',out.build);if(!valid(s))return false;accept(r,s);out.build=null;write(outKey(u),out);if(!r.ok)HG.message='특성 저장: '+r.reason;}
     if (out.investment) {
       const r = await rpc(u, 'invest', out.investment); if (!valid(s)) return false;
@@ -68,7 +78,7 @@ export async function retry() {
       }finally{if(lease)Acc.finishServerSave(lease,false);}
       delete out.rewards[token]; write(outKey(u), out);
     }
-    HG.pending = Object.keys(out.rewards).length + Object.keys(out.modes || {}).length + !!out.investment + !!out.build; emit(); return !HG.pending;
+    HG.pending = pendingCount(out); emit(); return !HG.pending;
   }).catch(e => { if (valid(s)) { HG.message = 'XP 확인 대기: ' + (e.message || e); emit(); } return false; });
 }
 let refreshJob = null, refreshedAt = 0;
@@ -84,15 +94,17 @@ export function refresh({ maxAgeMs = 0 } = {}) {
     try {
       // A failed post-commit read sets tables=error. Recover that read before
       // flush's readiness check, without clearing the durable settlement guard.
-      const pending = Acc.serverSaveState();
+      const pending = Acc.serverSaveState(), journal = readOut(u);
+      HG.pending = pendingCount(journal);
       if (u !== 'guest' && pending && !pending.busy && Acc.A.tables !== 'ok' && !Acc.A.conflict) await Acc.reloadAuthoritative();
       if (!valid(s)) return false;
       // Establish migration snapshot only after the existing progress journal is acknowledged.
-      if (u !== 'guest' && (!Acc.ready() || !await Acc.flush())) throw new Error('진행 저장을 먼저 동기화해야 합니다.');
+      const ownAwakening = pending && u !== 'guest' && journal.awakening?.p_id === pending.token;
+      if (u !== 'guest' && (!Acc.ready() || !ownAwakening && !await Acc.flush())) throw new Error('진행 저장을 먼저 동기화해야 합니다.');
       if (!valid(s)) return false;
       const r = await locked(u, () => rpc(u, 'status', {})); if (!valid(s)) return false;
       if (!r.ok || r.version !== 1 || !r.growth) throw new Error('지원하지 않는 XP 서버 버전입니다.');
-      HG.features=r.features||{}; HG.status = 'ready'; refreshedAt = Date.now(); accept(r, s); await retry(); return true;
+      HG.features=r.features||{}; HG.status = 'ready'; refreshedAt = Date.now(); accept(r, s); await retry(); return !valid(s) ? false : !readOut(u).awakening;
     } catch (e) {
       if (valid(s)) { HG.status = isMissingErr(e) ? 'missing' : HG.growth ? 'offline' : 'error'; if (HG.status !== 'offline') HG.growth = null; HG.message = HG.status === 'missing' ? '성장 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.' : HG.status === 'offline' ? '오프라인 · 마지막 확인 레벨입니다. XP 투자·획득은 연결 후 가능합니다.' : '성장 정보 확인 대기 · 연결을 확인해 주세요. ' + (e.message || e); emit(); }
       return false;
@@ -110,8 +122,42 @@ export async function invest(hero, target) {
     const a = { p_id: crypto.randomUUID(), p_hero: hero, p_level: target, p_revision: HG.growth.rev };
     out.investment = a; write(outKey(u), out); HG.hasInvestment = true; HG.pending++; emit();
     const r = await rpc(u, 'invest', a); if (!valid(s)) return { ok: false, reason: 'account_changed' };
-    accept(r, s); out.investment = null; HG.hasInvestment = false; write(outKey(u), out); HG.pending = Object.keys(out.rewards).length; emit(); return r;
+    accept(r, s); out.investment = null; HG.hasInvestment = false; write(outKey(u), out); HG.pending = pendingCount(out); emit(); return r;
   }).catch(e => { if (valid(s)) { HG.message = 'XP 투자 확인 대기 · 다시 연결하면 같은 요청을 확인합니다. ' + (e.message || e); emit(); } return { ok: false, reason: 'pending' }; });
+}
+async function settleAwakening(u, s, out) {
+  const args = out.awakening;
+  const alreadyMarked = Acc.serverSaveState()?.token === args.p_id;
+  const lease = Acc.beginServerSave(args.p_id);
+  let done = false;
+  try {
+    if (!alreadyMarked && !await Acc.flush()) throw new Error('진행 저장이 끝나지 않았습니다.');
+    if (!valid(s) || !Acc.markServerSave(lease)) return null;
+    const result = await rpc(u, 'awaken', args);
+    if (!valid(s) || !await Acc.reloadAuthoritative() || !valid(s)) return null;
+    accept(result, s);
+    // The account read succeeded. Clear the write guard before deleting the
+    // journal so an interruption can replay the same receipt, not strand it.
+    Acc.finishServerSave(lease, true); done = true;
+    delete out.awakening; write(outKey(u), out);
+    HG.pending = pendingCount(out);
+    emit();
+    return result;
+  } finally { if (!done) Acc.finishServerSave(lease, false); }
+}
+export async function awaken(hero, target) {
+  const u = owner(), s = stamp();
+  if (!enabled() || !awakeningEnabled() || !Acc.saveAllowed()) return { ok: false, reason: 'pending' };
+  return locked(u, async () => {
+    if (!valid(s) || !Acc.saveAllowed()) return { ok: false, reason: 'pending' };
+    const out = readOut(u);
+    if (out.awakening || out.investment || out.build) return { ok: false, reason: 'pending' };
+    out.awakening = { p_id: crypto.randomUUID(), p_hero: hero, p_level: target, p_revision: HG.growth.rev };
+    write(outKey(u), out); HG.pending++; emit();
+    const result = await settleAwakening(u, s, out);
+    if (!result && valid(s)) { HG.message = '각성 저장 확인 대기'; emit(); }
+    return result || { ok: false, reason: 'pending' };
+  }).catch(() => { if (valid(s)) { HG.message = '각성 저장 확인 대기'; emit(); } return { ok: false, reason: 'pending' }; });
 }
 export async function startRun(stage, hero) {
   if (!Acc.saveAllowed()) return null;
@@ -125,13 +171,16 @@ export async function startRun(stage, hero) {
   const partner = hard ? (await import('./hard-party.js')).readPartner(hero) : null;
   if (!valid(s)) return null;
   const hardFirstBonus = hard && u !== 'guest' && !mobileApp && HG.features.hardFirstBonus === 1;
-  const a = { ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(hardFirstBonus?{p_hardFirstBonus:1}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero };
+  const a = { ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(hardFirstBonus?{p_hardFirstBonus:1}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), ...(awakeningEnabled()?{p_awakeningVersion:AWAKENING_VERSION}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero };
   try {
     // Retry the same start ID after a lost response; no progress exists until it is acknowledged.
-    const r = await locked(u, async () => { try { return await rpc(u, 'start', a); } catch { return rpc(u, 'start', a); } });
-    if (!valid(s)) return null; accept(r, s); if (!r.ok) throw new Error(r.reason);
+    const r = await locked(u, async () => {
+      if (!valid(s) || !Acc.saveAllowed()) return null;
+      try { return await rpc(u, 'start', a); } catch { return valid(s) && Acc.saveAllowed() ? rpc(u, 'start', a) : null; }
+    });
+    if (!r || !valid(s)) return null; accept(r, s); if (!r.ok) throw new Error(r.reason);
     if (hard && (r.party?.length !== 2 || r.party[0] !== hero || r.party[1] !== a.p_partner || !r.loadouts?.[hero] || !r.loadouts?.[a.p_partner])) throw new Error('출정 편성 불일치');
-    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
+    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, awakeningLevel:r.awakeningLevel??null, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
   } catch (e) { if (valid(s)) { HG.status = 'error'; HG.message = 'XP 출정 준비 실패 · 연결을 확인해 주세요. ' + (e.message || e); emit(); } return null; }
 }
 // Navigation awaits this durable checkpoint; a shared cross-tab lock serializes journal edits.
@@ -147,7 +196,7 @@ export async function checkpoint(run, completed, win = false, finish = false, st
       out.rewards[run.token] = { p_token: run.token, p_stage:run.stage, p_completed: Math.max(old?.p_completed || 0, completed), p_win: !!win || !!old?.p_win, p_finish: !!finish || !!old?.p_finish, p_stars:Math.max(old?.p_stars||1,Math.min(3,stars|0)) };
       if(String(run.stage||'').startsWith('hard-'))out.rewards[run.token].p_kills=Math.max(old?.p_kills||0,Number.isSafeInteger(kills)&&kills>=0?Math.min(kills,1000000):0);
       if(firstBosses || old?.p_bossKills)out.rewards[run.token].p_bossKills=[...new Set([...(old?.p_bossKills||[]),...(firstBosses||[])])].sort((a,b)=>a-b);
-      write(outKey(u), out); HG.pending = Object.keys(out.rewards).length + Object.keys(out.modes || {}).length + !!out.investment + !!out.build;
+      write(outKey(u), out); HG.pending = pendingCount(out);
     }); emit(); void retry(); return true;
   } catch (e) { HG.message = 'XP 완료 기록 저장 실패: ' + (e.message || e); emit(); return false; }
 }
@@ -168,7 +217,7 @@ export async function settleMode(name, args) {
     out.modes[id] ||= { name, args }; write(outKey(u), out);
     const r = await rpc(u, name, out.modes[id].args); if (!valid(s)) return { ok: false, reason: 'account_changed' };
     accept(r, s); if (r.ok) { delete out.modes[id]; write(outKey(u), out); }
-    HG.pending = Object.keys(out.rewards).length + Object.keys(out.modes).length + !!out.investment; emit(); return r;
+    HG.pending = pendingCount(out); emit(); return r;
   }); } catch (e) { if (valid(s)) { HG.message = '원정 XP 확인 대기 · 마을에서 재시도합니다.'; emit(); } return { ok: false, reason: 'pending', msg: '정산 확인 대기 · 마을에서 자동 재시도합니다.' }; }
 }
 
@@ -181,6 +230,6 @@ export async function changeBuild(hero,branch,preset,tier,choice,inTown=false) {
     const a={p_id:crypto.randomUUID(),p_revision:HG.growth.rev,p_hero:hero,p_branch:branch,p_preset:preset,p_tier:tier,p_choice:choice};
     out.build=a;write(outKey(u),out);HG.pending++;
     const r=await rpc(u,'build',a);if(!valid(s))return {ok:false,reason:'account_changed'};
-    accept(r,s);out.build=null;write(outKey(u),out);HG.pending=Object.keys(out.rewards).length+Object.keys(out.modes||{}).length+!!out.investment;return r;
+    accept(r,s);out.build=null;write(outKey(u),out);HG.pending=pendingCount(out);return r;
   });}catch(e){if(valid(s))HG.message='특성 저장 확인 대기';return {ok:false,reason:'pending'};}finally{if(valid(s)){HG.buildBusy=false;emit();}}
 }

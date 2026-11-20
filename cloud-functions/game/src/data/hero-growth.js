@@ -1,5 +1,6 @@
 // Shared client/server rules. XP fractions always floor; stat HP rounds at each existing stat layer.
 import { HERO_KEYS, VISIBLE_HEROES } from './heroes.js';
+import { cleanAwakening } from './awakening.js';
 import { cleanTrees } from './skill-tree.js';
 import { cleanHard, hardXP, HARD_STAGES } from './hard.js';
 import { STAGES, getStage } from './stages.js';
@@ -40,6 +41,7 @@ export function cleanGrowth(v) {
   g.first = [...new Set((Array.isArray(v.first) ? v.first : []).filter(k => (STAGES[k]?.ch <= 10 || HARD_STAGES[k])))];
   g.legacyAdv = (Array.isArray(v.legacyAdv) ? v.legacyAdv : []).filter(h => HERO_KEYS.includes(h));
   if(v.trees)g.trees=cleanTrees(v.trees); if(v.hard)g.hard=cleanHard(v.hard);
+  if(v.awakening){const awakening=cleanAwakening(v.awakening);if(Object.keys(awakening).length)g.awakening=awakening;}
   return g;
 }
 export function quote(g, hero, target) {

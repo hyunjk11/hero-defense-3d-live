@@ -6,24 +6,26 @@ const values=new Map();globalThis.localStorage={getItem:k=>values.get(k)??null,s
 globalThis.addEventListener=()=>{};globalThis.document={addEventListener(){},visibilityState:'visible'};globalThis.location={hostname:'localhost',search:''};globalThis.fetch=()=>{throw Error('NETWORK FORBIDDEN');};globalThis.setTimeout=()=>0;globalThis.clearTimeout=()=>{};
 let tail=Promise.resolve();Object.defineProperty(globalThis,'navigator',{configurable:true,value:{locks:{request:(_key,fn)=>{const p=tail.then(fn);tail=p.catch(()=>{});return p;}}}});
 const A=await mod('src/account/account.js'),C=await mod('src/account/hero-growth.js'),{settleNavigation}=await mod('src/account/navigation-save.js');
-const key='hd3d_live',now=Date.parse('2026-10-29T00:00:00Z');let serial=0;
-function fixture(){
+const key='hd3d_live',now=Date.parse('2026-10-29T00:00:00Z');let serial=0,authUsers=null;
+function fixture({awakening=false}={}){
  const uid='settlement-'+(++serial),users={a:{id:uid,email:'a@example.invalid'},b:{id:uid+'-b',email:'b@example.invalid'}};
+ authUsers=users; // Account caches its auth client across fixtures, as in one browser.
  const save=P.empty();save.st['10-6']=3;save.souls=1000;save.stats.kills=9389;save.nick='Test';save.adv.mage={b:'flame',n:1};
  const wallet={...H.initialGrowth(save),user_id:uid};wallet.xp.mage=H.totalXP(20);
+ if(awakening){save.adv.mage={b:'frost',n:1};save.heroLv.mage={hp:15,atk:15};wallet.xp.mage=H.totalXP(50);wallet.awakening={mage:0};wallet.spent=wallet.xp.mage;wallet.balance=4000;wallet.earned=wallet.spent+wallet.balance;}
  const db=new MemoryStore({hd3d_progress:[{user_id:uid,data:save,merged:true,updated_at:new Date(now).toISOString()},{user_id:users.b.id,data:{...P.empty(),souls:1000},merged:true,updated_at:new Date(now).toISOString()}],hd3d_profiles:Object.values(users).map(u=>({id:u.id,nickname:'Test'})),hd3d_growth_wallet:[wallet]});
- const control={offline:true,hold:false,lose:false,failBefore:false,clock:now+60000,calls:[]};let release=()=>{},seen=()=>{};
+ const control={offline:true,hold:false,lose:false,failBefore:false,clock:now+60000,calls:[],bonusContract:awakening};let release=()=>{},seen=()=>{};
  const run=(user,op)=>control.bonusContract?runEconomyOperation(db,user,op,{now:control.clock}):db.transaction(tx=>execute(tx,user,op,{now:control.clock}));
  class Query{
   constructor(table){this.q={kind:'query',table,action:'select',filters:{}};}
   select(columns){this.q.columns=columns;this.q.returning=true;return this;}eq(k,v){this.q.filters[k]=v;return this;}update(values){this.q.action='update';this.q.values=values;return this;}insert(values){this.q.action='insert';this.q.values=values;return this;}upsert(values){this.q.action='upsert';this.q.values=values;return this;}maybeSingle(){this.q.single=true;return this;}
   then(a,b){control.calls.push(this.q);if(control.failHydrate&&this.q.table==='hd3d_progress'&&this.q.action==='select'){control.failHydrate=false;return Promise.resolve({error:{code:'503',message:'hydration read unavailable'}}).then(a,b);}return run({...A.A.user},this.q).then(a,b);}
  }
- const sb={auth:{onAuthStateChange(){},signOut:async()=>{},signInWithPassword:async({email})=>({data:{user:users[email[0]]},error:null})},from:t=>new Query(t),rpc:async(name,args)=>{
+ const sb={auth:{onAuthStateChange(){},signOut:async()=>{},signInWithPassword:async({email})=>({data:{user:authUsers[email[0]]},error:null})},from:t=>new Query(t),rpc:async(name,args)=>{
   const user={...A.A.user};control.calls.push({name,args});
   if(name==='hd3d_growth_progress'&&(control.offline||control.failBefore)){control.failBefore=false;throw Error('offline before request');}
   const r=await run(user,{kind:'rpc',name,args});
-  if(name==='hd3d_growth_progress'&&r.data?.hardSaved){if(control.hold){seen();await new Promise(r=>release=r);control.hold=false;}if(control.lose){control.lose=false;throw Error('response lost after commit');}}
+  if(name==='hd3d_growth_progress'&&r.data?.hardSaved||name==='hd3d_growth_awaken'&&r.data?.ok){if(control.hold){seen();await new Promise(r=>release=r);control.hold=false;}if(control.lose){control.lose=false;throw Error('response lost after commit');}}
   return r;
  }};
  globalThis.window={__hd3dCloudMock:async()=>sb};Object.assign(A.A,{user:users.a,mode:'account',hydrated:true,tables:'ok',sync:'saved',banned:false,conflict:null,sb});values.set(key+'_uid',uid);values.set(key+'_save',JSON.stringify(save));values.set(key+'_merged_'+uid,'1');values.set(key+'_cloud_ts_'+uid,new Date(now).toISOString());for(const f of A.A.listeners)f();
@@ -95,4 +97,45 @@ test('first-clear boss waves survive offline checkpoint, journal merge and lost 
  assert.equal(await C.refresh(),true);
  assert.deepEqual(f.cloud(),paid);assert.equal(read(),undefined);
  assert.deepEqual(requests().at(-1).args.p_bossKills,[5,10]);assert.equal(C.HG.hardRewards[run.token].chests,paid.chests.length);
+});
+
+const awakeningOut=uid=>JSON.parse(values.get('hd3d_live_growth_v1_'+uid+'_outbox')||'{}').awakening;
+const awakeningCalls=f=>f.control.calls.filter(x=>x.name==='hd3d_growth_awaken');
+test('awakening commit response loss + failed hydration keeps same journal and one debit',async()=>{
+ const f=fixture({awakening:true});await C.refresh();
+ f.control.lose=true;
+ assert.equal((await C.awaken('mage',1)).reason,'pending');
+ const args=awakeningOut(f.uid);assert.equal(args.p_revision,0);assert.equal(args.p_level,1);
+ assert.equal(f.cloud().souls,580);assert.equal(f.db.tables.hd3d_growth_wallet[0].awakening.mage,1);
+ assert.equal(f.db.tables.hd3d_growth_wallet[0].balance,3400);
+ assert.equal(A.serverSaveState()?.token,args.p_id);
+ // Simulate volatile pending count zero after a browser reload and a second failed confirmation read.
+ C.HG.pending=0;f.control.failHydrate=true;await C.refresh();
+ assert.ok(C.HG.pending>0);assert.deepEqual(awakeningOut(f.uid),args);
+ assert.equal(A.serverSaveState()?.token,args.p_id);assert.equal(A.A.tables,'error');
+ assert.throws(purchase,{code:'server_save_pending'});
+ await C.refresh();
+ assert.equal(A.serverSaveState(),null);assert.equal(C.HG.pending,0);assert.equal(awakeningOut(f.uid),undefined);
+ assert.equal(A.load().souls,580);assert.equal(f.cloud().souls,580);
+ assert.equal(awakeningCalls(f).length,3);
+ assert.ok(awakeningCalls(f).every(x=>x.args.p_id===args.p_id));
+});
+
+test('awakening account switch during committed reply only hydrates original owner on return',async()=>{
+ const f=fixture({awakening:true});await C.refresh();
+ f.control.hold=true;const seen=f.watch(),result=C.awaken('mage',1);await seen;
+ const args=awakeningOut(f.uid);assert.equal(f.cloud().souls,580);
+ try{
+   await A.signOut();await A.signIn('b@example.invalid','RAM-only');
+   assert.equal(A.serverSaveState(),null);assert.equal(A.load().souls,1000);
+ }finally{f.release();}
+ assert.equal((await result).reason,'pending');
+ assert.equal(A.A.user.id,f.users.b.id);assert.equal(A.load().souls,1000);
+ assert.deepEqual(awakeningOut(f.uid),args);
+ await A.signOut();await A.signIn('a@example.invalid','RAM-only');await C.refresh();
+ assert.equal(A.serverSaveState(),null);assert.equal(awakeningOut(f.uid),undefined);
+ assert.equal(A.load().souls,580);assert.equal(C.HG.growth.awakening.mage,1);
+ assert.equal(f.db.tables.hd3d_growth_wallet.find(w=>w.user_id===f.uid).balance,3400);
+ assert.equal(awakeningCalls(f).length,2);
+ assert.ok(awakeningCalls(f).every(x=>x.args.p_id===args.p_id));
 });

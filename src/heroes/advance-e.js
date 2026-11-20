@@ -1,3 +1,5 @@
+import { awakeningCatHits, AWAKENING_CAT_LIMIT, shareAwakeningShield } from './awakening-e.js';
+import { pulseAwakeningAura } from '../render/awakening-aura.js';
 import { createHellfireBurn } from '../data/hellfire-burn.js';
 import { createSkillCues } from '../render/skill-cues.js';
 import * as THREE from 'three';
@@ -38,28 +40,29 @@ function thornShotFeedback(h){
 }
 
 export function castAdvanceE(s,target,FX){
- const h=hero,origin=h.g.position.clone(),dir=target.clone().sub(origin).setY(0);
+ const h=hero,awakened=s.awakening===true,giantCat=awakened&&s.b==='dragon',closingIce=awakened&&s.b==='frost',shieldShare=awakened&&s.b==='paladin',origin=h.g.position.clone(),dir=target.clone().sub(origin).setY(0);
  if(dir.lengthSq()<.001)dir.set(Math.sin(h.face),0,Math.cos(h.face));dir.normalize();
  const angle=Math.atan2(dir.x,dir.z),radius=s.radius||1,reach=s.reach*(s.reachMul||1),baseDamage=stat.dmg()*stat.skillMul(),damage=baseDamage*s.mul,color=COLORS[s.b],txt='#'+color.toString(16).padStart(6,'0');
+ if(awakened)pulseAwakeningAura(h,G.t);
  h.face=angle;h.eCastAngle=angle;h.path=[];h.eCastT=s.kind==='volley'||s.kind==='cone'||s.kind==='paw'?s.cast+(s.ticks-1)*s.interval+.12:s.cast;h.atkT=Math.max(h.atkT,h.eCastT);
  const clip=h.cls==='mage'?'Spellcast_Long':h.cls==='warrior'?(h.ch.acts?.['1H_Melee_Attack_Chop']?'1H_Melee_Attack_Chop':'2H_Melee_Attack_Chop'):h.cls==='gunner'?'ShootStand':h.cls==='fighter'?(s.kind==='paw'?'PalmS':'PunchCombo'):'2H_Ranged_Shoot';
  play(h.ch,clip,{once:true,force:true,speed:1.3});
  banner(s.n+'!',txt,850);Snd.play(h.cls==='gunner'?'draw':h.cls==='warrior'?'stomp':'magic',{pos:origin,force:true});
- const root=new THREE.Group();root.name='advance-e:'+s.key;scene.add(root);
+ const root=new THREE.Group();root.name='advance-e:'+s.key;if(awakened)root.userData.awakening=s.b;scene.add(root);
  const terrain=G.tiles,bolts=[],sharedHits=new Set(),aim=target.clone();let time=0,fired=0,ended=false,shield=null,hitCues=0;
  const cue=(kind,p,size=1,duration=.28,a=angle,length=0)=>skillCues.show(root,kind,{x:p.x,y:groundY(p.x,p.z)+.22,z:p.z},color,size,duration,a,length,s.b);
  if(s.kind==='line'||s.kind==='fan')for(const k of s.kind==='fan'?[-1,0,1]:[0])cue('aim',origin,1,s.cast,angle+k*(s.spread||0)*radius,reach);
  const hit=(e,mul=1,source=h.g.position)=>{if(!live(e))return;G.legendDmg=(G.legendDmg||0)+damage*mul;hurt(e,damage*mul,txt,true,{x:source.x,z:source.z,kind:s.ground?'melee':'ranged'});if(s.kind!=='paw'&&hitCues++<16)cue('impact',e.g.position,1.2,.38);};
  const burn=s.burnDps?createHellfireBurn(h):null;
  const eligible=()=>G.enemies.filter(e=>live(e)&&(!s.ground||!e.E.fly));
- let cat=null,flight=null,catFade=0,stopVoice=null;
+ let cat=null,flight=null,catFade=0,stopVoice=null,shared=null,allyShell=null,closingRing=null;
  const voices=[];
- const close=()=>{burn?.clear();skillCues.clear(root);for(const stop of voices)stop();stopVoice?.();stopVoice=null;cat?.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(root);disposeOwned(root);if(h.eShield===shield)h.eShield=null;};
+ const close=()=>{burn?.clear();skillCues.clear(root);for(const stop of voices)stop();stopVoice?.();stopVoice=null;cat?.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(root);disposeOwned(root);if(h.eShield===shield)h.eShield=null;if(shared&&shared.ally.eShield===shared.shield)shared.ally.eShield=null;};
  const shoot=(a,hits=new Set(),limit=1)=>{const m=bolt(color,s.b),d=new THREE.Vector3(Math.sin(a),0,Math.cos(a));m.position.copy(h.g.position).setY(groundY(h.g.position.x,h.g.position.z)+1.3);m.rotation.y=a;m.scale.setScalar(radius);root.add(m);bolts.push({m,d,hits,left:limit,dist:0});};
  let field=null,fieldRing=null,blades=null,beam=null,shell=null;
  const burnMarks=new Map();
  if(s.kind==='field'){
-  field=new THREE.Group();field.position.set(aim.x,groundY(aim.x,aim.z)+.15,aim.z);root.add(field);fieldRing=ring(root,aim,s.area*radius,color);
+  field=new THREE.Group();field.position.set(aim.x,groundY(aim.x,aim.z)+.15,aim.z);root.add(field);fieldRing=ring(root,aim,s.area*radius,color);if(closingIce){closingRing=ring(root,aim,s.area*radius,0xd2f9ff);closingRing.visible=false;}
   const g=new THREE.ConeGeometry(s.b==='frost'?.16:.45,s.b==='frost'?.8:4.8,6),mat=mesh(g,color,.65).material;
   for(let i=0;i<(s.b==='frost'?24:9);i++){const m=new THREE.Mesh(g,mat),a=i*2.4,r=(.3+(i%5)/5)*s.area*radius;m.position.set(Math.sin(a)*r,s.b==='frost'?1+(i%4)*.65:1.2,Math.cos(a)*r);field.add(m);}
  }else if(s.kind==='shield'){
@@ -82,11 +85,11 @@ export function castAdvanceE(s,target,FX){
   if(s.kind==='fan')for(const k of [-1,0,1])shoot(angle+k*s.spread*radius,sharedHits,99);
   else if(s.kind==='line'){if(s.b==='thorn')thornShotFeedback(h);shoot(angle);}
   else if(s.kind==='paw'){
-   cat=createCatSpirit();cat.scale.setScalar(1.9*radius);root.add(cat);flight=catFlight(origin,dir,s);
+   cat=createCatSpirit();cat.scale.setScalar(1.9*radius);root.add(cat);flight=giantCat?{x:origin.x,z:origin.z,dx:dir.x,dz:dir.z,time:0,dist:0,done:false,left:AWAKENING_CAT_LIMIT}:catFlight(origin,dir,s);
    cat.position.set(origin.x,groundY(origin.x,origin.z)+1.2,origin.z);cat.rotation.y=angle;stopVoice=Snd.meow?.(origin)||null;
   }
   else if(s.kind==='field')fieldHit();
-  else if(s.kind==='shield'){shield=grantEShield(h,s,G.t);for(const e of eligible())if(distance(e.g.position,h.g.position)<=s.area*radius)hit(e);}
+  else if(s.kind==='shield'){shield=grantEShield(h,s,G.t);if(shieldShare){shared=shareAwakeningShield(h,G.heroes||[],s,G.t);if(shared){allyShell=mesh(new THREE.SphereGeometry(1.8,16,10),color,.14);root.add(allyShell);}}for(const e of eligible())if(distance(e.g.position,h.g.position)<=s.area*radius)hit(e);}
   else if(s.kind==='cone'){
    const center=h.g.position;
    for(const e of eligible()){const dx=e.g.position.x-center.x,dz=e.g.position.z-center.z,d=Math.hypot(dx,dz),dot=d?Math.max(-1,Math.min(1,(dx*dir.x+dz*dir.z)/d)):1;
@@ -104,7 +107,9 @@ export function castAdvanceE(s,target,FX){
    for(let i=0;i<field.children.length;i++){const m=field.children[i];m.rotation.z+=dt*(s.b==='frost'?2:.1);m.material.opacity=(s.b==='frost'?.52:.48)*fade;
     if(s.b==='frost')m.position.y=3.4-((i*.47+time*3.5)%2.8);else m.scale.y=.8+.22*Math.sin(time*12+i*2.4);}}
 
-  if(shell){shell.position.copy(h.g.position);shell.position.y+=1.4;shell.rotation.y=time*.35;shell.material.opacity=shield?.value?Math.max(.07,.2*shield.value/shield.initial):.12;}
+  if(closingRing){const left=s.cast+s.duration-time;closingRing.visible=left>0&&left<=.55;if(closingRing.visible){const f=left/.55;closingRing.scale.set(f,f,1);closingRing.material.opacity=.85;}}
+  if(allyShell){const a=shared.ally;allyShell.visible=!!a.g.parent&&a.hp>0&&a.eShield===shared.shield&&shared.shield.until>G.t;if(allyShell.visible)allyShell.position.set(a.g.position.x,a.g.position.y+1.25,a.g.position.z);}
+  if(shell){shell.visible=!shieldShare||!shield||h.eShield===shield;shell.position.copy(h.g.position);shell.position.y+=1.4;shell.rotation.y=time*.35;shell.material.opacity=shield?.value?Math.max(.07,.2*shield.value/shield.initial):.12;}
   if(blades){blades.position.copy(h.g.position);blades.rotation.y=angle;const strike=Math.max(0,Math.floor((time-s.cast)/s.interval)),age=time-s.cast-strike*s.interval;
    blades.visible=time>=s.cast&&strike<s.ticks&&age<.14;blades.rotation.y=angle+(strike%2?1:-1)*(.25-age*3);blades.scale.setScalar(.82+Math.min(1,age/.14)*.18);
    for(const m of blades.children)m.material.opacity=.75*Math.max(0,1-age/.16);}
@@ -121,10 +126,16 @@ export function castAdvanceE(s,target,FX){
    });
   }
   if(cat){
-   if(!flight.done)stepCatFlight(flight,dt,G.enemies,G.t,e=>hit(e,1,{x:flight.x-flight.dx,z:flight.z-flight.dz}));else catFade+=dt;
+   if(!flight.done&&giantCat){
+    const prev=flight.dist;flight.dist=Math.min(reach,prev+26*dt);flight.time+=dt;
+    for(const e of awakeningCatHits(G.enemies,origin,dir,prev,flight.dist,s.width*radius,sharedHits,flight.left)){
+     sharedHits.add(e);flight.left--;hit(e,2.2,{x:origin.x,z:origin.z});
+    }
+    flight.x=origin.x+dir.x*flight.dist;flight.z=origin.z+dir.z*flight.dist;flight.done=flight.dist>=reach;
+   }else if(!flight.done)stepCatFlight(flight,dt,G.enemies,G.t,e=>hit(e,1,{x:flight.x-flight.dx,z:flight.z-flight.dz}));else catFade+=dt;
    const facing=flight.target||flight.seek,targetHeight=facing?.E.fly?facing.g.position.y+3:groundY(flight.x,flight.z)+1.2;
    cat.position.set(flight.x,flight.target?targetHeight:cat.position.y+(targetHeight-cat.position.y)*Math.min(1,dt*16),flight.z);cat.rotation.y=Math.atan2(flight.dx,flight.dz);
-   const fade=Math.max(0,1-catFade/.18),appear=Math.min(1,Math.max(.01,(time-s.cast)/.09));cat.scale.setScalar(1.9*radius*appear*(1+catFade));animateCatSpirit(cat,flight.time,flight.pulse,fade);
+   const fade=Math.max(0,1-catFade/.18),appear=Math.min(1,Math.max(.01,(time-s.cast)/.09));cat.scale.setScalar((giantCat?3.15:1.9)*radius*appear*(1+catFade));animateCatSpirit(cat,flight.time,flight.pulse,fade);
    if(flight.done&&catFade>=.18){close();return false;}
   }
   for(let i=bolts.length-1;i>=0;i--){const b=bolts[i],p=b.m.position,from=p.clone(),step=Math.min((s.kind==='paw'?24:65)*dt,reach-b.dist);p.addScaledVector(b.d,step);b.dist+=step;
@@ -134,7 +145,7 @@ export function castAdvanceE(s,target,FX){
   }
   if(s.kind==='field'&&time>=s.cast+s.duration&&!ended){ended=true;if(s.freeze)for(const e of eligible())if(distance(e.g.position,aim)<=s.area*radius){e.stunT=Math.max(e.stunT||0,Math.min(e.E.boss?.25:.75,(e.E.boss?s.bossFreeze:s.freeze)*(s.cc||1)));e.frozen=true;}}
   const duration=s.kind==='field'?s.cast+s.duration:s.kind==='shield'?s.cast+Math.min(8,s.duration*(s.durationMul||1)):s.cast+(count-1)*interval+.3;
-  if(s.kind!=='paw'&&(s.kind==='shield'&&shield&&h.eShield!==shield||time>=duration&&!(burn?.size)&&bolts.length===0&&!skillCues.has(root))){close();return false;}
+  if(s.kind!=='paw'&&(s.kind==='shield'&&shield&&h.eShield!==shield&&(!shared||shared.ally.eShield!==shared.shield)||time>=duration&&!(burn?.size)&&bolts.length===0&&!skillCues.has(root))){close();return false;}
   return true;
  });
  return true;

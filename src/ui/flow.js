@@ -68,7 +68,8 @@ function hideAll() { for (const s of SCREENS) $('scr_' + s).classList.add('hidde
 const heroN = c => heroLabel(c);
 
 async function prepareGrowth(stage, hero) {
-  const run = await HG.startRun(stage, hero); if (!Acc.saveAllowed()) return false; G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null;
+  const run = await HG.startRun(stage, hero); if (!Acc.saveAllowed()) return false; G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=HG.awakeningSkill(hero);
+  if (run?.loadouts) for (const [h,l] of Object.entries(run.loadouts)) l.awakeningUseE=HG.awakeningSkill(h);
   G.xpPendingWrite = Promise.resolve(true);
   G.onXPWave = () => { G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves, false, false, 1, Object.values(G.stats.kills||{}).reduce((a,b)=>a+b,0)); };
   return true;
