@@ -129,8 +129,15 @@ function bootPlan() {
   return { first, bg: uniq(order).filter(k => !first.includes(k)) };
 }
 const PLAN = bootPlan(); G.loadPlan = PLAN;
-loadAssets(PLAN.first).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (mobileApp || QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) {
+const recoverPCStartup = !mobileApp && !QS.has('run') && QS.get('practice') !== '1';
+loadAssets(PLAN.first, recoverPCStartup).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (mobileApp || QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) {
     if (mobileApp) refreshTouch = startTouchControls();
     startFlow();
   } else showSelect(); })
-  .catch(err => { console.warn(err); $('loadTxt').textContent = '모델을 불러오지 못했습니다. 새로고침 해주세요.'; });
+  .catch(err => {
+    console.warn(err);
+    if (!recoverPCStartup) { $('loadTxt').textContent = '모델을 불러오지 못했습니다. 새로고침 해주세요.'; return; }
+    $('loadTxt').textContent = '모델을 불러오지 못했습니다.';
+    $('loading').querySelector('.spin').classList.add('hidden');
+    $('loadRetry').classList.remove('hidden');
+  });

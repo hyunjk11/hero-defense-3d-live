@@ -4,6 +4,7 @@ import { makeMachineEnemy } from './machine-monsters.js';
 import { makeStormEnemy } from './storm-monsters.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadStartupModel } from './startup-model.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { $ } from '../core/util.js';
@@ -25,12 +26,14 @@ const heroAssets = (cls, robot = false) => { const k = CLASSES[cls] && CLASSES[c
 const HIDDEN_ASSETS = [...HIDDEN_HEROES].flatMap(c => heroAssets(c, true)).filter(k => !HERO_KEYS.some(h => !isHidden(h) && heroAssets(h, true).includes(k)));
 const ASSETS = ALL_ASSETS.filter(k => !HIDDEN_ASSETS.includes(k));
 const LOADING = {}, MODEL_ERRORS = {}; let loader = null;
-function loadModel(k) {
+function loadModel(k, startup = false) {
   if (LOADING[k]) return LOADING[k]; if (HIDDEN_ASSETS.includes(k)) return Promise.reject(new Error('숨긴 영웅 모델: ' + k)); if (!loader) { loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder); }
   delete MODEL_ERRORS[k];
-  return (LOADING[k] = loader.loadAsync(`models/${k}.glb`).then(g => { prep(g); if (MESHY[k]) lockRoot(g.animations); if (MESHY[k]) extraClips(g.animations, MESHY[k]); GL[k] = g; notifyModels(k); return g; })
+  const path = `models/${k}.glb`;
+  const model = startup ? loadStartupModel(loader, path) : loader.loadAsync(path);
+  return (LOADING[k] = model.then(g => { prep(g); if (MESHY[k]) lockRoot(g.animations); if (MESHY[k]) extraClips(g.animations, MESHY[k]); GL[k] = g; notifyModels(k); return g; })
     .catch(e => { delete LOADING[k]; if (!FALLBACK[k]) { MODEL_ERRORS[k]=e;notifyModels(k,e);throw e; } // 대체 모델 (안정성 우선): 격투가 몸을 못 받으면 세라 몸 + 절차적 고양이 귀 후드·주황 색조 (makeHeroModel)
-      console.warn('model fallback', k, '→', FALLBACK[k], e); return loadModel(FALLBACK[k]).then(g => { FB[k] = FALLBACK[k]; GL[k] = g; G_FB.push(k);notifyModels(k); return g; }).catch(error=>{MODEL_ERRORS[k]=error;notifyModels(k,error);throw error;}); }));
+      console.warn('model fallback', k, '→', FALLBACK[k], e); return loadModel(FALLBACK[k], startup).then(g => { FB[k] = FALLBACK[k]; GL[k] = g; G_FB.push(k);notifyModels(k); return g; }).catch(error=>{MODEL_ERRORS[k]=error;notifyModels(k,error);throw error;}); }));
 }
 // 대체 모델 표 (지연 로딩 실패 시). FB[k] = 실제로 쓰인 대체 키, G_FB = 테스트용 목록
 const FALLBACK = { seoyun_meshy: 'warrior_meshy' }, FB = {}, G_FB = (globalThis.__hd3dModelFallback = []);
@@ -51,10 +54,14 @@ function whenModels(keys,{signal}={}) {
     WAIT.add(wait);signal?.addEventListener('abort',cancel,{once:true});
   });
 }
-const ensureModels = keys => Promise.all([...new Set(keys)].map(loadModel));
-async function loadAssets(keys = ASSETS) {
-  keys = [...new Set(keys)]; let n = 0; const tx = $('loadTxt');
-  await Promise.all(keys.map(k => loadModel(k).then(() => { if (tx) tx.textContent = `모델 불러오는 중… ${++n}/${keys.length}`; })));
+const ensureModels = keys => Promise.all([...new Set(keys)].map(k => loadModel(k)));
+async function loadAssets(keys = ASSETS, startup = false) {
+  keys = [...new Set(keys)]; let n = 0, active = true; const tx = $('loadTxt');
+  try {
+    await Promise.all(keys.map(k => loadModel(k, startup).then(() => {
+      if (tx && (!startup || active)) tx.textContent = `모델 불러오는 중… ${++n}/${keys.length}`;
+    })));
+  } finally { active = false; }
 }
 // 백그라운드: 순서대로 하나씩 (실패해도 계속, 필요할 때 ensureModels 가 다시 시도)
 async function loadBackground(keys) { for (const k of keys) { if (GL[k]) continue; try { await loadModel(k); } catch (e) { console.warn('bg model', k, e); } } return true; }
