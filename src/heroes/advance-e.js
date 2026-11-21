@@ -13,6 +13,7 @@ import { hero, stat } from './hero.js';
 import { grantEShield } from '../data/hero-e.js';
 import { play } from '../render/characters.js';
 import { Snd } from '../audio/audio.js';
+import { mobileApp } from '../ui/mobile-mode.js';
 import { banner } from '../ui/hud.js';
 import { catFlight, stepCatFlight } from '../data/cat-flight.js';
 import { createCatSpirit, animateCatSpirit } from '../render/cat-spirit.js';
@@ -55,7 +56,7 @@ export function castAdvanceE(s,target,FX){
  const hit=(e,mul=1,source=h.g.position)=>{if(!live(e))return;G.legendDmg=(G.legendDmg||0)+damage*mul;hurt(e,damage*mul,txt,true,{x:source.x,z:source.z,kind:s.ground?'melee':'ranged'});if(s.kind!=='paw'&&hitCues++<16)cue('impact',e.g.position,1.2,.38);};
  const burn=s.burnDps?createHellfireBurn(h):null;
  const eligible=()=>G.enemies.filter(e=>live(e)&&(!s.ground||!e.E.fly));
- let cat=null,flight=null,catFade=0,stopVoice=null,shared=null,allyShell=null,closingRing=null;
+ let cat=null,flight=null,catFade=0,stopVoice=null,shared=null,allyShell=null,closingRing=null,catImpact=false;
  const voices=[];
  const close=()=>{burn?.clear();skillCues.clear(root);for(const stop of voices)stop();stopVoice?.();stopVoice=null;cat?.traverse(o=>{if(o.isInstancedMesh)o.dispose();});scene.remove(root);disposeOwned(root);if(h.eShield===shield)h.eShield=null;if(shared&&shared.ally.eShield===shared.shield)shared.ally.eShield=null;};
  const shoot=(a,hits=new Set(),limit=1)=>{const m=bolt(color,s.b),d=new THREE.Vector3(Math.sin(a),0,Math.cos(a));m.position.copy(h.g.position).setY(groundY(h.g.position.x,h.g.position.z)+1.3);m.rotation.y=a;m.scale.setScalar(radius);root.add(m);bolts.push({m,d,hits,left:limit,dist:0});};
@@ -89,7 +90,7 @@ export function castAdvanceE(s,target,FX){
    cat.position.set(origin.x,groundY(origin.x,origin.z)+1.2,origin.z);cat.rotation.y=angle;stopVoice=Snd.meow?.(origin)||null;
   }
   else if(s.kind==='field')fieldHit();
-  else if(s.kind==='shield'){shield=grantEShield(h,s,G.t);if(shieldShare){shared=shareAwakeningShield(h,G.heroes||[],s,G.t);if(shared){allyShell=mesh(new THREE.SphereGeometry(1.8,16,10),color,.14);root.add(allyShell);}}for(const e of eligible())if(distance(e.g.position,h.g.position)<=s.area*radius)hit(e);}
+  else if(s.kind==='shield'){shield=grantEShield(h,s,G.t);if(shieldShare){shared=shareAwakeningShield(h,G.heroes||[],s,G.t);if(shared){if(!mobileApp)Snd.combatCue?.('awakening_twin_shield',shared.ally.g.position);allyShell=mesh(new THREE.SphereGeometry(1.8,16,10),color,.14);root.add(allyShell);}}for(const e of eligible())if(distance(e.g.position,h.g.position)<=s.area*radius)hit(e);}
   else if(s.kind==='cone'){
    const center=h.g.position;
    for(const e of eligible()){const dx=e.g.position.x-center.x,dz=e.g.position.z-center.z,d=Math.hypot(dx,dz),dot=d?Math.max(-1,Math.min(1,(dx*dir.x+dz*dir.z)/d)):1;
@@ -129,6 +130,7 @@ export function castAdvanceE(s,target,FX){
    if(!flight.done&&giantCat){
     const prev=flight.dist;flight.dist=Math.min(reach,prev+26*dt);flight.time+=dt;
     for(const e of awakeningCatHits(G.enemies,origin,dir,prev,flight.dist,s.width*radius,sharedHits,flight.left)){
+     if(!catImpact&&!mobileApp){catImpact=true;Snd.combatCue?.('awakening_cat_impact',e.g.position);}
      sharedHits.add(e);flight.left--;hit(e,2.2,{x:origin.x,z:origin.z});
     }
     flight.x=origin.x+dir.x*flight.dist;flight.z=origin.z+dir.z*flight.dist;flight.done=flight.dist>=reach;
@@ -143,7 +145,7 @@ export function castAdvanceE(s,target,FX){
    for(const {e} of candidates){b.hits.add(e);hit(e);if(--b.left<=0)break;}
    if(b.left<=0||b.dist>=reach){root.remove(b.m);disposeOwned(b.m);bolts.splice(i,1);}
   }
-  if(s.kind==='field'&&time>=s.cast+s.duration&&!ended){ended=true;if(s.freeze)for(const e of eligible())if(distance(e.g.position,aim)<=s.area*radius){e.stunT=Math.max(e.stunT||0,Math.min(e.E.boss?.25:.75,(e.E.boss?s.bossFreeze:s.freeze)*(s.cc||1)));e.frozen=true;}}
+  if(s.kind==='field'&&time>=s.cast+s.duration&&!ended){ended=true;if(closingIce&&!mobileApp)Snd.combatCue?.('awakening_frost_collapse',aim);if(s.freeze)for(const e of eligible())if(distance(e.g.position,aim)<=s.area*radius){e.stunT=Math.max(e.stunT||0,Math.min(e.E.boss?.25:.75,(e.E.boss?s.bossFreeze:s.freeze)*(s.cc||1)));e.frozen=true;}}
   const duration=s.kind==='field'?s.cast+s.duration:s.kind==='shield'?s.cast+Math.min(8,s.duration*(s.durationMul||1)):s.cast+(count-1)*interval+.3;
   if(s.kind!=='paw'&&(s.kind==='shield'&&shield&&h.eShield!==shield&&(!shared||shared.ally.eShield!==shared.shield)||time>=duration&&!(burn?.size)&&bolts.length===0&&!skillCues.has(root))){close();return false;}
   return true;

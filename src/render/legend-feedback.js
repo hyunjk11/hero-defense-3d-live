@@ -103,8 +103,8 @@ export function legendFeedback(h,t,s,targets,FX,castOnly=false) {
       else cue('impact',p,kind==='rosebarrage'?1.65:2);
     }
   }
-  // Legacy projectiles already have layered sounds; do not double their audio.
-  const stop=castOnly?null:Snd.skill?.('legend_'+kind,t.g.position);let time=0;
+  // PC proc signatures are owned by their actual trigger, independent of visual pool capacity.
+  const stop=(castOnly||!mobileApp&&h.cls!=='mechanic')?null:Snd.skill?.('legend_'+kind,t.g.position);let time=0;
   FX.push(dt=>{time+=dt;const owned=G.hero===h||G.heroes?.includes(h);
     if(time>=.44||!owned||h.dead>0||h.warpT>0||G.tiles!==terrain||G.screen==='town'||!['build','wave'].includes(G.phase)){pool.clear(owner);signatures?.clear(owner);if(hasEmblem)emblems.clear(owner);stop?.();return false;}
     pool.update(owner,dt);signatures?.update(owner,time);if(hasEmblem)emblems.update(owner,time);return true;
