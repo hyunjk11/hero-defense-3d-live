@@ -68,7 +68,9 @@ function hideAll() { for (const s of SCREENS) $('scr_' + s).classList.add('hidde
 const heroN = c => heroLabel(c);
 
 async function prepareGrowth(stage, hero) {
-  const run = await HG.startRun(stage, hero); if (!Acc.saveAllowed()) return false; G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=run?.awakeningUseE!==false;
+  const session = Acc.sessionId(), run = await HG.startRun(stage, hero);
+  if (session !== Acc.sessionId() || !Acc.saveAllowed() || HG.pendingSortieSettings()) return false;
+  G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=run?.awakeningUseE!==false;
   G.xpPendingWrite = Promise.resolve(true);
   G.onXPWave = () => { G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves, false, false, 1, Object.values(G.stats.kills||{}).reduce((a,b)=>a+b,0)); };
   return true;
@@ -83,7 +85,7 @@ function startStageRun() { // 저장된 영웅이 유료 영웅이면 서버 소
 async function startStageRun2(logged) {
   if (!logged) await Acc.autoLogin().catch(() => {}); if (!Acc.A.user && Acc.A.mode !== 'guest') { show('login'); refreshLogin(); return; }
   if (STAGE.hard) await Sh.verifyOwned();
-  const s = Acc.load(); s.hero = Sh.usableHero(s.hero); if (!await prepareGrowth(STAGE.id, s.hero)) { enterTown(); return; } if(STAGE.hard&&!G.xpRun){enterTown();banner('하드 출정 확인 실패 · 연결과 해금 확인');return;} showSelect(); $('select').classList.add('hidden'); hideAll(); s.hero = Sh.usableHero(s.hero); // 잠긴 유료 영웅이면 기본 영웅
+  const s = Acc.load(); s.hero = Sh.usableHero(s.hero); if (!await prepareGrowth(STAGE.id, s.hero)) { enterTown(); if (HG.pendingSortieSettings()) banner(Acc.SAVE_WAIT_MESSAGE); return; } if(STAGE.hard&&!G.xpRun){enterTown();banner('하드 출정 확인 실패 · 연결과 해금 확인');return;} showSelect(); $('select').classList.add('hidden'); hideAll(); s.hero = Sh.usableHero(s.hero); // 잠긴 유료 영웅이면 기본 영웅
   G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = STAGE ? STAGE.ch : P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.stage = STAGE; G.gold += STAGE.startGold || 0; G.phase = 'select';
   if (STAGE.hard && G.xpRun?.party) {
     const run = G.xpRun, current = () => G.xpRun === run && Acc.A.user?.id === run.owner && Acc.sessionId() === run.session;
@@ -215,7 +217,7 @@ async function startChallengeRun() {
   const saved = Acc.load();
   if (CLASSES[saved.hero]?.paid) await Sh.verifyOwned();
   const s = Acc.load(); s.hero = Sh.usableHero(s.hero);
-  if (!await prepareGrowth(null, s.hero)) { enterTown(); return; }
+  if (!await prepareGrowth(null, s.hero)) { enterTown(); if (HG.pendingSortieSettings()) banner(Acc.SAVE_WAIT_MESSAGE); return; }
   showSelect(); $('select').classList.add('hidden'); hideAll();
   G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.phase = 'select'; choose(s.hero); $('retreat').classList.remove('hidden'); $('fade').classList.remove('on');
   const bt = equipLine(G.equip); if (bt) setTimeout(() => banner(bt, '#ffe08a', 2200), 900);

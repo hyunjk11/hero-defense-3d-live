@@ -1,3 +1,4 @@
+import { readSortieParty, writeSortieParty } from '../account/sortie-party.js';
 // ================= 🗼 무한의 탑 입장 화면 (T-8, 2026-10-24) — 던전 건물 패널(ui/dungeon.js)의 탭 [⚔ 던전 원정] [🗼 무한의 탑] [🏪 던전 상점] =================
 // 시작 층 칩(1 · 돌파한 체크포인트+1) · 다음 5개 층 어픽스 미리보기 · 다음 첫 돌파 보상 · 탑 전용 파티(hd3d_live_sppick) · 랭킹(주간/전체) · 출발(서버 등록 → 새로고침 진입)
 // SP_OPEN(SP_LIVE 또는 ?sptest=1) 일 때만 탭이 보임 — T-10(2026-10-24) 부터 SP_LIVE=true 로 공개
@@ -6,15 +7,14 @@ import { $, esc } from '../core/util.js';
 import { go } from '../core/nav.js';
 import { G } from '../core/state.js';
 import { DG_MAX, dungeonParty, pickParty, togglePick } from '../data/dungeon.js';
-import { SP_PICK_KEY, SP_TYPE, SP_AFFIX_BY, SP_TITLES, SP_SERVER, preview, weekKey, catchupBless, firstClear, bandOf } from '../data/spire.js';
+import { SP_TYPE, SP_AFFIX_BY, SP_TITLES, SP_SERVER, preview, weekKey, catchupBless, firstClear, bandOf } from '../data/spire.js';
 import * as SS from '../account/spire.js';
 import * as Acc from '../account/account.js';
 import * as Sh from '../account/shop.js';
 import { banner } from './hud.js';
 
 let from = null, picked = false, sub = 'main', rankKind = 'week', rank = null, departing = false, H = null;
-const loadPick = () => { try { const a = JSON.parse(localStorage.getItem(SP_PICK_KEY) || 'null'); return Array.isArray(a) ? a : null; } catch (e) { return null; } };
-const savePick = p => { try { localStorage.setItem(SP_PICK_KEY, JSON.stringify(p)); } catch (e) {} };
+const loadPick = () => readSortieParty('spire');
 // 탑 파티: 탑 전용 저장이 없으면 원정 파티에서 시작
 const pickOf = (cands, dgPick) => pickParty(cands, loadPick() || dgPick);
 const ranked = () => SS.SPS.st === 'ok' && !!Acc.A.user;
@@ -50,7 +50,11 @@ export function renderSpire(p, h) { H = h; if (sub === 'rank') return renderRank
   h.wire(p); $('spRankBtn').onclick = () => { Snd.play('ui'); sub = 'rank'; rank = null; renderSpire(p, h); loadRank(p); }; $('spGo').onclick = () => depart();
   p.querySelectorAll('.spWkBtn').forEach(b => b.onclick = () => claimWeek(p, b));
   paintGo(); p.querySelectorAll('.spChip[data-from]').forEach(b => b.onclick = () => { Snd.play('select'); from = +b.dataset.from; picked = true; renderSpire(p, h); });
-  p.querySelectorAll('.dgCard.pick').forEach(b => b.onclick = () => { const r = togglePick(party, b.dataset.cls, cands); if (r.msg) { Snd.play('error'); banner(r.msg, '#ffb06a', 1100); return; } Snd.play('select'); savePick(r.pick); renderSpire(p, h); }); }
+  p.querySelectorAll('.dgCard.pick').forEach(b => b.onclick = async () => { const epoch = Acc.sessionId(); const r = togglePick(party, b.dataset.cls, cands); if (r.msg) { Snd.play('error'); banner(r.msg, '#ffb06a', 1100); return; } const saving = writeSortieParty('spire', r.pick);
+    if (typeof saving !== 'boolean') p.querySelectorAll('.dgCard.pick').forEach(x => x.disabled = true);
+    const ok = await saving;
+    if (epoch !== Acc.sessionId() || !b.isConnected) return;
+    Snd.play(ok ? 'select' : 'error'); if (!ok) banner(Acc.SAVE_WAIT_MESSAGE, '#ffb06a', 2000); renderSpire(p, h); }); }
 // 지난 주 기록 보상 (T-9): 받지 않은 주마다 한 줄 · 받기 → 우편함
 function weekRwHtml() { const U = ranked() ? SS.SPS.unclaimed : []; if (!U.length) return '';
   return `<div class="spWkRw" id="spWkRw">${U.slice(0, 2).map(x => `<div class="spWk"><span class="spWkT">📅 <b>${esc(x.week.slice(5).replace('-', '/'))}</b> 주 · 최고 <b>${x.best}층</b>${x.rank ? ` · 주간 ${x.rank}위` : ''}</span><span class="spWkR">영혼석 ${x.souls}${x.medals ? ` · 🏅 ${x.medals}` : ''}${x.title ? ` · 칭호 ${esc(SP_TITLES[x.title] || x.title)}` : ''}</span><button class="gbtn sm main spWkBtn" data-week="${esc(x.week)}">받기</button></div>`).join('')}</div>`; }

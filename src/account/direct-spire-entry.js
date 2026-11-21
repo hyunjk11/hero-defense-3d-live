@@ -13,18 +13,18 @@ export function pendingDirectEntry(){
  if(!directEntryEnabled())return null;try{const j=read(Acc.A.user.id);return j?{from:j.from}:null;}catch{return null;}
 }
 const blocked=(message='입장 확인 중입니다. 다시 시도해 주세요.')=>({blocked:true,pending:true,msg:message});
-export async function startDirectEntry(rpc,from,growth,saveToken){
+export async function startDirectEntry(rpc,from,growth,saveToken,party){
  const uid=Acc.A.user?.id,epoch=Acc.sessionId();
- const run=()=>Acc.A.user?.id===uid&&Acc.sessionId()===epoch?startLocked(rpc,from,growth,saveToken):blocked('계정이 변경되었습니다.');
+ const run=()=>Acc.A.user?.id===uid&&Acc.sessionId()===epoch?startLocked(rpc,from,growth,saveToken,party):blocked('계정이 변경되었습니다.');
  // Serialize intent allocation across tabs where Web Locks is available.
  return globalThis.navigator?.locks?.request?globalThis.navigator.locks.request(key(uid),run):run();
 }
-async function startLocked(rpc,from,growth,saveToken){
+async function startLocked(rpc,from,growth,saveToken,party){
  const uid=Acc.A.user.id,epoch=Acc.sessionId(),current=()=>Acc.A.user?.id===uid&&Acc.sessionId()===epoch;
  if(busy)return blocked();const work={};busy=work;
  try{
   let journal=read(uid);
-  if(!journal){journal={uid,request:crypto.randomUUID(),from,growth};durableSet(key(uid),JSON.stringify(journal));}
+  if(!journal){journal={uid,request:crypto.randomUUID(),from,growth,...(party?{party}:{})};durableSet(key(uid),JSON.stringify(journal));}
   const {data,error}=await rpc('hd3d_spire_start',{p_id:journal.request,p_from:journal.from,p_growth:journal.growth});
   if(!current())return blocked('계정이 변경되었습니다.');
   // Unknown or denied replies retain the same intent. Never fall back to a
@@ -36,7 +36,7 @@ async function startLocked(rpc,from,growth,saveToken){
   }
   if(typeof data.token!=='string'||!/^[-0-9a-f]{36}$/i.test(data.token)||data.request!==journal.request||data.from!==journal.from)return blocked();
   journal={...journal,token:data.token};durableSet(key(uid),JSON.stringify(journal));
-  saveToken({t:data.token,u:uid,from:data.from,best:data.best||0,cleared:0,at:Date.now(),request:journal.request});
+  saveToken({t:data.token,u:uid,from:data.from,best:data.best||0,cleared:0,at:Date.now(),request:journal.request,...(journal.party?{party:journal.party}:{})});
   return {data};
  }catch(e){return blocked(e.code==='LOCAL_WRITE_FAILED'?'입장 정보를 저장하지 못했습니다.':undefined);}
  finally{if(busy===work)busy=null;}

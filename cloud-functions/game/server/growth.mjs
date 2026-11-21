@@ -1,3 +1,4 @@
+import { SORTIE_SETTINGS_VERSION, cleanSortieSettings, validSortieChapter, validSortieParty } from '../src/data/sortie-settings.js';
 import { AWAKENING_VERSION, AWAKENING_SKILL_VERSION, awakeningQuote, cleanAwakening, awakeningLevel, cleanAwakeningSkills, awakeningSkillOn } from '../src/data/awakening.js';
 import { validPartner, HARD_PARTY_VERSION } from '../src/data/hard-party.js';
 import * as E from '../src/account/equip.js';
@@ -25,6 +26,7 @@ export async function growthWallet(c) {
   return w;
 }
 export const growthView = w => H.cleanGrowth(w);
+const battlePartnerOf=p=>VISIBLE_HEROES.includes(p?.data?.battlePartner)?p.data.battlePartner:null;
 const owned = async (c, hero) => VISIBLE_HEROES.includes(hero) && (!paidHeroes.includes(hero) || !!await c.get('owned', c.uid + '~hero_' + hero));
 export async function creditMode(c, mode, token, cumulative) {
   const key = c.uid + '~' + mode + '~' + token, old = await c.get('growth_receipts', key);
@@ -44,9 +46,46 @@ function appendHardFirst(reward,s,hero,bosses,starTier,random){
   for(const wave of bosses)if(random()<E.BOSS_DROP)add(E.bossOdds(wave));
   if(starTier)add(E.chestOdds(2+starTier));
 }
-export async function growth(c, name, a, {hardFirstBonus=false,awakening=false}={}) {
+export async function growth(c, name, a, {hardFirstBonus=false,awakening=false,sortieSettings=false}={}) {
   c.requirePlayer();
-  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{}),...(awakening?{awakening:AWAKENING_VERSION,awakeningSkill:AWAKENING_SKILL_VERSION}:{})}, growth: growthView(await growthWallet(c)) };
+  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{}),...(awakening?{awakening:AWAKENING_VERSION,awakeningSkill:AWAKENING_SKILL_VERSION}:{}),...(sortieSettings?{sortieSettings:SORTIE_SETTINGS_VERSION}:{})}, growth: growthView(await growthWallet(c)), ...(sortieSettings?{battlePartner:battlePartnerOf(await c.get('progress',c.uid))}:{}) };
+  if(name==='sortie_settings'&&sortieSettings){
+    const kind=a.p_kind,value=a.p_value;
+    if(!['hard','repeat','dungeon','spire'].includes(kind))return failure('invalid');
+    const fields=['p_id','p_revision','p_kind','p_value',...(kind==='hard'?['p_main']:kind==='repeat'?['p_chapter']:[])];
+    if(Object.keys(a).some(k=>!fields.includes(k))||!Object.hasOwn(a,'p_value')||!idOK(a.p_id)||!intOK(a.p_revision,H.MAX_XP))return failure('invalid');
+    if(kind==='hard'&&(!VISIBLE_HEROES.includes(a.p_main)||value!==null&&!validPartner(a.p_main,value)))return failure('invalid');
+    if(kind==='repeat'&&(!validSortieChapter(a.p_chapter)||value!==null&&!cleanTarget(value)))return failure('invalid');
+    if((kind==='dungeon'||kind==='spire')&&!validSortieParty(value))return failure('invalid');
+    const key=c.uid+'~sortie-settings~'+a.p_id,body=JSON.stringify([kind,value,a.p_main??null,a.p_chapter??null,a.p_revision]);
+    const prior=await c.get('growth_investments',key);
+    if(prior&&prior.body!==body)return failure('id_reused');
+    const w=await growthWallet(c),p=await c.get('progress',c.uid);
+    const view=()=>({growth:growthView(w),battlePartner:battlePartnerOf(p)});
+    if(prior)return {ok:true,already:true,...view()};
+    if(w.rev!==a.p_revision)return failure('conflict',view());
+    if(!p)return failure('missing_save',view());
+    const heroes=kind==='hard'?[a.p_main,...(value===null?[]:[value])]:kind==='repeat'?[]:value;
+    if(!(await Promise.all(heroes.map(h=>owned(c,h)))).every(Boolean))return failure('hero',view());
+    if(kind==='hard'){
+      // The same field is written by authoritative bag-preset apply. Never
+      // shadow it in the growth wallet or change any preset, gear or tree.
+      const next={...p.data};if(value===null)delete next.battlePartner;else next.battlePartner=value;
+      if(view().battlePartner!==value){
+        p.data=next;p.updated_at=new Date(Math.max(c.now,(Date.parse(p.updated_at)||0)+1)).toISOString();
+        await c.put('progress',{...p,data:packSave(next)});
+      }
+    }else{
+      const prefs=cleanSortieSettings(w.sortieSettings);
+      if(kind==='repeat')(prefs.repeatTarget??={})[a.p_chapter]=value;
+      else prefs[kind]=value.slice();
+      w.sortieSettings=prefs;
+    }
+    w.rev++;
+    await c.put('growth_wallet',w);
+    await c.put('growth_investments',{id:key,user_id:c.uid,body,at:c.iso});
+    return {ok:true,...view()};
+  }
   if(name==='awakening_skill'&&awakening){
     if(Object.keys(a).some(k=>!['p_id','p_hero','p_on','p_revision'].includes(k))||!idOK(a.p_id)||!intOK(a.p_revision,H.MAX_XP)||typeof a.p_on!=='boolean'||!await owned(c,a.p_hero))return failure('invalid');
     const key=c.uid+'~awakening-skill~'+a.p_id,body=JSON.stringify([a.p_hero,a.p_on,a.p_revision]);

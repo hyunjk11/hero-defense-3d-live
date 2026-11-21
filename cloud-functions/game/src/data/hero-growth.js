@@ -1,6 +1,7 @@
 // Shared client/server rules. XP fractions always floor; stat HP rounds at each existing stat layer.
 import { HERO_KEYS, VISIBLE_HEROES } from './heroes.js';
 import { cleanAwakening, cleanAwakeningSkills } from './awakening.js';
+import { cleanSortieSettings } from './sortie-settings.js';
 import { cleanTrees } from './skill-tree.js';
 import { cleanHard, hardXP, HARD_STAGES } from './hard.js';
 import { STAGES, getStage } from './stages.js';
@@ -43,6 +44,7 @@ export function cleanGrowth(v) {
   if(v.trees)g.trees=cleanTrees(v.trees); if(v.hard)g.hard=cleanHard(v.hard);
   if(v.awakening){const awakening=cleanAwakening(v.awakening);if(Object.keys(awakening).length)g.awakening=awakening;}
   if(v.awakeningSkill){const awakeningSkill=cleanAwakeningSkills(v.awakeningSkill);if(Object.keys(awakeningSkill).length)g.awakeningSkill=awakeningSkill;}
+  if(v.sortieSettings){const settings=cleanSortieSettings(v.sortieSettings);if(Object.keys(settings).length)g.sortieSettings=settings;}
   return g;
 }
 export function quote(g, hero, target) {

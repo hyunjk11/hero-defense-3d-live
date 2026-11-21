@@ -1,3 +1,4 @@
+import { readPracticeParty, rankParty } from '../account/sortie-party.js';
 import { jointBlessing, rescueBlessing } from '../data/bless-actions.js';
 import { treeBuild } from '../data/skill-tree.js';
 import * as HG from '../account/hero-growth.js';
@@ -16,7 +17,7 @@ import { G } from '../core/state.js';
 import { waveStart, waveEnd } from '../combat/meter.js';
 import { CORE, tileX, tileZ } from '../core/grid.js';
 import { CLASSES } from '../data/heroes.js';
-import { FLOORS, ROLE, dungeonRole, BLESS_BY, ULT_MAX, DG_PICK_KEY, dungeonParty, pickParty, waveList, dungeonReward, nextFloorHp, blessChoices, blessMods, ultGain, jointReady, jointDamage } from '../data/dungeon.js';
+import { FLOORS, ROLE, dungeonRole, BLESS_BY, ULT_MAX, dungeonParty, pickParty, waveList, dungeonReward, nextFloorHp, blessChoices, blessMods, ultGain, jointReady, jointDamage } from '../data/dungeon.js';
 import { FT, isRangedFoe, TQ, ftSkillId } from '../data/fighter.js';
 import { later } from '../core/state.js';
 import { P as PT, PB, emit, ringFx, setDmgCap } from '../render/vfx.js';
@@ -44,7 +45,7 @@ import { banner } from '../ui/hud.js';
 import * as HUD from '../ui/dungeonhud.js';
 import { updBossFx, clearBossFx, bossDodge } from './boss.js';
 import * as SPR from './spire.js'; // 🗼 무한의 탑 (G.spire 일 때만)
-import { floorLabel, affixIcons, isBossFloor, SP_PICK_KEY, SP_TITLES, firstClear } from '../data/spire.js';
+import { floorLabel, affixIcons, isBossFloor, SP_TITLES, firstClear } from '../data/spire.js';
 
 const D = G.dg = { floors: FLOORS, floor: 0, wave: -1, q: [], spawnT: 0, gapT: 2.5, over: false, kills: 0, t: 0, swap: false, party: [], bless: {}, blessing: null, cleared: 0, joints: 0, k0: 0, auto: false, autoBlessT: AUTO_PICK_DELAY };
 const confirmOpen = () => { const el = $('gConfirm'); return el && !el.classList.contains('hidden'); };
@@ -89,8 +90,8 @@ G.onDungeonBossKilled = (enemy, pos) => {
 // 영웅별 출정 정보 (일반 출정 ui/flow.js startStageRun2 와 같은 계산)
 export const loadoutOf = (s, c) => ({ perm: s.heroLv[c], equip: E.bonus(s, c), legend: E.legendOf(s, c), adv: AD.advOf(c, (s.adv || {})[c]), heroLevel: HG.level(c), heroTree:treeBuild(HG.HG.growth?.trees,c,AD.advOf(c,s.adv?.[c])?.k,HG.level(c)) });
 
-// 입장 화면에서 고른 파티 (이 기기 localStorage, 소유는 위에서 서버로 다시 확인)
-export const loadPick = () => { try { const a = JSON.parse((G.spire && localStorage.getItem(SP_PICK_KEY)) || localStorage.getItem(DG_PICK_KEY) || 'null'); /* 🗼 탑 전용 파티(hd3d_live_sppick), 없으면 원정 파티 */ return Array.isArray(a) ? a.filter(x => typeof x === 'string').slice(0, 8) : null; } catch (e) { return null; } };
+// Navigation preloads likely models; the ranked entry snapshot is authoritative after reload.
+export const loadPick = () => (G.spire ? readPracticeParty('spire') : null) || readPracticeParty('dungeon');
 export async function startDungeonRun() { setDmgCap(30); // U-11: 던전 피해 숫자 동시 표시 상한 30 (전투 60)
   $('loadTxt').textContent = '파티 확인 중…'; $('loading').classList.remove('hidden');
   D.floors = FLOORS; // T-1: 이번 판의 층 목록 (원정 = FLOORS, 무한의 탑은 층 목록을 바꿔 끼움)
@@ -100,7 +101,12 @@ export async function startDungeonRun() { setDmgCap(30); // U-11: 던전 피해 
   if (SPI) { const S = G.spire; Object.assign(S, { practice: D.entry.mode !== 'ranked', why: D.entry.why || null, token: D.entry.token || null, prevBest: D.entry.best || 0, pings: [], ft: [], chain: Promise.resolve() }); D.ft0 = 0; if (!S.practice) SS.spStatus().catch(() => {}); } // 5단계: 출발 때 서버가 준 1회용 입장 token (없으면 연습 원정 — 메달 없음)
   await Sh.verifyOwned(); // 로즈: 서버 소유 기록(hd3d_owned)만 믿음 — 저장 데이터의 영웅 값은 쓰지 않음
   await HG.refresh(); G.growthEnabled = HG.available(); G.focus = 0;
-  const s = Acc.load(), party = pickParty(dungeonParty(c => Sh.heroOwned(c)), loadPick()), L = Object.fromEntries(party.map(c => [c, loadoutOf(s, c)]));
+  if (D.entry.mode === 'ranked' && D.entry.owner && D.entry.owner !== Acc.A.user?.id) {
+    $('loading').classList.add('hidden'); go({town:1}); return;
+  }
+  const cands = dungeonParty(c => Sh.heroOwned(c));
+  const rankedParty = D.entry.mode === 'ranked' && (D.entry.party || rankParty(SPI ? 'spire' : 'dungeon'));
+  const s = Acc.load(), party = pickParty(cands, rankedParty || (D.entry.mode === 'ranked' && Acc.A.sb?.serverEconomy ? null : loadPick())), L = Object.fromEntries(party.map(c => [c, loadoutOf(s, c)]));
   const need = [...MON_ASSETS, ...party.flatMap(c => heroAssets(c, true))], opt = party.flatMap(c => AD.advModels(L[c].adv));
   $('loadTxt').textContent = '모델 불러오는 중…'; await ensureModels(need); for (const k of opt) await loadModel(k).catch(e => { console.warn('adv model', k, e); G.advModelFail = true; });
   loadModel('lich_meshy').then(() => { G.dgBossModel = 'meshy'; }).catch(e => { console.warn('boss model fallback', e); G.dgBossModel = 'fallback'; }); // 5층 보스 모델: 기다리지 않고 뒤에서 (보스 출현 때 없으면 해골 마법사 + 왕관)
