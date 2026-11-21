@@ -135,6 +135,9 @@ function heroGoTo(p) {
 
 // 비행 적을 근접 공격하지 못하는 영웅 (세라 · 서윤 — 서윤은 비행 적에게 장풍)
 const MELEE_ONLY = { warrior: 1, fighter: 1 };
+// Only the isolated PC sandbox can idle the other heroes. Their cooldowns,
+// health and already cast effects continue normally.
+const practiceRest = h => G.practice === true && G.practiceSandbox === true && (h === G.hero ? G.practiceParty?.basic === false : G.practiceParty?.assist === false);
 // ================= 영웅 업데이트 =================
 function updHero(dt) {
   const h = hero;
@@ -166,25 +169,25 @@ function updHero(dt) {
   if (!moving && !passAt(h.g.position.x, h.g.position.z)) { h.stuckT += dt; if (h.stuckT > 2) unstuck(); }
   h.g.position.y += (groundY(h.g.position.x, h.g.position.z) - h.g.position.y) * Math.min(1, dt * 10);
   h.treeMoving=moving&&Math.hypot(h.g.position.x-treeX,h.g.position.z-treeZ)>1e-5;
-  const rng = stat.range(); let tgt = null, bd = rng * rng;
-  for (const e of G.enemies) { if (e.dead || e.immT > G.t) continue; const dx = e.g.position.x - h.g.position.x, dz = e.g.position.z - h.g.position.z, d = dx * dx + dz * dz; if (d < bd && (!MELEE_ONLY[h.cls] || !e.E.fly)) { bd = d; tgt = e; } }
+  const rest = practiceRest(h), rng = stat.range(); let tgt = null, bd = rng * rng;
+  if (!rest) for (const e of G.enemies) { if (e.dead || e.immT > G.t) continue; const dx = e.g.position.x - h.g.position.x, dz = e.g.position.z - h.g.position.z, d = dx * dx + dz * dz; if (d < bd && (!MELEE_ONLY[h.cls] || !e.E.fly)) { bd = d; tgt = e; } }
   if (tgt && h.adv && h.adv.atk.prio === 'hp') tgt = advPick(rng) || tgt;
-  if (h.aiTgt) { const a = h.aiTgt; if (!a.dead && !(a.immT > G.t) && (a.g.position.x - h.g.position.x) ** 2 + (a.g.position.z - h.g.position.z) ** 2 < rng * rng && (!MELEE_ONLY[h.cls] || !a.E.fly)) tgt = a; } // 던전 AI 집중 대상 (마법사: 밀집 지점) — 일반 판에는 없음 // 전직 저격수: 체력 높은 적(보스) 우선
+  if (!rest && h.aiTgt) { const a = h.aiTgt; if (!a.dead && !(a.immT > G.t) && (a.g.position.x - h.g.position.x) ** 2 + (a.g.position.z - h.g.position.z) ** 2 < rng * rng && (!MELEE_ONLY[h.cls] || !a.E.fly)) tgt = a; } // 던전 AI 집중 대상 (마법사: 밀집 지점) — 일반 판에는 없음 // 전직 저격수: 체력 높은 적(보스) 우선
   h.cd -= dt; h.atkT -= dt; if (h.gunT > 0) h.gunT -= dt;
   if (h.eCastT > 0) h.face = h.eCastAngle ?? h.face;
   else if (h.roseT > 0) asSkill(updRose, dt); // 로즈 피니시 중: 일반 사격 대신 난사
   else if (h.snipeT > 0) { h.snipeT -= dt; h.face = h.snipeA; } // 장미 저격수 관통 저격 조준 중: 일반 사격 없음, 방향 고정
   else if (h.cls === 'gunner' && tgt) { h.face = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); // 총사: 이동 중에도 목표를 겨누며 연사
-    if (h.cd <= 0) { h.cd = 1 / stat.rate(); h.gunT = Math.max(.45, h.cd + .15); /* 소총(느린 연사): 다음 발까지 조준 유지 */ const t0 = tgt; later(.02, () => { if (!t0.dead && hero.dead <= 0) { gunAttack(t0); if (hero.lsk) legendProc(t0); } }); } }
+    if (h.cd <= 0) { h.cd = 1 / stat.rate(); h.gunT = Math.max(.45, h.cd + .15); /* 소총(느린 연사): 다음 발까지 조준 유지 */ const t0 = tgt; later(.02, () => { if (!t0.dead && hero.dead <= 0 && !practiceRest(hero)) { gunAttack(t0); if (hero.lsk) legendProc(t0); } }); } }
   else if (h.cls === 'mechanic' && tgt) { const want = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); if (!moving || h.robo) h.face = want; // 메카닉: 드릴/해머 교대 (로봇: 펀치·드릴 돌진·해머)
     if (h.cd <= 0) { h.cd = 1 / stat.rate() * (h.robo ? 1.1 : 1); mechSwing(tgt, moving, hero.lsk ? legendProc : null); } }
-  else if (h.cls === 'fighter') fighterTick(dt, tgt, moving); // 격투가: 3연타 / 사거리 밖 원거리·비행 적에게 장풍 충전 (fighter.js)
+  else if (h.cls === 'fighter' && !rest) fighterTick(dt, tgt, moving); // 격투가: 3연타 / 사거리 밖 원거리·비행 적에게 장풍 충전 (fighter.js)
   else if (tgt && h.spinT <= 0) { const want = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); if (!moving) h.face = want;
     if (h.cd <= 0) { h.cd = 1 / stat.rate();
       let hitD = h.cls === 'warrior' ? .12 : .08;
       if (!moving) { const nm = h.cls === 'warrior' && rand() < .5 ? '1H_Melee_Attack_Slice_Horizontal' : h.C.atk, spd = h.C.atkSpd * Math.max(1, stat.rate() / h.C.rate); if(!(h.qPoseT>0||h.ePoseT>0))play(h.ch, nm, { once: true, force: true, speed: spd }); h.atkT = Math.min(.55, 1 / stat.rate());
         if (h.ch.hitAt) hitD = h.ch.hitAt / spd; } // Meshy 전사: 칼 휘두름 정점에 타격
-      const t0 = tgt; later(hitD, () => { if (!t0.dead && hero.dead <= 0) { attack(t0); if (hero.lsk) legendProc(t0); } }); } }
+      const t0 = tgt; later(hitD, () => { if (!t0.dead && hero.dead <= 0 && !practiceRest(hero)) { attack(t0); if (hero.lsk) legendProc(t0); } }); } }
   if (h.spinT > 0) { h.spinT -= dt; h.spinTick -= dt; h.g.rotation.y += dt * 9;
     if (h.spinTick <= 0) { h.spinTick = .25; G.mK = 1; aoe(h.g.position, h.spinR || 3.6, stat.dmg(h.skillFocus) * 1.3 * stat.skillMul(h.skillFocus)*(h.treeMods?.qMul||1), h.spinCol ? h.spinCol[0] : '#ffb07a', { groundOnly: true }); G.mK = 0; emit(P, h.g.position.x, 1.2, h.g.position.z, 20, h.spinCol ? h.spinCol[1] : 0xffa04a, 7, .4, 0, 4); }
     h.swirl.rotation.z += dt * 15; if (h.spinT <= 0) { h.swirl.visible = false; play(h.ch, 'Idle'); } }

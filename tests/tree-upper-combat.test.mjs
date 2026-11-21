@@ -13,7 +13,7 @@ test('actual Q consumes weave once only after a successful cast, with gear and t
  hero.skillCd=0;env.cast();assert.ok(Math.abs(calls[1].m-1.5*1.2*1.08)<1e-10);
 });
 test('actual movement segment does not grant mobile damage for blocked movement input',()=>{
- const source=read('hero.js'),start=source.indexOf('function updHero(dt)'),end=source.indexOf('  const rng = stat.range();',start),h={g:new THREE.Group(),ch:{mixer:{update(){}}},path:[],stuckT:0,stuckD:1e9,C:{speed:4},treeMods:treeMods(build('gunner','duel',{50:'mobile'})),dead:0},G={hero:h,t:1};let walk=false;
+ const source=read('hero.js'),start=source.indexOf('function updHero(dt)'),end=source.indexOf('  const rest = practiceRest(h)',start),h={g:new THREE.Group(),ch:{mixer:{update(){}}},path:[],stuckT:0,stuckD:1e9,C:{speed:4},treeMods:treeMods(build('gunner','duel',{50:'mobile'})),dead:0},G={hero:h,t:1};let walk=false;
  const env=vm.createContext({movementAllowed,THREE,hero:h,G,cam:{theta:0},keys:{d:true},passAt:()=>walk,heroPassXZ:()=>walk,overlap:()=>1,groundY:()=>0});
  vm.runInContext(source.slice(start,end)+'return h.treeMoving;};this.update=updHero;',env);
  assert.equal(env.update(.1),false);assert.equal(h.g.position.x,0);walk=true;assert.equal(env.update(.1),true);assert.ok(h.g.position.x>0);

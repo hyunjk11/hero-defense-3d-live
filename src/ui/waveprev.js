@@ -9,7 +9,7 @@ import { previewWave, monIcon, monTrait } from '../core/roster.js';
 function seen() { try { const a = JSON.parse(localStorage.getItem('hd3d_live_seenMon') || '[]'); return new Set(Array.isArray(a) ? a : []); } catch (e) { return new Set(); } }
 let lastKey = '';
 export function refreshWavePrev() {
-  const el = $('wavePrev'); if (!el) return; const n = G.wave + 1, show = G.phase === 'build' && !(STAGE && n > STAGE.waves);
+  const el = $('wavePrev'); if (!el) return; const n = G.wave + 1, show = !G.practiceSandbox && G.phase === 'build' && !(STAGE && n > STAGE.waves);
   if (!show) { el.classList.add('hidden'); lastKey = ''; return; }
   const ups = $('ups').getBoundingClientRect(), camT = $('cam').getBoundingClientRect().top, key = [n, innerWidth, innerHeight, Math.round(ups.bottom), Math.round(ups.width), Math.round(camT)].join('|');
   if (key === lastKey) return; lastKey = key; el.classList.remove('hidden'); const P = previewWave(STAGE, n, G.classic), sn = seen();

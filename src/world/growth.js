@@ -1,9 +1,10 @@
 import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
+import { towerSpecializable } from './tower-rules.js';
 import { G } from '../core/state.js';
 import { TOWERS } from '../data/towers.js';
 import { hardBeam, HARD_BEAM_COLD, HARD_BEAM_HOT } from './tower-rules.js';
-import { BRANCH, towerStats, branchFor, XP_NEED, starsFor, canSpecialize } from '../data/growth.js';
+import { BRANCH, towerStats, branchFor, XP_NEED, starsFor } from '../data/growth.js';
 import { Q } from '../render/quality.js';
 import { camera, scene } from '../render/scene.js';
 import { glow, mk, toon, shareGeo, shareMat, disposeOwned } from '../render/toon.js';
@@ -45,7 +46,7 @@ export const recalc = tw => {
 export function decorate(tw) {
   if (!G.grow || !tw.m) return; const g = tw.m.g, box = new THREE.Box3().setFromObject(g), top = box.max.y + .55, D = { orb: [], top };
   const bill = new THREE.Group(); bill.position.y = top; g.add(bill); D.bill = bill; D.stars = [];
-  D.ready = specializationMark(); D.ready.visible = canSpecialize(tw); bill.add(D.ready);
+  D.ready = specializationMark(); D.ready.visible = towerSpecializable(tw, G.practiceSandbox); bill.add(D.ready);
   for (let k = 0; k < 3; k++) { const s = new THREE.Mesh(starGeo, k < tw.stars ? starOn : starOff); s.position.x = (k - 1) * .5; s.scale.setScalar(k < tw.stars ? 1 : .8); bill.add(s); D.stars.push(s); }
   const xb = new THREE.Mesh(new THREE.PlaneGeometry(1.3, .07), new THREE.MeshBasicMaterial({ color: 0x1a1426, transparent: true, opacity: .7, depthWrite: false })); xb.position.y = -.28; bill.add(xb);
   D.xf = new THREE.Mesh(new THREE.PlaneGeometry(1, .07), new THREE.MeshBasicMaterial({ color: 0x9affd0, toneMapped: false, depthWrite: false, transparent: true })); D.xf.position.set(0, -.28, .001); bill.add(D.xf);
@@ -72,7 +73,7 @@ function branchDeco(tw, g, B, bc, D) { const h = tw.m.head;
 function updXpBar(tw) { const D = tw.deco; if (!D) return; const s = tw.stars, k = s >= 3 ? 1 : (tw.xp - XP_NEED[s - 1]) / (XP_NEED[s] - XP_NEED[s - 1]); const w = Math.max(.001, Math.min(1, k)) * 1.3; D.xf.scale.x = w; D.xf.position.x = -.65 + w / 2;
   D.xf.material.color.setHex(s >= 3 ? (tw.branch ? 0xffd23a : 0xff9a3a) : 0x9affd0); }
 export function updDeco(tw, dt) { const D = tw.deco; if (!D) return; D.bill.quaternion.copy(camera.quaternion); const t = G.t;
-  D.ready.visible = canSpecialize(tw);
+  D.ready.visible = towerSpecializable(tw, G.practiceSandbox);
   D.bill.position.y = D.top + Math.sin(t * 2.2 + tw.c) * .06;
   if (tw.branchPending) D.stars.forEach((s, k) => s.scale.setScalar(1 + Math.sin(t * 6 + k) * .18));
   D.orb.forEach(o => { const a = o.userData.a + t * 1.6; o.position.set(Math.cos(a) * 1.15, 1.3 + Math.sin(t * 2 + o.userData.a) * .25, Math.sin(a) * 1.15); o.rotation.y += dt * 3; });
@@ -85,11 +86,11 @@ export function towerXp(tw, amt) {
   const old = tw.stars || 1; tw.xp = Math.min(XP_NEED[2], (tw.xp || 0) + amt); tw.stars = starsFor(tw.xp);
   if (tw.stars > old) { recalc(tw); redecorate(tw); Snd.play('levelUp', { pos: tw.m.g.position }); ringFx(tw.m.g.position, 3, 0xffd23a, .6); }
   else updXpBar(tw);
-  tw.branchPending = canSpecialize(tw); if (G.sel === tw) refreshHud(); return tw.stars - old;
+  tw.branchPending = towerSpecializable(tw, G.practiceSandbox); if (G.sel === tw) refreshHud(); return tw.stars - old;
 }
 export function redecorate(tw) { if (!tw.m) return; const ry = tw.m.head.rotation.y; scene.remove(tw.m.g); disposeOwned(tw.m.g); tw.m = tw.rebuild(); tw.m.head.rotation.y = ry; scene.add(tw.m.g); decorate(tw); }
 export function chooseBranch(tw, key) {
-  if (!canSpecialize(tw) || !BRANCH[tw.type][key]) return false; tw.branch = key; tw.branchPending = false; tw.shots = 0; recalc(tw); redecorate(tw); tw.pop = 0;
+  if (!towerSpecializable(tw, G.practiceSandbox) || !BRANCH[tw.type][key]) return false; tw.branch = key; tw.branchPending = false; tw.shots = 0; recalc(tw); redecorate(tw); tw.pop = 0;
   const B = BRANCH[tw.type][key], p = tw.m.g.position, c = new THREE.Color(B.c).getHex();
   const pil = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 12, 24, 1, true), add(0, c, .9)); pil.position.set(p.x, 6, p.z); scene.add(pil); fx.push({ m: pil, t: 0, dur: 1.1 });
   emit(PB, p.x, 2.5, p.z, 30, c, 6, 1.1, 0, 1.5); emit(P, p.x, 1.2, p.z, 120, c, 9, 1.2, -4, 2); ringFx(p, 5, c, .8); setTimeout(() => ringFx(p, 3.5, 0xffffff, .5), 150);

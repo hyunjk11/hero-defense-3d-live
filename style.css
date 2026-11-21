@@ -1036,10 +1036,8 @@ body:not(.dungeonRun) #heroEffects .heroEffect{flex:0 0 18px;width:18px;height:1
 /* Practice-only header: never share the narrow bottom battle panel layout. */
 #practicePanel{position:fixed;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:43;width:min(320px,calc(100vw - 24px));padding:10px 12px;background:#141125f5;border:2px solid #ffe08a;border-radius:12px;box-shadow:0 4px 18px #000a;color:#fff3d6;text-align:center}
 .practiceHeading{display:flex;flex-direction:column;gap:2px;font-size:12px}.practiceHeading b{font-size:15px;color:#ffe08a}
-#practiceClock{display:flex;justify-content:center;align-items:baseline;gap:8px;line-height:1.1;margin:5px 0;font-size:14px}#practiceSeconds{font-size:36px;font-variant-numeric:tabular-nums;color:#ffe08a;min-width:2ch}
 .practiceFooter{display:flex;align-items:center;justify-content:space-between;gap:6px}.practiceFooter small{font-size:11px}.practiceFooter>div{display:flex;gap:4px}.practiceFooter .gbtn{min-height:32px;padding:4px 8px}
 body.practiceRun #top,body.practiceRun #hardPartyBar{display:none!important}
-@media(max-width:640px){body.practiceRun #camTop{top:calc(164px + env(safe-area-inset-top))}body.practiceRun #hud{--battle-top:216px;--right-start:192px}body.practiceRun #hud #build{max-height:max(80px,calc(100dvh - 390px))}}
 
 /* Battle presets use their own complete theme, not item rarity variables. */
 #invPanel.presetMode{width:min(720px,94vw);gap:10px}.presetMode #invHead{font-size:21px;letter-spacing:1px;padding-right:44px}.presetMode #codexBody{gap:0}
@@ -1066,7 +1064,6 @@ body.practiceRun #top,body.practiceRun #hardPartyBar{display:none!important}
  #hud:has(#hardPartyBar:not([hidden])){--right-start:calc(248px + var(--boss-space))}
  #hardPartyBar{top:calc(132px + var(--boss-space) + env(safe-area-inset-top))}
 }
-@media(max-width:640px){body.practiceRun #hud{--right-start:216px}}
 
 /* Named weapon confirmations remain readable in performance mode, without stealing taps. */
 #weaponProcFeed{color:#ffdb88;pointer-events:none}
@@ -1086,3 +1083,122 @@ body.practiceRun #top,body.practiceRun #hardPartyBar{display:none!important}
 .awCard p:empty{display:none}
 /* Reserve the pinned close-button hit area when the growth panel scrolls. */
 body.mobileApp .awCard{padding-inline-end:36px}
+
+/* Shared practice controls, with touch layout overrides below. */
+body.practiceSandbox #practicePanel{width:max-content;max-width:calc(100vw - 24px);padding:6px 9px}
+.practiceControls{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px}
+.practiceControls b{color:#ffe08a;white-space:nowrap}
+.practiceControls+.practiceControls{margin-top:5px}
+.practiceControls select{min-height:33px;background:#201b31;color:#fff2d6;border:1px solid #8c7853;border-radius:7px;padding:3px 6px;font:inherit}
+.practiceControls button{min-height:33px;white-space:nowrap}
+body.practiceSandbox{--practice-party-top:66px}
+body.practiceSandbox.practiceStageSelected{--practice-party-top:100px}
+#practicePartyBar{display:flex;gap:4px;position:fixed;z-index:41;left:50%;transform:translateX(-50%);top:calc(var(--practice-party-top) + env(safe-area-inset-top));pointer-events:auto}
+#practicePartyBar[hidden]{display:none}
+#practicePartyBar .hpMember button{display:grid;align-content:center;justify-items:center;width:47px;height:44px;box-shadow:none}
+#practicePartyBar .hpMember button b{font-size:17px}
+#practicePartyBar .hpLife{width:28px}
+body.practiceSandbox #bossHud{top:calc(var(--practice-party-top) + 53px + env(safe-area-inset-top))}
+body.practiceSandbox #hud{--battle-top:60px;--right-start:127px}
+body.practiceSandbox #build .ptitle.sub{display:none}
+body.practiceSandbox #banner,body.practiceSandbox #weaponProcFeed{top:max(22%,calc(var(--practice-party-top) + 70px + env(safe-area-inset-top)))}
+body.practiceSandbox #camTop{top:calc(9px + env(safe-area-inset-top))}
+@media(max-width:780px){
+ body.practiceSandbox #camTop{top:calc(var(--practice-party-top) + 52px + env(safe-area-inset-top))}
+ body.practiceSandbox #hud{--battle-top:calc(var(--practice-party-top) + 55px);--right-start:calc(var(--practice-party-top) + 100px)}
+ body.practiceSandbox #bossHud{top:calc(var(--practice-party-top) + 96px + env(safe-area-inset-top));width:min(360px,calc(100vw - 140px))}
+ #practicePartyBar .hpMember button{width:clamp(32px,11vw,40px)}
+}
+#practiceMeter{position:fixed;top:calc(96px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));z-index:44;width:min(285px,calc(100vw - 32px));color:#fff2da;font-size:12px;pointer-events:none}
+#practiceMeter .pm-toggle{display:block;margin-left:auto;pointer-events:auto}
+#practiceMeterDetails{margin-top:4px;max-height:min(46dvh,380px);overflow:auto;overscroll-behavior:contain;background:#161323f5;border:1px solid #776392;border-radius:8px;padding:8px;pointer-events:auto}
+#practiceMeterDetails[hidden]{display:none}
+#practiceMeter .pm-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px}
+#practiceMeter .pm-top b,#practiceMeter .pm-line span{font-variant-numeric:tabular-nums}
+#practiceMeter .pm-label,#practiceMeter .pm-line small{color:#d3c6e5}
+#practiceMeter .pm-group{padding:4px 0;border-top:1px solid #6c598066}
+#practiceMeter .pm-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 6px;margin-top:3px}
+#practiceMeter .pm-line small{grid-column:1/-1}
+@media(max-height:530px){#practiceMeter{top:calc(72px + env(safe-area-inset-top));right:calc(7px + env(safe-area-inset-right));width:min(246px,calc(100vw - 20px))}#practiceMeterDetails{max-height:39dvh}}
+#practiceMeter .pm-tower{display:block;padding-left:8px;color:#cbbbdc;font-variant-numeric:tabular-nums}
+
+@media(max-width:780px){#practiceMeter{top:calc(var(--practice-party-top) + 106px + env(safe-area-inset-top))}}
+body.practiceSandbox.practiceStageSelected #practiceMeter{top:max(125px,calc(var(--practice-party-top) + 23px + env(safe-area-inset-top)))}
+@media(max-width:780px){body.practiceSandbox.practiceStageSelected #practiceMeter{top:calc(var(--practice-party-top) + 106px + env(safe-area-inset-top))}}
+
+/* Mobile sandbox only; the campaign HUD and desktop practice keep their layout. */
+body.mobileApp.practiceSandbox{
+ --practice-safe-l:max(8px,env(safe-area-inset-left));
+ --practice-safe-r:max(8px,env(safe-area-inset-right));
+ --practice-safe-t:max(6px,env(safe-area-inset-top));
+ --practice-safe-b:max(6px,env(safe-area-inset-bottom));
+ --practice-stage-row:0px;
+ --practice-camera:calc(var(--practice-safe-t) + 58px + var(--practice-stage-row));
+ --practice-party:calc(var(--practice-camera) + 49px);
+ --practice-party-size:44px;
+ --practice-meter:var(--practice-camera);
+ --practice-details:calc(var(--practice-party) + var(--practice-party-size) + 5px);
+}
+body.mobileApp.practiceSandbox.practiceStageSelected{--practice-stage-row:48px}
+body.mobileApp.practiceSandbox #practicePanel{
+ top:var(--practice-safe-t);left:var(--practice-safe-l);right:calc(var(--practice-safe-r) + 50px);
+ width:min(410px,calc(100vw - var(--practice-safe-l) - var(--practice-safe-r) - 50px));
+ max-width:none;box-sizing:border-box;transform:none;padding:3px 5px;
+}
+body.mobileApp.practiceSandbox .practiceControls{
+ display:grid;grid-template-columns:max-content minmax(0,1fr) max-content max-content;gap:4px;margin:0;
+}
+body.mobileApp.practiceSandbox .practiceControls #practicePreset{width:100%}
+body.mobileApp.practiceSandbox .practiceControls :is(select,button){min-height:44px;min-width:0;margin:0;touch-action:manipulation}
+body.mobileApp.practiceSandbox #practiceStageOptions:not(.hidden){
+ grid-template-columns:minmax(0,1fr) minmax(88px,.65fr);margin-top:4px;
+}
+body.mobileApp.practiceSandbox #practiceStageOptions select{width:100%}
+body.mobileApp.practiceSandbox #hud #camTop{top:var(--practice-camera);right:var(--practice-safe-r)}
+body.mobileApp.practiceSandbox #practicePartyBar{
+ top:var(--practice-party);width:max-content;
+ max-width:calc(100vw - var(--practice-safe-l) - var(--practice-safe-r));
+ left:var(--practice-safe-l);transform:none;justify-content:flex-start;flex-wrap:wrap;
+}
+body.mobileApp.practiceSandbox #practicePartyBar .hpMember button{
+ width:44px;height:44px;min-height:44px;touch-action:manipulation;
+}
+body.mobileApp.practiceSandbox #bossHud{
+ top:var(--practice-details);left:auto;right:var(--practice-safe-r);transform:none;
+}
+body.mobileApp.practiceSandbox #banner{top:var(--practice-details)}
+body.mobileApp.practiceSandbox #practiceMeter{
+ top:var(--practice-meter);left:var(--practice-safe-l);right:auto;
+ width:min(250px,calc(100vw - var(--practice-safe-l) - var(--practice-safe-r)));
+}
+body.mobileApp.practiceSandbox #practiceMeter .pm-toggle{
+ margin:0;min-height:44px;touch-action:manipulation;
+}
+body.mobileApp.practiceSandbox #practiceMeterDetails{
+ position:fixed;top:var(--practice-details);left:var(--practice-safe-l);
+ margin:0;width:min(250px,calc(100vw - var(--practice-safe-l) - var(--practice-safe-r)));
+ box-sizing:border-box;max-height:max(0px,min(42dvh,calc(100dvh - var(--practice-details) - var(--practice-safe-b) - 92px)));
+ touch-action:pan-y;
+}
+body.mobileApp.practiceSandbox #practiceMeterDetails button{min-width:44px;min-height:36px}
+@media(max-width:430px){
+ body.mobileApp.practiceSandbox{
+  --practice-meter:calc(var(--practice-party) + var(--practice-party-size) + 5px);
+  --practice-details:calc(var(--practice-meter) + 48px);
+ }
+ body.mobileApp.practiceSandbox .practiceControls{grid-template-columns:minmax(0,1fr) max-content max-content}
+ body.mobileApp.practiceSandbox .practiceControls>b{display:none}
+}
+@media(max-width:356px){
+ body.mobileApp.practiceSandbox{--practice-party-size:92px}
+}
+/* Give the meter a full scroll window on short landscape battlefields. */
+@media(min-width:600px) and (max-height:410px){
+ body.mobileApp.practiceSandbox #practiceMeterDetails{
+  top:var(--practice-party);left:auto;right:var(--practice-safe-r);width:min(220px,calc(100vw - var(--practice-safe-l) - var(--practice-safe-r) - 340px));
+  max-height:max(0px,min(42dvh,calc(100dvh - var(--practice-party) - var(--practice-safe-b) - 62px)));
+ }
+}
+
+/* Build actions must stay tappable when projected over the party strip. */
+body.mobileApp.practiceSandbox #trialActions:not([hidden]){z-index:42}

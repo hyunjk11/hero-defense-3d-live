@@ -7,7 +7,8 @@ import * as THREE from 'three';
 import { rnd } from '../core/util.js';
 import { tileX, tileZ } from '../core/grid.js';
 import { TOWERS, REPAIR_K } from '../data/towers.js';
-import { towerAvailable } from './tower-rules.js';
+import { canBuild } from '../combat/build.js';
+import { towerSpecializable, towerUpgradeBlock, towerUpgradeCost, towerAvailable } from './tower-rules.js';
 import { G } from '../core/state.js';
 import { scene } from '../render/scene.js';
 import { glow, mk, toon, disposeOwned } from '../render/toon.js';
@@ -21,7 +22,7 @@ import { banner, refreshHud } from '../ui/hud.js';
 import { hpBar } from '../render/hpbars.js';
 import { select } from '../ui/input.js';
 import { endgameTowerMods } from '../data/endgame-research.js';
-import { BRANCH, upgradeCost, upgradeBlock, MAX_TOWER_LEVEL, canSpecialize } from '../data/growth.js';
+import { BRANCH, MAX_TOWER_LEVEL } from '../data/growth.js';
 import { advTowerMods } from '../data/advance.js';
 import { decorate, recalc, updDeco, updGrowFx } from './growth.js';
 import { Q } from '../render/quality.js';
@@ -29,7 +30,8 @@ import { towerCdStep } from '../combat/towerstatus.js';
 
 function placeTower(t, type) {
   if(!towerAvailable(type,G))return null;
-  const D = TOWERS[type], tw = { kind: 'tower', type, lvl: 1, t, c: t.c, r: t.r, cd: .5, invest: D.cost, pop: 0, recoil: 0 };
+  if (G.practiceSandbox && (!t || !canBuild(t.c, t.r, type))) return null;
+  const D = TOWERS[type], tw = { kind: 'tower', type, lvl: 1, t, c: t.c, r: t.r, cd: .5, invest: G.practiceSandbox ? 0 : D.cost, pop: 0, recoil: 0 };
   tw.max = tw.hp = D.hp[0]; tw.hitT = 0; tw.fxT = 0; tw.anchor = new THREE.Object3D(); tw.anchor.position.set(tileX(t.c), 0, tileZ(t.r)); scene.add(tw.anchor);
   tw.hb = hpBar(tw.anchor, 3.6, 1.6, 0x55ff77, { auto: true, h: .17 });
   tw.xp = 0; tw.stars = 1; tw.branchPending = false; tw.branch = null; tw.shots = 0; tw.mods = endgameTowerMods(G.research, type, G.adv ? advTowerMods(G.adv, type) : undefined, G.beamAttackResearch); recalc(tw);
@@ -37,13 +39,13 @@ function placeTower(t, type) {
   tw.m = towerModel(type, 1); tw.m.g.position.set(tileX(t.c), 0, tileZ(t.r)); decorate(tw); Snd.play('build', { pos: tw.m.g.position }); Snd.play('place', { delay: .12 }); scene.add(tw.m.g); t.tower = tw; G.towers.push(tw); refreshTile(t); return tw;
 }
 function upgradeTower(tw) {
-  const why = upgradeBlock(tw, G.gold); if (why) { Snd.play('error'); return false; } const c = upgradeCost(tw.type, tw.lvl, tw.mods); G.gold -= c; tw.invest += c; tw.lvl++; { const nm = TOWERS[tw.type].hp[tw.lvl - 1]; tw.hp += nm - tw.max; tw.max = nm; tw.hb.set(tw.hp / tw.max); } Snd.play('upgrade', { pos: { x: tileX(tw.c), z: tileZ(tw.r) } }); Snd.play('levelUp', { vol: .7 });
+  const why = towerUpgradeBlock(tw, G.gold, G.practiceSandbox); if (why) { Snd.play('error'); return false; } const c = towerUpgradeCost(tw, G.practiceSandbox); G.gold -= c; tw.invest += c; tw.lvl++; { const nm = TOWERS[tw.type].hp[tw.lvl - 1]; tw.hp += nm - tw.max; tw.max = nm; tw.hb.set(tw.hp / tw.max); } Snd.play('upgrade', { pos: { x: tileX(tw.c), z: tileZ(tw.r) } }); Snd.play('levelUp', { vol: .7 });
   const ry = tw.m.head.rotation.y; scene.remove(tw.m.g); disposeOwned(tw.m.g); tw.m = towerModel(tw.type, tw.lvl); tw.m.head.rotation.y = ry; tw.m.g.position.set(tileX(tw.c), 0, tileZ(tw.r)); scene.add(tw.m.g); tw.pop = 0; recalc(tw); decorate(tw);
-  const p = tw.m.g.position; emit(P, p.x, 1, p.z, 50, 0xffe066, 6, .9, -4, 2); emit(PB, p.x, 2, p.z, 10, 0xffd23a, 3, .8, 2, 1); ringFx(p, 2.5, 0xffd23a, .6); banner(`${TOWERS[tw.type].n} Lv.${tw.lvl}!`, '#ffe066', 900); tw.branchPending = canSpecialize(tw); refreshHud(); return true;
+  const p = tw.m.g.position; emit(P, p.x, 1, p.z, 50, 0xffe066, 6, .9, -4, 2); emit(PB, p.x, 2, p.z, 10, 0xffd23a, 3, .8, 2, 1); ringFx(p, 2.5, 0xffd23a, .6); banner(`${TOWERS[tw.type].n} Lv.${tw.lvl}!`, '#ffe066', 900); tw.branchPending = towerSpecializable(tw, G.practiceSandbox); refreshHud(); return true;
 }
 function sellTower(tw) {
   const v = Math.floor(tw.invest * .7 * (tw.hp / tw.max >= .999 ? 1 : .5 + .5 * tw.hp / tw.max)); G.gold += v; Snd.play('sell'); Snd.play('breakWood', { pos: { x: tileX(tw.c), z: tileZ(tw.r) }, vol: .5 }); const hpK = tw.hp / tw.max; scene.remove(tw.m.g); removeTowerObj(tw);
-  const p = tw.m.g.position; debris(p.x, 1, p.z, 14, [0xe0dacb, 0x9e98ae, 0xa8703a], 6); popCoins(p.clone().setY(1.5), 4); dmgText(p.clone().setY(2.5), `+${v}G`, '#ffe066', true); select(null); computeDist(); refreshHud();
+  const p = tw.m.g.position; debris(p.x, 1, p.z, 14, [0xe0dacb, 0x9e98ae, 0xa8703a], 6); if (!G.practiceSandbox) { popCoins(p.clone().setY(1.5), 4); dmgText(p.clone().setY(2.5), `+${v}G`, '#ffe066', true); } select(null); computeDist(); refreshHud();
 }
 function removeTowerObj(tw) { clearBeam(tw); disposeOwned(tw.m.g); tw.dead = true; retireTowerMeter(G.dmTowers, tw); G.towers.splice(G.towers.indexOf(tw), 1); tw.t.tower = null; refreshTile(tw.t); scene.remove(tw.anchor); tw.hb.dispose(); }
 // ---- 타워 체력 / 피해 / 파괴 / 수리 ----

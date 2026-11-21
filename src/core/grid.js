@@ -6,6 +6,7 @@ const T = { GRASS: 0, CARVED: 1, DIRT: 2, FOREST: 3, ROCK: 4, BEDROCK: 5, SPAWN:
 const SPAWN = [0, 8], CORE = [22, 7];
 // 스테이지 모드(?stage=1-3): 코어/포털 위치를 스테이지 설정으로 (없으면 기존 도전 모드 맵 그대로)
 const practice = new URLSearchParams(location.search).get('practice') === '1';
+const PRACTICE_SANDBOX = practice;
 const STAGE = practice ? null : getStage(new URLSearchParams(location.search).get('stage'));
 if (STAGE) { CORE[0] = STAGE.core[0]; CORE[1] = STAGE.core[1]; SPAWN[0] = STAGE.spawns[0][0]; SPAWN[1] = STAGE.spawns[0][1]; }
 // 던전 원정(?dungeon=1, 스테이지가 아닐 때만): 동굴 방 맵 (data/dungeon.js) · 코어 자리 = 파티 시작 위치(코어는 숨김) · 입구 4곳 = 포털
@@ -21,4 +22,4 @@ const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 // ================= 지형 메시 (인스턴스) =================
 const NT = GW * GH;
 
-export { DUNGEON, STAGE, SPAWNS, GW, GH, S, DIGK, T, SPAWN, CORE, tileX, tileZ, toTile, inGrid, isBlock, DIRS, NT };
+export { PRACTICE_SANDBOX, DUNGEON, STAGE, SPAWNS, GW, GH, S, DIGK, T, SPAWN, CORE, tileX, tileZ, toTile, inGrid, isBlock, DIRS, NT };

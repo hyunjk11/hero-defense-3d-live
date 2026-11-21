@@ -90,8 +90,8 @@ function build(c, r) {
   if (G.dungeon || !towerAvailable(G.tool,G)) return false; // 던전 원정: 타워·바리케이드 없음
   if (!canBuild(c, r)) { Snd.play('error'); const why = buildReason(c, r); if (why) banner(why === '경로 차단' ? '경로 차단: 길을 완전히 막을 수 없습니다' : why, '#ff8a9a', 900); return false; }
   const t = tileAt(c, r), p = new THREE.Vector3(tileX(c), .5, tileZ(r));
-  if (TOWERS[G.tool]) { G.gold -= TOWERS[G.tool].cost; placeTower(t, G.tool); emit(P, p.x, .5, p.z, 30, 0xffe066, 5, .6, -6, 2); debris(p.x, .3, p.z, 8, [0xe0dacb, 0x9e98ae], 4); ringFx(p, 2, 0xffe066, .4); }
-  else if (G.tool === 'barricade') { G.gold -= BARRICADE.cost; addBarricade(t); emit(P, p.x, .6, p.z, 16, 0xffb03a, 4, .5); }
+  if (TOWERS[G.tool]) { const tower = placeTower(t, G.tool); if (!tower) return false; G.gold -= toolCost(t); emit(P, p.x, .5, p.z, 30, 0xffe066, 5, .6, -6, 2); debris(p.x, .3, p.z, 8, [0xe0dacb, 0x9e98ae], 4); ringFx(p, 2, 0xffe066, .4); }
+  else if (G.tool === 'barricade') { G.gold -= toolCost(t); addBarricade(t); emit(P, p.x, .6, p.z, 16, 0xffb03a, 4, .5); }
   else if (G.tool === 'clear') { const B = BLK[t.t]; G.gold -= clearCost(t); t.wall = false; debris(p.x, .8, p.z, 16, B.deb, 6); emit(P, p.x, .8, p.z, 24, 0x8ad05a, 4, .7); t.t = T.GRASS; t.hp = t.max = 0; refreshTile(t); }
   if (!TOWERS[G.tool]) Snd.play(G.tool === 'barricade' ? 'build' : 'breakDirt', { pos: { x: tileX(c), z: tileZ(r) }, force: true }); computeDist(); refreshHud(); return true;
 }
@@ -111,13 +111,13 @@ document.querySelectorAll('.tool').forEach(b => { const c = TOWERS[b.dataset.too
 $('repairAllBtn').onclick = () => { if (G.paused || G.navigating || G.dungeon || !['build', 'wave'].includes(G.phase)) return; repairAll(); refreshHud(); };
 $('wavePrev')?.addEventListener('toggle', () => refreshHud());
 $('startWave').onclick = startWave; $('skillBtn').onclick = castSkill; $('warpBtn').onclick = () => startWarp(); $('legBtn').onclick = () => castLegend();
-const upCost = k => k === 'focus' ? focusCost(G.focus || 0) : Math.round(UPS[k].base * Math.pow(UP_GROWTH, G.ups[k]));
+const upCost = k => G.practiceSandbox && k === 'bar' ? 0 : k === 'focus' ? focusCost(G.focus || 0) : Math.round(UPS[k].base * Math.pow(UP_GROWTH, G.ups[k]));
 document.querySelectorAll('.up').forEach(b => b.onclick = () => { const k = b.dataset.up, c = upCost(k); if (k === 'focus') { if (buyFocus(G)) { Snd.play('upgrade'); refreshHud(); } return; } if (G.growthEnabled && k !== 'bar') return; if (G.gold < c) return Snd.play('error'); G.gold -= c; G.ups[k]++;
   if (k === 'bar') for (const col of G.tiles) for (const t of col) if (t.bar) { const r = t.bar.hp / t.bar.max; t.bar.max = barMaxHp(); t.bar.hp = t.bar.max * r; }
   Snd.play('upgrade'); Snd.play('levelUp', { vol: .6 }); if (hero) emit(P, hero.g.position.x, 1.5, hero.g.position.z, 24, 0xffe066, 4, .7); refreshHud(); });
 function select(o) { G.sel = o; $('tinfo').classList.toggle('hidden', !o); if (o && o.kind === 'tower') showRange(tileX(o.c), tileZ(o.r), o.S.range, 0xffe066); else rangeRing.visible = false; refreshHud(); }
 $('tUp').onclick = () => { if (G.sel && G.sel.kind === 'tower') { upgradeTower(G.sel); select(G.sel); } };
 $('tRep').onclick = () => { if (G.sel && G.sel.kind === 'tower') { repairTower(G.sel); select(G.sel); } };
-$('tSell').onclick = () => { const s = G.sel; if (!s) return; if (s.kind === 'tower') sellTower(s); else { G.gold += BARRICADE.refund; removeBarricade(s.t, false); refreshHud(); } };
+$('tSell').onclick = () => { const s = G.sel; if (!s) return; if (s.kind === 'tower') sellTower(s); else { if (!G.practiceSandbox) G.gold += BARRICADE.refund; removeBarricade(s.t, false); refreshHud(); } };
 
 export { onMove, buildReason, mouseGround, moveMark, keys, build, setTool, upCost, select };

@@ -11,10 +11,11 @@ import { clearCost } from '../combat/build.js';
 import { build, select, mouseGround, setTool } from './input.js';
 
 const types = ['arrow','cannon','magic','guardian'].filter(towerVisible);
+const practiceTypes = [...types,'barricade'];
 const icons = {barricade:'🧱',clear:'⛏',arrow:'🏹',cannon:'💣',magic:'🔮',guardian:'🔆'};
 export function tileOptions(t) {
   if (!t || t.tower || t.bar) return [];
-  return isBlock(t.t) ? ['clear'] : t.t === T.GRASS ? types : t.t===T.CARVED ? ['barricade'] : [];
+  return isBlock(t.t) ? ['clear'] : t.t === T.GRASS ? (G.practiceSandbox ? practiceTypes : types) : t.t===T.CARVED ? ['barricade'] : [];
 }
 export function startTouchControls() {
   document.body.classList.add('mobileBattle');
@@ -32,10 +33,11 @@ export function startTouchControls() {
     laserButton=null;menu.replaceChildren();
     for (const k of options) {
       const cost=k==='clear'?clearCost(t):k==='barricade'?BARRICADE.cost:TOWERS[k].cost;
-      const b=document.createElement('button');b.type='button';b.dataset.tool=k;b.setAttribute('aria-label',(k==='clear'?'개간':k==='barricade'?'바리케이드':TOWERS[k].n)+' '+cost+'골드');
+      const b=document.createElement('button');b.type='button';b.dataset.tool=k;b.setAttribute('aria-label',(k==='clear'?'개간':k==='barricade'?'바리케이드':TOWERS[k].n)+(G.practiceSandbox?'':' '+cost+'골드'));
       if(k==='guardian'){laserButton=b;b.disabled=!towerAvailable(k,G);}
       const icon=document.createElement('span');icon.textContent=icons[k];
-      const small=document.createElement('small');small.textContent=cost+'G';b.append(icon,small);
+      b.append(icon);
+      if(!G.practiceSandbox){const small=document.createElement('small');small.textContent=cost+'G';b.append(small);}
       b.onclick=e=>{e.stopPropagation();if (!towerAvailable(k,G)||!active()||!picked||picked[0]!==c||picked[1]!==r||!tileOptions(tileAt(c,r)).includes(k)) return;
         const prev=G.tool;let ok=false;try{G.tool=k;ok=build(c,r);}finally{G.tool=prev;}
         if(ok && k!=='clear')close();else render();

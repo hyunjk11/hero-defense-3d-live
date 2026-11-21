@@ -7,15 +7,17 @@ import { ringFx } from '../render/vfx.js';
 import { heroDamage } from '../heroes/hero.js';
 
 export function hardDefinition(base, elite, summoned) {
-  return STAGE?.hard ? hardEnemy(base,elite,!!summoned,G.enemies.filter(e=>!e.dead&&e.E.hardElite).length,STAGE.attackMul) : base;
+  const stage = G.practiceSandbox ? G.practiceHard : STAGE;
+  return stage?.hard ? hardEnemy(base,elite,!!summoned,G.enemies.filter(e=>!e.dead&&e.E.hardElite).length,stage.attackMul) : base;
 }
 export function hardTick(e,dt) {
-  if(!STAGE?.hard||!(e.E.hardElite||e.E.boss))return false;
+  const stage = G.practiceSandbox ? G.practiceHard : STAGE;
+  if(!stage?.hard||!(e.E.hardElite||e.E.boss))return false;
   // Skill-only minibosses (e.g. storm sentinel) retain their native attack cycle.
-  if(['storm-ring','machine-grid','abyss-cross','citadel-seal'].includes(STAGE.rule)&&!(e.E.dps>0))return false;
+  if(['storm-ring','machine-grid','abyss-cross','citadel-seal'].includes(stage.rule)&&!(e.E.dps>0))return false;
   const heroes=(G.heroes.length?G.heroes:[G.hero]).filter(h=>h&&h.dead<=0);
   const h=heroes.reduce((a,h)=>!a||h.g.position.distanceToSquared(e.g.position)<a.g.position.distanceToSquared(e.g.position)?h:a,null);
-  const event=pulseStep(e,dt,h?.g.position,e.E.boss,STAGE.rule);
+  const event=pulseStep(e,dt,h?.g.position,e.E.boss,stage.rule);
   if(event?.kind==='warn'){if(hardShape(event))chapterWarning(event,e);else warning(event);}
   if(event?.kind==='hit'){
     if(hardShape(event))chapterWarning(event,null);else ringFx(event.p,event.rule==='ash-eruption'?3.6:3.2,0xffc55a,.25);

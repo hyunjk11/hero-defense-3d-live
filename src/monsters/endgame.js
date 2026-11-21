@@ -32,7 +32,8 @@ function begin(e,kind,S,points=[]){const from=e.g.position.clone().setY(0),qs=po
  else if(kind==='salvo')marks=qs.map(p=>circle(p,S.radius,c));
  else marks=[circle(from,kind==='ward'?S.range:kind==='awaken'?3:S.radius,kind==='ward'?0x8ce4dd:c)];
  // On PC Hard, raised terrain and towers must not hide the boss's attack footprint.
- const clearWarning=!mobileApp&&STAGE?.hard&&(STAGE.ch===9||STAGE.ch===10)&&e.E.boss&&['line','cleave','breath','ring','salvo'].includes(kind);
+ const stage=G.practiceSandbox?G.practiceHard:STAGE;
+ const clearWarning=!mobileApp&&stage?.hard&&(stage.ch===9||stage.ch===10)&&e.E.boss&&['line','cleave','breath','ring','salvo'].includes(kind);
  if(clearWarning){
   for(const mark of marks)for(const mesh of mark.children){mesh.material.depthTest=false;mesh.material.toneMapped=false;mesh.renderOrder=22;}
   for(const mark of marks)mark.children[0].material.opacity=.40;

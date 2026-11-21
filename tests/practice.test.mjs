@@ -24,20 +24,23 @@ const flow=read('src/ui/flow.js');assert(flow.indexOf("void startPractice()")<fl
 const practice=read('src/ui/practice.js');assert(!practice.includes('Acc.update'));assert(!practice.includes('startRun('));assert(!practice.includes('checkpoint('));assert(!practice.includes('autoLogin('));
 assert.match(read('src/core/waves.js'),/function endWave\(\) \{ if \(G.practice\) return/);
 assert.match(read('src/ui/result.js'),/export function onRunEnd\(reason\) \{\s*if \(G.practice/);
-// Exercise active timer, spawn cap, 30-second terminal state, repeated finish, and no-state invalid entry.
-let src=practice.replace(/^import .*;\r?\n/gm,'').replaceAll('export ','');
-const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{id,textContent:'',classList:{values:new Set(),add(k){this.values.add(k)},remove(k){this.values.delete(k)},contains(k){return this.values.has(k)}},style:{}});return nodes.get(id);};
-const G={practice:true,phase:'build',hero:{},enemies:[],stats:{kills:{golem:2}},spawnEnemy(){G.spawns=(G.spawns||0)+1;}};
-const rctx={CORE:[22,7],tileX:x=>x,tileZ:z=>z,G,$:node,document:{createElement:()=>({style:{}}),body:{appendChild(){}}},Object,Math,Set,JSON,CLASSES:{mage:{}},isHidden:()=>false,startHardParty:()=>{},go:()=>{},reload:()=>{}};
-vm.createContext(rctx);vm.runInContext(src+';run={party:["mage"]};globalThis.tick=updatePractice;globalThis.finish=finish;',rctx);
-rctx.tick(.05);
-assert.equal(node('phase').textContent,'연습 중 · 무보상');
-assert.equal(node('startWave').disabled,true);
-assert.equal(node('startWave').classList.contains('hidden'),true);
-assert.equal(node('wavePrev').classList.contains('hidden'),true);
-for(let i=0;i<600;i++)rctx.tick(.05);
-assert.equal(G.phase,'over');assert.equal(node('phase').textContent,'연습 종료');assert.equal(node('startWave').disabled,true);assert(G.spawns>0);assert.equal(G.wave,1);const count=G.spawns;rctx.finish();rctx.tick(1);assert.equal(G.spawns,count);
-console.log('practice isolation, URL precedence, API boundary, timer and repeated exit: passed');
+const src=practice.replace(/^import .*;\r?\n/gm,'').replaceAll('export ','');
+const G={practiceSandbox:true,phase:'build',hero:{},enemies:[],spawnQ:[]};
+const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:id==='practicePreset'?'normal':'1',classList:{toggle(){}}});return nodes.get(id);};
+const rctx={G,$:node,document:{body:{classList:{toggle(){}}}},getStage:()=>null,
+  practiceWave:()=>({queue:['grunt'],elites:null,hp:1}),pendingSpawns:()=>false,select:()=>{}};
+vm.createContext(rctx);vm.runInContext(src+';this.tick=updatePractice;this.start=startSandboxWave;',rctx);
+for(let i=0;i<3000;i++)rctx.tick();
+assert.equal(G.phase,'build');assert.deepEqual(G.spawnQ,[]);
+G.paused=true;rctx.start();assert.equal(G.phase,'build');G.paused=false;
+rctx.start();assert.equal(G.phase,'wave');assert.deepEqual(G.spawnQ,['grunt']);
+rctx.start();assert.equal(G.spawnQ.length,1);
+G.spawnQ=[];G.enemies=[{}];rctx.tick();assert.equal(G.phase,'wave');
+G.enemies=[];rctx.tick();assert.equal(G.phase,'build');rctx.start();assert.equal(G.phase,'wave');
+assert.doesNotMatch(practice,/practiceClock|practiceSeconds|30초|soloRun/);
+// Native online alias survives both directions without leaking a combat flag.
+assert.equal(new URLSearchParams(nctx.navQuery('?town=1&mobileApp=1',{practice:true})).get('mobileApp'),'1');
+assert.equal(new URLSearchParams(nctx.navQuery('?practice=1&mobileApp=1',{town:1})).get('mobileApp'),'1');
 // Execute production reward guards rather than just checking their spelling.
 let rewardWrites=0, storageWrites=0;
 const guards={G:{practice:true,phase:'wave'},location:{search:'?practice=1'},URLSearchParams,
@@ -66,15 +69,16 @@ console.log('production wave/end/retreat guards: zero reward and storage writes'
 
 // Production snapshot builder must preserve selected trees for legacy and current advancement records.
 const AD = await import('../src/data/advance.js');
+const {VISIBLE_HEROES,DEFAULT_HERO} = await import('../src/data/heroes.js');
 const {treeBuild} = await import('../src/data/skill-tree.js');
 const saves = ['flame', {b:'flame',n:1}].map(adv => ({hero:'mage',heroLv:{mage:{hp:3,atk:4}},adv:{mage:adv},growth:{trees:{mage:{flame:{active:1,presets:[{15:'wide'},{15:'dense'}]}}}},research:{}}));
 const outputs=[];
 for (const save of saves) {
   const before=JSON.stringify(save), mem=storage();
-  const c={HG:{viewSave:()=>save,level:()=>20,available:()=>true},E:{bonus:()=>({}),legendOf:()=>null,equippedItems:()=>[]},AD,SX:{barLv:()=>0,barMul:()=>1},treeBuild,readPartner:()=>{throw Error('Practice must not read a partner preference');},sessionStorage:mem};
+  const c={VISIBLE_HEROES,DEFAULT_HERO,awakeningLevel:()=>null,beamAttackBonus:()=>0,HG:{viewSave:()=>save,level:()=>20,available:()=>true,awakeningSkill:()=>false},E:{bonus:()=>({}),legendOf:()=>null,equippedItems:()=>[]},AD,SX:{barLv:()=>0,barMul:()=>1},treeBuild,readPartner:()=>{throw Error('Practice must not read a partner preference');},sessionStorage:mem};
   vm.createContext(c);vm.runInContext(src+';globalThis.prepare=preparePractice;',c);c.prepare();
   const snapshot=JSON.parse(mem.getItem('hd3d_live_practice_snapshot_v1'));
-  assert.deepEqual(snapshot.party,['mage']);assert.deepEqual(Object.keys(snapshot.loadouts),['mage']);
+  assert.deepEqual(snapshot.party,['mage',...VISIBLE_HEROES.filter(x=>x!=='mage')]);assert.deepEqual(Object.keys(snapshot.loadouts),snapshot.party);
   assert.equal(snapshot.loadouts.mage.heroTree.branch,'flame');
   assert.equal(snapshot.loadouts.mage.heroTree.preset,1);
   assert.equal(snapshot.loadouts.mage.heroTree.choices[15],'dense');
@@ -85,26 +89,10 @@ console.log('legacy/current advancement snapshots retain identical active tree c
 
 // Settings mount must precede practice's select/input module dependency graph.
 const main=read('src/main.js');
-assert(main.indexOf("import './ui/settings.js'")<main.indexOf("import { updatePractice }"));
+assert(main.indexOf("import './ui/settings.js'")<main.indexOf("import { updatePractice,"));
 
-// A retry from the previous two-hero release is also solo, without mutating its stored snapshot.
-const legacy={party:['mage','archer'],loadouts:{mage:{heroLevel:20},archer:{heroLevel:10}},growthEnabled:true};
-const legacyCtx={CLASSES:{mage:{},archer:{}},isHidden:()=>false};
-vm.createContext(legacyCtx);vm.runInContext(src+';globalThis.solo=soloRun;',legacyCtx);
-const beforeLegacy=JSON.stringify(legacy),one=legacyCtx.solo(legacy);
-assert.deepEqual(Array.from(one.party),['mage']);assert.deepEqual(Object.keys(one.loadouts),['mage']);assert.equal(JSON.stringify(legacy),beforeLegacy);
-assert.equal(legacyCtx.solo({party:['missing'],loadouts:{missing:{}}}),null);
+const legacy={party:['mage','archer'],loadouts:{mage:{heroLevel:20},archer:{heroLevel:10}}};
+const legacyCtx=vm.createContext({VISIBLE_HEROES});vm.runInContext(src+';this.validate=valid;',legacyCtx);
+assert.equal(legacyCtx.validate(legacy),false);
+assert.equal(legacyCtx.validate(outputs[0]),true);
 assert(!practice.includes('startHardParty'));assert(!practice.includes('readPartner'));
-// The production clock uses real active-frame time, not capped simulation time or speed multipliers.
-const clockG={practice:true,phase:'build',hero:{},enemies:[],stats:{kills:{}},spawnEnemy(){}};
-const clockContext={...rctx,G:clockG};vm.createContext(clockContext);vm.runInContext(src+';run={party:["mage"]};globalThis.tick=updatePractice;',clockContext);
-clockContext.tick(.05,1);assert.equal(node('practiceSeconds').textContent,'29');
-clockContext.tick(.05,0);assert.equal(node('practiceSeconds').textContent,'29');
-clockContext.tick(.05,4);assert.equal(node('practiceSeconds').textContent,'25');
-clockContext.tick(.05,25);assert.equal(clockG.phase,'over');assert.match(node('practicePanel').innerHTML,/id="practiceSeconds">0/);
-assert.match(main,/step\(dt, i === 0 \? raw : 0\)/);assert.match(main,/updatePractice\(dt, practiceClockDt\)/);
-assert.match(read('style.css'),/#practicePanel\{position:fixed;top:/);
-assert.match(read('style.css'),/#practiceSeconds\{font-size:36px/);
-console.log('solo snapshots, legacy retry, visible countdown and real-time speed-independent clock: passed');
-
-assert.match(read('style.css'),/body\.practiceRun #camTop\{top:calc\(164px/);

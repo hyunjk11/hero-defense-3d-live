@@ -6,7 +6,7 @@ function run(cls,mode,ref){
  let rng=0;const log=[],timers=[],hits=[],no=()=>{},h={cls,g:new THREE.Group(),ch:{acts:{},mixer:{update:no},ring:{material:{}},mats:[]},C:{speed:2,atk:'BASIC_ATTACK',atkSpd:1,rate:1},treeMods:{},hp:100,max:100,cd:0,atkT:0,skillCd:0,dead:0,face:0,path:[],spinT:0,hb:{set:no}},e={g:new THREE.Group(),E:{},dead:false};e.g.position.z=2;
  const G={hero:h,curHero:h,heroes:[h],phase:'wave',t:1,enemies:mode==='idle-target'?[e]:[],projs:[],tiles:[]};
  const env=vm.createContext({THREE,G,hero:h,MELEE_ONLY:{warrior:1,fighter:1},qFeedback:no,skillAllowed:()=>true,treeQBonus:()=>1,treeSkillUsed:no,asSkill:(f,...a)=>f(...a),stat:{dmg:()=>100,skillMul:()=>1,skillCd:()=>10,range:()=>10,rate:()=>1},mouseGround:new THREE.Vector3(0,0,5),scene:new THREE.Scene(),makeArrow:()=>new THREE.Group(),glow:c=>new THREE.MeshBasicMaterial({color:c}),ringFx:no,banner:no,play:(_ch,n,o)=>log.push({n,force:!!o?.force}),Snd:{play:no,whoosh:no},rand:()=>{rng++;return .5},attack:t=>hits.push(t===e),later:(t,f)=>timers.push({t,f}),movementAllowed:()=>true,cam:{theta:0},keys:mode==='moving-no-target'?{d:true}:{},passAt:()=>true,groundY:()=>0,flashMats:no});
- vm.runInContext(strip(read('src/heroes/skills.js',ref))+';this.cast=castSkill;',env);vm.runInContext(update+';this.update=updHero;',env);return {env,h,G,log,timers,hits,get rng(){return rng}};
+ vm.runInContext(strip(read('src/heroes/skills.js',ref))+';this.cast=castSkill;',env);vm.runInContext((source.match(/const practiceRest = [^\n]+/)?.[0]||'')+'\n'+update+';this.update=updHero;',env);return {env,h,G,log,timers,hits,get rng(){return rng}};
 }
 
 function eRun(cls,mode,ref){
