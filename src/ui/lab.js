@@ -11,7 +11,6 @@ import * as SX from '../account/steel.js';
 import * as AD from '../data/advance.js';
 import * as Sh from '../account/shop.js';
 import { labFx } from '../world/town.js';
-import { mobileApp } from './mobile-mode.js';
 import { beamAttackBonus, endgameQuote, endgameTowerMods, ENDGAME_RESEARCH_VERSION } from '../data/endgame-research.js';
 import * as HG from '../account/hero-growth.js';
 import {directGearEnabled,pendingGear,runDirectGear} from '../account/direct-gear-client.js';
@@ -19,7 +18,7 @@ let buying=false, pendingRow=null;
 let open = false, tab = 'arrow', built = null, hooks = { onChange() {}, cheer() {} };
 const TC = { arrow: '#5a9aff', cannon: '#ff9a4a', magic: '#c07aff', guardian: '#73d9bf' };
 const END = 'endgame', purchaseKinds = [['gold', '💰', '시작 골드'], ['beam', '⚔', '광선탑 공격력']];
-const endgameOn = () => !mobileApp && directGearEnabled() && Acc.A.sb?.serverEconomy === true && HG.enabled() && HG.HG.features.endgameResearch === ENDGAME_RESEARCH_VERSION;
+const endgameOn = () => directGearEnabled() && Acc.A.sb?.serverEconomy === true && HG.enabled() && HG.HG.features.endgameResearch === ENDGAME_RESEARCH_VERSION;
 const number = new Intl.NumberFormat('ko-KR');
 let endgameBody = null;
 const shownEndgame = new WeakMap();
@@ -29,7 +28,7 @@ const LP = definePanel('lab', { id: 'labPanel', z: 40, isOpen: () => open, close
 export function openLab() { if (G.screen !== 'town') return; if (!open) { Snd.play('confirm'); Snd.play('magic', { vol: .4 }); } open = true; LP.show(); renderLab(); }
 export function closeLab(silent) { if (open && !silent) Snd.play('ui'); open = false; LP.hide(); }
 function build() {
-  $('labTabs').innerHTML = GR.TTYPES.map(t => `<button class="ftab" data-t="${t}"><i style="color:${TC[t]};background:${TC[t]}"></i>${TOWERS[t].n}</button>`).join('') + (!mobileApp ? '<button class="ftab hidden" data-t="endgame" aria-pressed="false" hidden>✦ 심화</button>' : '');
+  $('labTabs').innerHTML = GR.TTYPES.map(t => `<button class="ftab" data-t="${t}"><i style="color:${TC[t]};background:${TC[t]}"></i>${TOWERS[t].n}</button>`).join('') + '<button class="ftab hidden" data-t="endgame" aria-pressed="false" hidden>✦ 심화</button>';
   $('labTabs').querySelectorAll('.ftab').forEach(b => b.onclick = () => { if (tab === b.dataset.t) return; tab = b.dataset.t; Snd.play('ui'); renderLab(); });
   $('labBody').innerHTML = GR.RKEYS.map(k => `<div class="labRow ${GR.RES[k].need ? 'late' : ''}" data-k="${k}"><div class="lrTop"><span class="lrIco">${GR.RES[k].icon}</span><span>${GR.RES[k].n}</span><span class="lrLv"></span></div>
     <div class="lrPips">${'<i></i>'.repeat(GR.RES[k].max)}</div><div class="lrD"></div><button class="gbtn lrBtn"></button><div class="lrLock"></div></div>`).join('');
@@ -37,13 +36,11 @@ function build() {
   // 🧱 바리케이드 보강 (2026-10-24, 강철만 · 타워 탭과 무관한 공용 연구, account/steel.js)
   $('labBar').innerHTML = `<div class="lrTop"><span class="lrIco">🧱</span><span>바리케이드 보강</span><small class="lrTag">모든 타워 공용 · 강철 전용</small><span class="lrLv"></span></div><div class="lrPips">${'<i></i>'.repeat(SX.BAR.max)}</div><div class="lrD"></div><button class="gbtn lrBtn" id="labBarBtn"></button><div class="lrLock"></div>`;
   $('labBarBtn').onclick = () => buyBarLv();
-  if (!mobileApp) {
-    endgameBody = document.createElement('div');
-    endgameBody.className = 'labBody hidden';
-    endgameBody.innerHTML = purchaseKinds.map(([k, icon, title]) => `<div class="labRow late" data-k="${k}"><div class="lrTop"><span class="lrIco" aria-hidden="true">${icon}</span><span>${title}</span><span class="lrLv"></span></div><div class="lrD"></div><button class="gbtn lrBtn"></button><div class="lrLock" role="status"></div></div>`).join('');
-    $('labBody').after(endgameBody);
-    endgameBody.querySelectorAll('.labRow').forEach(row => row.querySelector('.lrBtn').onclick = () => buyEndgame(row));
-  }
+  endgameBody = document.createElement('div');
+  endgameBody.className = 'labBody hidden';
+  endgameBody.innerHTML = purchaseKinds.map(([k, icon, title]) => `<div class="labRow late" data-k="${k}"><div class="lrTop"><span class="lrIco" aria-hidden="true">${icon}</span><span>${title}</span><span class="lrLv"></span></div><div class="lrD"></div><button class="gbtn lrBtn"></button><div class="lrLock" role="status"></div></div>`).join('');
+  $('labBody').after(endgameBody);
+  endgameBody.querySelectorAll('.labRow').forEach(row => row.querySelector('.lrBtn').onclick = () => buyEndgame(row));
 }
 let endgameError = null;
 let endgameEpoch = -1;

@@ -77,7 +77,7 @@ async function prepareGrowth(stage, hero) {
   return true;
 }
 function applyEndgameResearch() {
-  if (mobileApp || !Acc.ready() || !Acc.A.sb?.serverEconomy || HG.HG.features.endgameResearch !== ENDGAME_RESEARCH_VERSION) return;
+  if (!Acc.ready() || !Acc.A.sb?.serverEconomy || HG.HG.features.endgameResearch !== ENDGAME_RESEARCH_VERSION) return;
   const save = Acc.load();
   G.gold = Math.min(Number.MAX_SAFE_INTEGER, G.gold + startingGoldBonus(save));
   G.beamAttackResearch = beamAttackBonus(save);
