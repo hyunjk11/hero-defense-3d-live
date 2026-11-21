@@ -9,7 +9,7 @@ import { ls } from '../core/store.js';
 import { durableSet } from './durable.js';
 import { isMissingErr } from './adminlogic.js';
 import { mobileApp } from '../ui/mobile-mode.js';
-import { AWAKENING_VERSION } from '../data/awakening.js';
+import { AWAKENING_VERSION, AWAKENING_SKILL_VERSION, awakeningSkillOn } from '../data/awakening.js';
 
 export const HG = { owner: null, session: -1, status: 'idle', growth: null, message: '', pending: 0, hasInvestment: false, rewardXP: {}, hardRewards: {}, features: {}, buildBusy:false };
 const listeners = [], prefix = 'hd3d_live_growth_v1_', guestKey = prefix + 'guest_ledger';
@@ -23,9 +23,27 @@ export const enabled = () => HG.owner === owner() && HG.session === Acc.sessionI
 export const available = () => HG.owner === owner() && HG.session === Acc.sessionId() && !!HG.growth && ['ready', 'offline'].includes(HG.status);
 export const viewSave = (s = Acc.load()) => ({ ...s, growth: available() ? HG.growth : null });
 export const awakeningEnabled = () => !!Acc.A.user && available() && HG.features.awakening === AWAKENING_VERSION;
-const skillKey = h => prefix + owner() + '_aw_skill_' + h;
-export const awakeningSkill = h => awakeningEnabled() && ls.get(skillKey(h)) !== 'base';
-export function setAwakeningSkill(h, on) { if (awakeningEnabled()) ls.set(skillKey(h), on ? 'awake' : 'base'); }
+export const awakeningSkillServer = () => awakeningEnabled() && HG.features.awakeningSkill === AWAKENING_SKILL_VERSION;
+export const awakeningSkill = h => awakeningEnabled() && awakeningSkillOn(HG.growth,h);
+export async function setAwakeningSkill(h, on) {
+  const u = owner(), s = stamp();
+  if (!enabled() || !awakeningSkillServer() || typeof on !== 'boolean' || !Acc.saveAllowed()) return {ok:false,reason:'not_ready'};
+  try {
+    return await locked(u, async () => {
+      if (!valid(s) || !enabled() || !awakeningSkillServer() || !Acc.saveAllowed()) return {ok:false,reason:'not_ready'};
+      const a = {p_id:crypto.randomUUID(),p_hero:h,p_on:on,p_revision:HG.growth.rev};
+      let r;
+      try { r = await rpc(u, 'awakening_skill', a); }
+      catch (error) { if (!valid(s)) return {ok:false,reason:'account_changed'}; r = await rpc(u, 'awakening_skill', a); }
+      if (!valid(s)) return {ok:false,reason:'account_changed'};
+      accept(r,s);
+      return r;
+    });
+  } catch {
+    if (valid(s)) await refresh();
+    return {ok:false,reason:'pending'};
+  }
+}
 export const level = h => available() ? H.levelOf(HG.growth.xp[h]) : 1;
 const valid = s => s === stamp();
 async function locked(u, fn) {
@@ -171,7 +189,7 @@ export async function startRun(stage, hero) {
   const partner = hard ? (await import('./hard-party.js')).readPartner(hero) : null;
   if (!valid(s)) return null;
   const hardFirstBonus = hard && u !== 'guest' && !mobileApp && HG.features.hardFirstBonus === 1;
-  const a = { ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(hardFirstBonus?{p_hardFirstBonus:1}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), ...(awakeningEnabled()?{p_awakeningVersion:AWAKENING_VERSION}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero };
+  const a = { ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(hardFirstBonus?{p_hardFirstBonus:1}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), ...(awakeningEnabled()?{p_awakeningVersion:AWAKENING_VERSION}:{}), ...(awakeningSkillServer()?{p_awakeningSkillVersion:AWAKENING_SKILL_VERSION}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero };
   try {
     // Retry the same start ID after a lost response; no progress exists until it is acknowledged.
     const r = await locked(u, async () => {
@@ -180,7 +198,7 @@ export async function startRun(stage, hero) {
     });
     if (!r || !valid(s)) return null; accept(r, s); if (!r.ok) throw new Error(r.reason);
     if (hard && (r.party?.length !== 2 || r.party[0] !== hero || r.party[1] !== a.p_partner || !r.loadouts?.[hero] || !r.loadouts?.[a.p_partner])) throw new Error('출정 편성 불일치');
-    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, awakeningLevel:r.awakeningLevel??null, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
+    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, awakeningLevel:r.awakeningLevel??null, awakeningUseE:r.awakeningUseE!==false, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
   } catch (e) { if (valid(s)) { HG.status = 'error'; HG.message = 'XP 출정 준비 실패 · 연결을 확인해 주세요. ' + (e.message || e); emit(); } return null; }
 }
 // Navigation awaits this durable checkpoint; a shared cross-tab lock serializes journal edits.

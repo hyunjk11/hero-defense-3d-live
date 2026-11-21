@@ -25,7 +25,7 @@ function fixture({awakening=false}={}){
   const user={...A.A.user};control.calls.push({name,args});
   if(name==='hd3d_growth_progress'&&(control.offline||control.failBefore)){control.failBefore=false;throw Error('offline before request');}
   const r=await run(user,{kind:'rpc',name,args});
-  if(name==='hd3d_growth_progress'&&r.data?.hardSaved||name==='hd3d_growth_awaken'&&r.data?.ok){if(control.hold){seen();await new Promise(r=>release=r);control.hold=false;}if(control.lose){control.lose=false;throw Error('response lost after commit');}}
+  if(name==='hd3d_growth_progress'&&r.data?.hardSaved||['hd3d_growth_awaken','hd3d_growth_awakening_skill'].includes(name)&&r.data?.ok){if(control.hold){seen();await new Promise(r=>release=r);control.hold=false;}if(control.lose){control.lose=false;throw Error('response lost after commit');}}
   return r;
  }};
  globalThis.window={__hd3dCloudMock:async()=>sb};Object.assign(A.A,{user:users.a,mode:'account',hydrated:true,tables:'ok',sync:'saved',banned:false,conflict:null,sb});values.set(key+'_uid',uid);values.set(key+'_save',JSON.stringify(save));values.set(key+'_merged_'+uid,'1');values.set(key+'_cloud_ts_'+uid,new Date(now).toISOString());for(const f of A.A.listeners)f();
@@ -138,4 +138,36 @@ test('awakening account switch during committed reply only hydrates original own
  assert.equal(f.db.tables.hd3d_growth_wallet.find(w=>w.user_id===f.uid).balance,3400);
  assert.equal(awakeningCalls(f).length,2);
  assert.ok(awakeningCalls(f).every(x=>x.args.p_id===args.p_id));
+});
+
+test('same account rehydrates server E selection, ignores obsolete device options and freezes every run',async()=>{
+ const f=fixture({awakening:true}),key='hd3d_live_growth_v1_'+f.uid+'_aw_skill_mage';
+ values.set(key,'base');await C.refresh();
+ assert.equal(C.awakeningSkill('mage'),true,'no server choice defaults to awake, never local');
+ f.control.lose=true;
+ const changed=await C.setAwakeningSkill('mage',false);
+ assert.equal(changed.ok,true);assert.equal(changed.already,true);assert.equal(C.awakeningSkill('mage'),false);
+ const preferenceRequests=f.control.calls.filter(x=>x.name==='hd3d_growth_awakening_skill');
+ assert.equal(preferenceRequests.length,2);assert.deepEqual(preferenceRequests[0].args,preferenceRequests[1].args);
+ assert.equal(f.db.tables.hd3d_growth_wallet[0].rev,1);
+ assert.equal(f.cloud().souls,1000);
+ const hard=await C.startRun('hard-1-1','mage');
+ assert.equal(hard.awakeningLevel,0);assert.equal(hard.awakeningUseE,false);assert.equal(hard.loadouts.mage.awakeningUseE,false);
+ await A.signOut();values.delete(key);await A.signIn('a@example.invalid','RAM-only');await C.refresh();
+ assert.equal(C.awakeningSkill('mage'),false,'a second device without the local key receives server choice');
+ assert.equal((await C.setAwakeningSkill('mage',true)).ok,true);assert.equal(C.awakeningSkill('mage'),true);
+ assert.equal(hard.awakeningUseE,false,'old sortie unchanged');
+ const challenge=await C.startRun(null,'mage');
+ assert.equal(challenge.awakeningLevel,0);assert.equal(challenge.awakeningUseE,true);
+ for(const {args} of f.control.calls.filter(x=>x.name==='hd3d_growth_start')){
+  assert.equal(args.p_awakeningVersion,1);assert.equal(args.p_awakeningSkillVersion,1);
+ }
+});
+test('late preference reply cannot hydrate the device into another player’s choice',async()=>{
+ const f=fixture({awakening:true});await C.refresh();f.control.hold=true;
+ const seen=f.watch(),write=C.setAwakeningSkill('mage',false);await seen;
+ try {await A.signOut();await A.signIn('b@example.invalid','RAM-only');assert.equal(C.HG.growth,null);}
+ finally{f.release();}
+ assert.equal((await write).reason,'account_changed');assert.equal(C.HG.growth,null);
+ assert.equal(f.db.tables.hd3d_growth_wallet.find(x=>x.user_id===f.uid).awakeningSkill.mage,false);
 });

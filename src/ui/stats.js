@@ -45,7 +45,7 @@ function renderTown() { const s = Acc.load(), own = VISIBLE_HEROES.filter(h => S
     <div class="lbl">영웅 고유 스킬 · Lv.10</div><div class="stFxs">${fxHtml(D.efx)}</div>
     <div class="lbl">장착 전설 자동 효과</div><div class="stFxs">${fxHtml(D.fx)}</div>
     <div class="stNote">${esc(CP_TXT)}<br>${esc(DPS_TXT)}<br>판 안 강화·던전 축복은 전투 중 📊 (C 키) 에서 확인</div>`; }
-export function openStats(cls) { st.town = true; st.cls = cls || Sh.usableHero(Acc.load().hero); STP.show(); Snd.play('ui'); renderTown(); $('statClose').focus(); void HG.refresh({ maxAgeMs: 30000 }); }
+export function openStats(cls) { st.town = true; st.cls = cls || Sh.usableHero(Acc.load().hero); STP.show(); Snd.play('ui'); renderTown(); $('statClose').focus(); void HG.refresh({ maxAgeMs: HG.awakeningSkillServer() ? 0 : 30000 }); }
 HG.onGrowth(() => { if (st.town) renderTown(); });
 export function closeStats() { if (!st.town) return; st.town = false; STP.hide(); if (G.screen === 'town') $('twStats')?.focus(); }
 const STP = definePanel('statPanel', { id: 'statPanel', z: 40, isOpen: () => st.town, close: () => closeStats() });

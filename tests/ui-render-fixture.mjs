@@ -16,7 +16,7 @@ export async function fixture(root, {items=0, level=30, hero='mage', branch, ena
   try{for(let i=0;i<items;i++){const it=E.makeItem(['weapon','armor','acc'][i%3],hero,i%5,rng,1+i%10);it.id='fixture-'+i;if(i<40)save.inv.push(it);else save.stor.push(it);}}finally{Date.now=originalNow;}
   let raw=JSON.stringify(P.clean(save));
   const HG={HG:{owner:'fixture-a',growth:H.initialGrowth(),features:{trees:1},pending:0,hasInvestment:false,status:'ready',message:'',buildBusy:false},
-    available:()=>enabled,enabled:()=>enabled,awakeningEnabled:()=>enabled&&HG.HG.features.awakening===1,awakeningSkill:()=>true,level:h=>H.levelOf(HG.HG.growth.xp[h]),
+    available:()=>enabled,enabled:()=>enabled,awakeningEnabled:()=>enabled&&HG.HG.features.awakening===1,awakeningSkillServer:()=>enabled&&HG.HG.features.awakeningSkill===1,awakeningSkill:h=>HG.HG.growth.awakeningSkill?.[h]!==false,level:h=>H.levelOf(HG.HG.growth.xp[h]),
     viewSave:(s=Acc.load())=>({...s,growth:enabled?HG.HG.growth:null}),onGrowth(){},refresh:async()=>true,
     changeBuild:async()=>({ok:true}),invest:async()=>({ok:false,reason:'not-used'})};
   HG.HG.growth.xp[hero]=H.totalXP(level);HG.HG.growth.balance=5000;

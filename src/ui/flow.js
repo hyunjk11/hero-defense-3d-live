@@ -68,8 +68,7 @@ function hideAll() { for (const s of SCREENS) $('scr_' + s).classList.add('hidde
 const heroN = c => heroLabel(c);
 
 async function prepareGrowth(stage, hero) {
-  const run = await HG.startRun(stage, hero); if (!Acc.saveAllowed()) return false; G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=HG.awakeningSkill(hero);
-  if (run?.loadouts) for (const [h,l] of Object.entries(run.loadouts)) l.awakeningUseE=HG.awakeningSkill(h);
+  const run = await HG.startRun(stage, hero); if (!Acc.saveAllowed()) return false; G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=run?.awakeningUseE!==false;
   G.xpPendingWrite = Promise.resolve(true);
   G.onXPWave = () => { G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves, false, false, 1, Object.values(G.stats.kills||{}).reduce((a,b)=>a+b,0)); };
   return true;
@@ -225,6 +224,9 @@ async function startChallengeRun() {
 // ---------- UI 바인딩 ----------
 function bindUI() {
   initGrowthUI(); HG.onGrowth(() => { if (G.screen === 'town') refreshTown(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && G.screen === 'town' && !$('statPanel').classList.contains('hidden') && HG.awakeningSkillServer()) void HG.refresh();
+  });
   $('scr_intro').onclick = () => afterIntro(); addEventListener('keydown', e => { if (G.screen === 'intro' && !e.repeat) afterIntro(); });
   if (mobileApp) {
     $('twHeroToggle').onclick = () => {

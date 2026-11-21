@@ -52,7 +52,7 @@ const stat = {
 G.heroStat = stat; // 테스트용 (현재 문맥 영웅의 공격력·공속·사거리…)
 
 function spawnHero(cls, L = null, party = false) {
-  if (L) { const keep = { perm: G.perm, equip: G.equip, legend: G.legend, adv: G.adv, heroLevel: G.heroLevel, heroTree:G.heroTree, heroGear:G.heroGear, awakeningLevel:G.awakeningLevel, awakeningUseE:G.awakeningUseE }; Object.assign(G, { awakeningLevel:null }, L); try { return spawnHero(cls, null, party); } finally { Object.assign(G, keep); } }
+  if (L) { const keep = { perm: G.perm, equip: G.equip, legend: G.legend, adv: G.adv, heroLevel: G.heroLevel, heroTree:G.heroTree, heroGear:G.heroGear, awakeningLevel:G.awakeningLevel, awakeningUseE:G.awakeningUseE }; Object.assign(G, { awakeningLevel:null, awakeningUseE:true }, L); try { return spawnHero(cls, null, party); } finally { Object.assign(G, keep); } }
   const q = G.perm && G.equip ? G.equip : null;
   let C = sortieC(cls, { perm: G.perm, adv: G.adv, eq: q, level: G.growthEnabled ? G.heroLevel || 1 : 1 });
   const level=G.awakeningLevel;

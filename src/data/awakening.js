@@ -1,6 +1,6 @@
 // Awakening is a second progression track; it never changes base XP or level.
 import {advOf} from './advance.js';
-export const AWAKENING_VERSION=1, AWAKENING_MAX=50;
+export const AWAKENING_VERSION=1, AWAKENING_MAX=50, AWAKENING_SKILL_VERSION=1;
 const branches=Object.freeze({warrior:'paladin',mage:'frost',fighter:'dragon'});
 const own=(o,k)=>!!o&&Object.hasOwn(o,k);
 export const awakeningSupported=(hero,adv)=>{
@@ -13,6 +13,12 @@ export function cleanAwakening(v){
   for(const hero of Object.keys(branches)){if(own(v,hero)&&validAwakeningLevel(v[hero]))out[hero]=v[hero];}
   return out;
 }
+export function cleanAwakeningSkills(v){
+  const out={};
+  for(const hero of Object.keys(branches))if(own(v,hero)&&typeof v[hero]==='boolean')out[hero]=v[hero];
+  return out;
+}
+export const awakeningSkillOn=(g,hero)=>!(own(g?.awakeningSkill,hero)&&g.awakeningSkill[hero]===false);
 export function awakeningMods(level){
   const n=validAwakeningLevel(level)?level:0;
   return {dmg:1+.006*n,hp:1+.004*n};

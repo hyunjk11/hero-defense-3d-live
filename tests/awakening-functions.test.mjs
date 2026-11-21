@@ -72,3 +72,65 @@ test('poor and failed writes debit nothing',async()=>{
  });
  await assert.rejects(a.up('try-good','mage',5,1),/Injected/);assert.deepEqual(a.db.tables,before);
 });
+
+const skill=(f,id,hero,on,rev)=>f.rpc('awakening_skill',{p_id:id,p_hero:hero,p_on:on,p_revision:rev});
+const skillOpt={p_awakeningVersion:1,p_awakeningSkillVersion:1};
+test('E preference defaults on, sanitizes strict booleans and only Functions advertises it',async()=>{
+ const f=setup({walletEdit:w=>{w.awakening={mage:0,warrior:4};w.awakeningSkill={mage:false,warrior:'true',archer:true,fighter:true};}});
+ const s=await f.rpc('status');
+ assert.equal(s.features.awakeningSkill,1);
+ assert.deepEqual(s.growth.awakeningSkill,{mage:false,fighter:true});
+ assert.equal((await f.rpc('status',{},true)).features.awakeningSkill,undefined);
+ assert.equal(A.awakeningSkillOn(s.growth,'warrior'),true);
+ assert.equal(A.awakeningSkillOn(s.growth,'mage'),false);
+});
+test('authenticated toggle validates current supported awakening; receipts and CAS cost nothing',async()=>{
+ const f=setup({walletEdit:w=>{w.awakening={mage:0};}});
+ assert.equal((await skill(f,'unawakened-warrior','warrior',false,0)).reason,'locked');
+ assert.equal((await skill(f,'invalid-pref','mage','false',0)).reason,'invalid');
+ assert.equal((await skill(setup({paid:false,walletEdit:w=>{w.awakening={fighter:0};}}),'missing-owner','fighter',false,0)).reason,'invalid');
+ const resource=structuredClone(f.db.tables.hd3d_progress[0]),wallet=structuredClone(f.wallet());
+ const a=await skill(f,'pc-action','mage',false,0);
+ assert.equal(a.growth.awakeningSkill.mage,false);assert.equal(a.growth.rev,1);
+ assert.deepEqual(f.db.tables.hd3d_progress[0],resource);
+ for(const k of ['balance','spent','earned','granted','xp','awakening'])assert.deepEqual(f.wallet()[k],wallet[k]);
+ assert.equal((await skill(f,'mobile-stale','mage',true,0)).growth.awakeningSkill.mage,false);
+ const b=await skill(f,'mobile-current','mage',true,1);
+ assert.equal(b.growth.awakeningSkill.mage,true);assert.equal(b.growth.rev,2);
+ const retry=await skill(f,'pc-action','mage',false,0);
+ assert.equal(retry.already,true);assert.equal(retry.growth.awakeningSkill.mage,true);
+ assert.equal((await skill(f,'pc-action','mage',true,0)).reason,'id_reused');
+ f.db.tables.hd3d_progress[0].data.adv.mage={b:'flame'};
+ assert.equal((await skill(f,'wrong-branch','mage',false,2)).reason,'locked');
+ assert.equal(f.wallet().awakeningSkill.mage,true);
+});
+test('marked starts freeze each active E choice per run; unmarked/old replay never gains fields',async()=>{
+ const f=setup({walletEdit:w=>{w.awakening={mage:0,fighter:4};w.awakeningSkill={mage:false};}});
+ const party={p_partyVersion:1,p_partner:'fighter'};
+ assert.equal((await f.launch('bad-marker','mage',{p_awakeningSkillVersion:1})).reason,'invalid');
+ const old=await f.launch('old-before-skill','mage',{...party,p_awakeningVersion:1});
+ assert.ok(!Object.hasOwn(old,'awakeningUseE')&&!Object.hasOwn(old.loadouts.fighter,'awakeningUseE'));
+ const prior=structuredClone(f.db.tables.hd3d_growth_runs[0]);
+ const oldRetry=await f.launch('old-before-skill','mage',{...party,...skillOpt});
+ assert.ok(!Object.hasOwn(oldRetry,'awakeningUseE')&&!Object.hasOwn(oldRetry.loadouts.fighter,'awakeningUseE'));
+ assert.deepEqual(f.db.tables.hd3d_growth_runs[0],prior);
+ const marked=await f.launch('new-with-skill','mage',{...party,...skillOpt});
+ assert.equal(marked.awakeningUseE,false);assert.equal(marked.loadouts.mage.awakeningUseE,false);assert.equal(marked.loadouts.fighter.awakeningUseE,true);
+ await skill(f,'switch-mage','mage',true,0);await skill(f,'switch-seoyun','fighter',false,1);
+ const replay=await f.launch('new-with-skill','mage',{...party,...skillOpt});
+ assert.equal(replay.awakeningUseE,false);assert.equal(replay.loadouts.fighter.awakeningUseE,true);
+ const next=await f.launch('next-with-skill','mage',{...party,...skillOpt});
+ assert.equal(next.awakeningUseE,true);assert.equal(next.loadouts.fighter.awakeningUseE,false);
+ const notAwakened=await f.launch('not-awakened-start','warrior',skillOpt);
+ assert.equal(notAwakened.awakeningLevel,null);assert.ok(!Object.hasOwn(notAwakened,'awakeningUseE'));
+});
+test('failed preference receipt write cannot partially save preference or revision',async()=>{
+ const f=setup({walletEdit:w=>{w.awakening={mage:0};}});
+ const before=structuredClone(f.db.tables),tx=f.db.transaction.bind(f.db);
+ f.db.transaction=fn=>tx(async t=>{
+  const put=t.put.bind(t);
+  t.put=async(name,row)=>{if(name==='hd3d_growth_investments')throw Error('Injected preference receipt failure');return put(name,row);};return fn(t);
+ });
+ await assert.rejects(skill(f,'uncommitted-pref','mage',false,0),/Injected/);
+ assert.deepEqual(f.db.tables,before);
+});

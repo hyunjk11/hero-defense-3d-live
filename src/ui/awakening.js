@@ -27,6 +27,20 @@ async function apply(level) {
   }
 }
 
+async function toggleSkill() {
+  if (!town() || !HG.enabled() || !HG.awakeningSkillServer() || pending?.owner === current() || Acc.serverSaveState()) return;
+  const job = {hero, owner:current()};
+  pending=job;message='';renderAwakening(job.hero,Acc.load());
+  try {
+    const r=await HG.setAwakeningSkill(job.hero,!HG.awakeningSkill(job.hero));
+    if (job.owner!==current() || hero!==job.hero) return;
+    message=r.ok?'':r.reason==='conflict'?'다른 기기의 선택을 불러왔어요.':'스킬 선택을 확인하지 못했어요.';
+  } finally {
+    if(pending===job)pending=null;
+    if(town())renderAwakening(hero,Acc.load());
+  }
+}
+
 export function renderAwakening(selected,save) {
   const host = $('awCard');
   if (!host) return;
@@ -49,9 +63,7 @@ export function renderAwakening(selected,save) {
     for (const [id,n] of [['awOne',1],['awFive',5]]) $(id).onclick = () => {
       target = Math.min(AWAKENING_MAX,previous+n); message = ''; renderAwakening(hero,Acc.load());
     };
-    $('awSkill').onclick = () => {
-      HG.setAwakeningSkill(hero,!HG.awakeningSkill(hero)); renderAwakening(hero,Acc.load());
-    };
+    $('awSkill').onclick = () => void toggleSkill();
   }
   host.classList.remove('hidden');
   const busy = pending?.owner === current() || !!Acc.serverSaveState();
@@ -63,7 +75,7 @@ export function renderAwakening(selected,save) {
   $('awSkill').classList.toggle('hidden',level === null);
   $('awSkill').textContent = skill ? names[hero] : '기본 스킬';
   $('awSkill').setAttribute('aria-pressed',String(skill));
-  $('awSkill').disabled = busy;
+  $('awSkill').disabled = disabled || !HG.awakeningSkillServer();
   $('awUnlock').classList.toggle('hidden',level !== null);
   $('awUnlock').disabled = disabled;
   $('awTrain').classList.toggle('hidden',level === null || level >= AWAKENING_MAX);
