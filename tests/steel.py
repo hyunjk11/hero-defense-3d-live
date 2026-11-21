@@ -55,7 +55,7 @@ with sync_playwright() as pw:
     J(pg, "()=>G.openLab()"); pg.wait_for_timeout(300); st0 = L(pg)['mat']['steel']
     ok('bar_row', not hidden(pg, 'labPanel') and '바리케이드 보강' in pg.inner_text('#labBar') and 'Lv.0/10' in pg.inner_text('#labBar') and '강철 40' in pg.inner_text('#labBarBtn'))
     pg.click('#labBarBtn'); pg.wait_for_timeout(150); pg.click('#labBarBtn'); pg.wait_for_timeout(250); s = L(pg)
-    ok('bar_bought', s.get('barLv') == 2 and s['mat']['steel'] == st0 - 100 and 'Lv.2/10' in pg.inner_text('#labBar') and '+10%' in pg.inner_text('#labBar'), (s.get('barLv'), s['mat']['steel']))
+    ok('bar_bought', s.get('barLv') == 2 and s['mat']['steel'] == st0 - 100 and 'Lv.2/20' in pg.inner_text('#labBar') and '+10%' in pg.inner_text('#labBar'), (s.get('barLv'), s['mat']['steel']))
     shot(pg, 'steel_barricade_lab')
     J(pg, "()=>document.getElementById('labClose').click()"); pg.wait_for_timeout(200)
     # ---- 판 안: 바리케이드 체력 ×1.1 ----

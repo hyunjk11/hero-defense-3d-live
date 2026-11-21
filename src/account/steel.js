@@ -2,7 +2,7 @@
 // ⚖ 교환: 강철 → 영혼석 (손해 보는 비율 · 하루 상한, 한국 시간 0시 초기화) · 🧱 바리케이드 보강: 강철만 쓰는 영구 연구
 // 저장: save.xch = { d: 'YYYY-MM-DD'(KST), n: 그날 교환 횟수 } · save.barLv = 0..BAR.max — 둘 다 안 쓰면 키 없음 (옛 세이브 모양 그대로)
 export const XCH = { steel: 10, souls: 30, daily: 15 }; // 1회 = 강철 10 → 영혼석 30, 하루 15회 (강철 150 → 영혼석 450)
-export const BAR = { max: 10, per: .05, base: 40, step: 20 }; // Lv당 체력 +5% · 비용 강철 40 + 20×Lv
+export const BAR = { max: 20, per: .05, base: 40, step: 20 }; // Lv당 체력 +5% · 비용 강철 40 + 20×Lv
 const int = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number.isFinite(+v) ? +v : 0)));
 // 한국 시간(UTC+9, 서머타임 없음) 날짜 — 기기 시간대와 무관
 export const kstDay = (now = Date.now()) => new Date(+now + 9 * 36e5).toISOString().slice(0, 10);

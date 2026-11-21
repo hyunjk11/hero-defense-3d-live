@@ -29,10 +29,10 @@ assert.deepEqual(P.merge({ xch: { d: '2026-10-25', n: 1 } }, { xch: { d: '2026-1
 assert.deepEqual(P.merge({}, { xch: { d: '2026-10-24', n: 3 } }).xch, { d: '2026-10-24', n: 3 }); assert.equal(P.merge({}, {}).xch, undefined);
 // 바리케이드 보강
 let b = P.clean({ mat: { steel: 39, crystal: 0 } }); assert.equal(SX.barBlock(b), '강철 부족'); [b, r] = P.buyBar(b); assert.equal(r, false);
-b = P.clean({ souls: 0, mat: { steel: 5000, crystal: 0 } }); let spent = 0; for (let i = 0; i < 10; i++) { spent += SX.barCost(i); [b, r] = P.buyBar(b); assert.equal(r, true); }
-assert.equal(b.barLv, 10); assert.equal(spent, 1300); assert.equal(b.mat.steel, 3700); assert.equal(b.souls, 0); [b, r] = P.buyBar(b); assert.equal(r, false); assert.equal(SX.barBlock(b), '최대');
-assert.equal(SX.barMul(0), 1); assert.ok(Math.abs(SX.barMul(10) - 1.5) < 1e-9); assert.equal(P.clean({ barLv: 99 }).barLv, 10); assert.equal(P.merge({ barLv: 3 }, { barLv: 7 }).barLv, 7);
-assert.ok(Math.abs(barHpAt(0, 1 * SX.barMul(4)) - 320 * 1.2) < 1e-9);
+b = P.clean({ souls: 0, mat: { steel: 5000, crystal: 0 } }); let spent = 0; for (let i = 0; i < 20; i++) { spent += SX.barCost(i); [b, r] = P.buyBar(b); assert.equal(r, true); }
+assert.equal(b.barLv, 20); assert.equal(spent, 4600); assert.equal(b.mat.steel, 400); assert.equal(b.souls, 0); [b, r] = P.buyBar(b); assert.equal(r, false); assert.equal(SX.barBlock(b), '최대');
+assert.equal(SX.barMul(0), 1); assert.ok(Math.abs(SX.barMul(10) - 1.5) < 1e-9); assert.equal(SX.barMul(20), 2); assert.equal(P.clean({ barLv: 99 }).barLv, 20); assert.equal(P.merge({ barLv: 19 }, { barLv: 10 }).barLv, 19);
+assert.ok(Math.abs(barHpAt(0, 1 * SX.barMul(4)) - 320 * 1.2) < 1e-9); assert.equal(barHpAt(0, SX.barMul(20)), 640);
 // 옵션 재설정
 const it = E.makeItem('armor', undefined, 3, rng(7)); let g = P.clean({ souls: 0, mat: { steel: 100, crystal: 0 }, inv: [it] }); const old = JSON.stringify(g.inv[0].sub);
 let sub; [g, r, sub] = E.reroll(g, it.id, rng(99)); assert.equal(r, 'ok'); assert.equal(g.mat.steel, 40); assert.equal(JSON.stringify(g.inv[0].sub), old); // 굴리기만으로는 적용 안 됨
