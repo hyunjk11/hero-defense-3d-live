@@ -1,3 +1,4 @@
+import { cleanEndgameResearch } from '../data/endgame-research.js';
 import { cleanLoadouts } from './loadouts.js';
 import { targetGear } from '../data/repeat-target.js';
 import { cleanGrowth } from '../data/hero-growth.js';
@@ -24,6 +25,7 @@ export function clean(d) {
   if(Array.isArray(d.lockedGear))e.lockedGear=[...new Set(d.lockedGear.filter(id=>typeof id==='string'&&id.length<=100))].slice(0,360);
   if(Array.isArray(d.battlePresets))e.battlePresets=cleanLoadouts(d.battlePresets);
   if(VISIBLE_HEROES.includes(d.battlePartner))e.battlePartner=d.battlePartner;
+  const endgame=cleanEndgameResearch(d.endgameResearch);if(Object.keys(endgame).length)e.endgameResearch=endgame;
   if(Number.isSafeInteger(d.hardRewardSeq)&&d.hardRewardSeq>0)e.hardRewardSeq=d.hardRewardSeq;
   const growth = cleanGrowth(d.growth); if (growth) e.growth = growth;
   e.hero = HEROES.includes(d.hero) ? (isHidden(d.hero) ? DEFAULT_HERO : d.hero) : e.hero; /* 숨긴 영웅이 선택돼 있으면 기본 영웅으로 (heroLv·장비·소유권은 유지) */ e.souls = int(d.souls); e.bestWave = int(d.bestWave, 0, 9999);

@@ -20,7 +20,8 @@ import { hurt } from '../monsters/enemy.js';
 import { banner, refreshHud } from '../ui/hud.js';
 import { hpBar } from '../render/hpbars.js';
 import { select } from '../ui/input.js';
-import { BRANCH, resMods, upgradeCost, upgradeBlock, MAX_TOWER_LEVEL, canSpecialize } from '../data/growth.js';
+import { endgameTowerMods } from '../data/endgame-research.js';
+import { BRANCH, upgradeCost, upgradeBlock, MAX_TOWER_LEVEL, canSpecialize } from '../data/growth.js';
 import { advTowerMods } from '../data/advance.js';
 import { decorate, recalc, updDeco, updGrowFx } from './growth.js';
 import { Q } from '../render/quality.js';
@@ -31,7 +32,7 @@ function placeTower(t, type) {
   const D = TOWERS[type], tw = { kind: 'tower', type, lvl: 1, t, c: t.c, r: t.r, cd: .5, invest: D.cost, pop: 0, recoil: 0 };
   tw.max = tw.hp = D.hp[0]; tw.hitT = 0; tw.fxT = 0; tw.anchor = new THREE.Object3D(); tw.anchor.position.set(tileX(t.c), 0, tileZ(t.r)); scene.add(tw.anchor);
   tw.hb = hpBar(tw.anchor, 3.6, 1.6, 0x55ff77, { auto: true, h: .17 });
-  tw.xp = 0; tw.stars = 1; tw.branchPending = false; tw.branch = null; tw.shots = 0; tw.mods = resMods(G.research, type, G.adv ? advTowerMods(G.adv, type) : undefined); recalc(tw);
+  tw.xp = 0; tw.stars = 1; tw.branchPending = false; tw.branch = null; tw.shots = 0; tw.mods = endgameTowerMods(G.research, type, G.adv ? advTowerMods(G.adv, type) : undefined, G.beamAttackResearch); recalc(tw);
   tw.rebuild = () => { const m = towerModel(tw.type, tw.lvl); m.g.position.set(tileX(tw.c), 0, tileZ(tw.r)); return m; };
   tw.m = towerModel(type, 1); tw.m.g.position.set(tileX(t.c), 0, tileZ(t.r)); decorate(tw); Snd.play('build', { pos: tw.m.g.position }); Snd.play('place', { delay: .12 }); scene.add(tw.m.g); t.tower = tw; G.towers.push(tw); refreshTile(t); return tw;
 }

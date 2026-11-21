@@ -1,3 +1,4 @@
+import { ENDGAME_RESEARCH_VERSION } from '../src/data/endgame-research.js';
 import { SORTIE_SETTINGS_VERSION, cleanSortieSettings, validSortieChapter, validSortieParty } from '../src/data/sortie-settings.js';
 import { AWAKENING_VERSION, AWAKENING_SKILL_VERSION, awakeningQuote, cleanAwakening, awakeningLevel, cleanAwakeningSkills, awakeningSkillOn } from '../src/data/awakening.js';
 import { validPartner, HARD_PARTY_VERSION } from '../src/data/hard-party.js';
@@ -46,9 +47,9 @@ function appendHardFirst(reward,s,hero,bosses,starTier,random){
   for(const wave of bosses)if(random()<E.BOSS_DROP)add(E.bossOdds(wave));
   if(starTier)add(E.chestOdds(2+starTier));
 }
-export async function growth(c, name, a, {hardFirstBonus=false,awakening=false,sortieSettings=false}={}) {
+export async function growth(c, name, a, {hardFirstBonus=false,awakening=false,sortieSettings=false,endgameResearch=false}={}) {
   c.requirePlayer();
-  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{}),...(awakening?{awakening:AWAKENING_VERSION,awakeningSkill:AWAKENING_SKILL_VERSION}:{}),...(sortieSettings?{sortieSettings:SORTIE_SETTINGS_VERSION}:{})}, growth: growthView(await growthWallet(c)), ...(sortieSettings?{battlePartner:battlePartnerOf(await c.get('progress',c.uid))}:{}) };
+  if (name === 'status') return { ok: true, version: H.VERSION, features:{trees:1,hard:1,repeatTarget:1,hardCollection:1,hardParty:HARD_PARTY_VERSION,...(hardFirstBonus?{hardFirstBonus:1}:{}),...(awakening?{awakening:AWAKENING_VERSION,awakeningSkill:AWAKENING_SKILL_VERSION}:{}),...(sortieSettings?{sortieSettings:SORTIE_SETTINGS_VERSION}:{}),...(endgameResearch?{endgameResearch:ENDGAME_RESEARCH_VERSION}:{})}, growth: growthView(await growthWallet(c)), ...(sortieSettings?{battlePartner:battlePartnerOf(await c.get('progress',c.uid))}:{}) };
   if(name==='sortie_settings'&&sortieSettings){
     const kind=a.p_kind,value=a.p_value;
     if(!['hard','repeat','dungeon','spire'].includes(kind))return failure('invalid');

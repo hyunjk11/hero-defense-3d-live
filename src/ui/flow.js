@@ -20,6 +20,7 @@ import * as HG from '../account/hero-growth.js';
 import { initGrowthUI, refreshGrowthUI } from './hero-growth.js';
 import * as Acc from '../account/account.js';
 import { mobileApp } from './mobile-mode.js';
+import { startingGoldBonus, beamAttackBonus, ENDGAME_RESEARCH_VERSION } from '../data/endgame-research.js';
 import * as P from '../account/progress.js';
 import * as GR from '../data/growth.js';
 import * as SX from '../account/steel.js';
@@ -75,6 +76,12 @@ async function prepareGrowth(stage, hero) {
   G.onXPWave = () => { G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves, false, false, 1, Object.values(G.stats.kills||{}).reduce((a,b)=>a+b,0)); };
   return true;
 }
+function applyEndgameResearch() {
+  if (mobileApp || !Acc.ready() || !Acc.A.sb?.serverEconomy || HG.HG.features.endgameResearch !== ENDGAME_RESEARCH_VERSION) return;
+  const save = Acc.load();
+  G.gold = Math.min(Number.MAX_SAFE_INTEGER, G.gold + startingGoldBonus(save));
+  G.beamAttackResearch = beamAttackBonus(save);
+}
 // ---------- 스테이지 ----------
 async function departStage(id) { if (!Acc.saveAllowed()) return; if (departing) return; departing = true; rememberStage(id); Snd.play('meteorCast', { force: true }); Snd.play('confirm'); $('fade').classList.add('on'); // Q-5 지도·Q-6 재도전/다음 공통 (47b5eb7 에서 주석 안으로 들어가 소리·화면 어두워짐이 빠졌던 것 복구)
   if (G.xpPendingWrite && !await G.xpPendingWrite) { departing = false; $('fade').classList.remove('on'); banner('XP 기록을 저장하지 못했습니다. 다시 시도해 주세요.'); return; }
@@ -86,7 +93,7 @@ async function startStageRun2(logged) {
   if (!logged) await Acc.autoLogin().catch(() => {}); if (!Acc.A.user && Acc.A.mode !== 'guest') { show('login'); refreshLogin(); return; }
   if (STAGE.hard) await Sh.verifyOwned();
   const s = Acc.load(); s.hero = Sh.usableHero(s.hero); if (!await prepareGrowth(STAGE.id, s.hero)) { enterTown(); if (HG.pendingSortieSettings()) banner(Acc.SAVE_WAIT_MESSAGE); return; } if(STAGE.hard&&!G.xpRun){enterTown();banner('하드 출정 확인 실패 · 연결과 해금 확인');return;} showSelect(); $('select').classList.add('hidden'); hideAll(); s.hero = Sh.usableHero(s.hero); // 잠긴 유료 영웅이면 기본 영웅
-  G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = STAGE ? STAGE.ch : P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.stage = STAGE; G.gold += STAGE.startGold || 0; G.phase = 'select';
+  G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = STAGE ? STAGE.ch : P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.stage = STAGE; G.gold += STAGE.startGold || 0; applyEndgameResearch(); G.phase = 'select';
   if (STAGE.hard && G.xpRun?.party) {
     const run = G.xpRun, current = () => G.xpRun === run && Acc.A.user?.id === run.owner && Acc.sessionId() === run.session;
     $('loading').classList.remove('hidden');
@@ -219,7 +226,7 @@ async function startChallengeRun() {
   const s = Acc.load(); s.hero = Sh.usableHero(s.hero);
   if (!await prepareGrowth(null, s.hero)) { enterTown(); if (HG.pendingSortieSettings()) banner(Acc.SAVE_WAIT_MESSAGE); return; }
   showSelect(); $('select').classList.add('hidden'); hideAll();
-  G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.phase = 'select'; choose(s.hero); $('retreat').classList.remove('hidden'); $('fade').classList.remove('on');
+  G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); applyEndgameResearch(); G.phase = 'select'; choose(s.hero); $('retreat').classList.remove('hidden'); $('fade').classList.remove('on');
   const bt = equipLine(G.equip); if (bt) setTimeout(() => banner(bt, '#ffe08a', 2200), 900);
 }
 

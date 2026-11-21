@@ -1,3 +1,4 @@
+import { ENDGAME_KINDS, endgameQuote, cleanEndgameResearch } from '../data/endgame-research.js';
 import { applyLoadout } from '../../server/loadouts.mjs';
 import {context,denied} from '../../server/common.mjs';
 import * as E from './equip.js';
@@ -8,10 +9,14 @@ import {CHSET,CODEX_RW} from '../data/items.js';
 import {unpackItem} from './storpack.js';
 import {TOWN_ACTIONS,townArgs,applyTown} from './direct-town.js';
 const fail=code=>{throw Object.assign(new Error(code),{code});};
-const actions=new Set(['lock','preset_save','preset_apply','open','dismantle','store','take','expand','equip','unequip','enhance','codex','run_return','craft','reroll','reroll_apply',...TOWN_ACTIONS]);
+const actions=new Set(['lock','preset_save','preset_apply','open','dismantle','store','take','expand','equip','unequip','enhance','codex','run_return','craft','reroll','reroll_apply','endgame_research',...TOWN_ACTIONS]);
 export function gearArgs(args) {
   if(!args||typeof args!=='object'||Object.keys(args).some(k=>!['p_id','p_action','p_item','p_hero','p_slot','p_pay','p_wave','p_kills','p_ch','p_recipe','p_source','p_type','p_stat','p_count','p_branch','p_locked','p_partner','p_expected'].includes(k))||
     !/^[A-Za-z0-9_-]{8,64}$/.test(args.p_id||'')||!actions.has(args.p_action))fail('INVALID_ARGUMENT');
+  if(args.p_action==='endgame_research'){
+    if(typeof args.p_id!=='string'||Object.keys(args).some(k=>!['p_id','p_action','p_stat','p_count'].includes(k))||!ENDGAME_KINDS.includes(args.p_stat)||!Number.isSafeInteger(args.p_count)||args.p_count<0)fail('INVALID_ARGUMENT');
+    return {action:args.p_action,stat:args.p_stat,count:args.p_count};
+  }
   if(args.p_action!=='run_return'&&('p_wave' in args||'p_kills' in args))fail('INVALID_ARGUMENT');
   if(args.p_action==='run_return'&&(!Number.isInteger(args.p_wave)||args.p_wave<0||args.p_wave>=5||!Number.isInteger(args.p_kills)||args.p_kills<0||args.p_kills>1000000||args.p_id!=='run-'+args.p_item))fail('INVALID_ARGUMENT');
   if(args.p_action==='craft'&&(!Number.isInteger(args.p_ch??0)||(args.p_ch??0)<0||(args.p_ch??0)>10||!E.RECIPES.some(r=>r.k===args.p_recipe)||!E.SLOT_KEYS.includes(args.p_slot)))fail('INVALID_ARGUMENT');
@@ -22,6 +27,14 @@ export function gearArgs(args) {
 }
 export function applyGear(save,args,random=Math.random) {
   const s=structuredClone(save),a=args.action,id=args.item;
+  if(a==='endgame_research'){
+    const q=endgameQuote(s,args.stat);
+    if(args.count!==q.level)return {save:s,result:{ok:false,reason:'conflict',level:q.level}};
+    if(q.reason)return {save:s,result:{ok:false,reason:q.reason,level:q.level}};
+    s.souls-=q.cost.souls;s.mat.steel-=q.cost.steel;s.mat.crystal-=q.cost.crystal;
+    s.endgameResearch={...cleanEndgameResearch(s.endgameResearch),[args.stat]:q.next};
+    return {save:s,result:{ok:true,reason:'ok',level:q.next,cost:q.cost}};
+  }
   if(a==='lock'){const ok=E.lockItem(s,id,args.locked);return {save:s,result:{ok,reason:ok?'ok':'none'}};}
   if(a==='run_return'){
     const got=reward(args.wave,args.kills);s.souls+=got;
@@ -59,6 +72,7 @@ export function applyGear(save,args,random=Math.random) {
 }
 export async function directGear(store,user,args,options) {
   const input=gearArgs(args),body=JSON.stringify(input);
+  if(input.action==='endgame_research'&&!options?.allowEndgameResearch)fail('DIRECT_UNSUPPORTED');
   return store.transaction(async tx=>{
     const c=await context(tx,user,options);c.requirePlayer();
     const receiptId=c.uid+'~gear~'+args.p_id,prior=await c.get('growth_investments',receiptId);

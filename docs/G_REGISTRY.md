@@ -27,6 +27,7 @@
 | `awakeningUseE` | ui/flow.js | 0 |  |
 | `barRes` | ui/flow.js | 1 | 🧱 바리케이드 보강 연구 배수 (account/steel.js barMul, 판 시작 시 · 2026-10-24) |
 | `BARS` | main.js | 1 | main.js 가 노출하는 값/함수 |
+| `beamAttackResearch` | ui/flow.js | 0 | PC 출정 시 고정되는 광선탑 심화 공격력 가산치 |
 | `bgModels` | main.js | 0 | main.js 가 노출하는 값/함수 |
 | `blessTab` | ui/flow.js | 8 |  |
 | `BLK` | main.js | 1 | main.js 가 노출하는 값/함수 |

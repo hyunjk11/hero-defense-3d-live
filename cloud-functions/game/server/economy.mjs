@@ -43,7 +43,7 @@ async function saveProgress(store,user,op,options){
   if(!insert&&(!old||typeof f.updated_at!=='string'||f.updated_at!==old.updated_at))return {data:[],error:null};
   const before=P.clean(old?.data||P.empty()),after=P.clean(v.data);
   // Old clients do not know these server-owned preferences. Omission is not deletion.
-  for(const k of ['lockedGear','battlePresets','battlePartner'])if(!Object.hasOwn(v.data,k)&&Object.hasOwn(before,k))after[k]=structuredClone(before[k]);
+  for(const k of ['lockedGear','battlePresets','battlePartner','endgameResearch'])if(!Object.hasOwn(v.data,k)&&Object.hasOwn(before,k))after[k]=structuredClone(before[k]);
   const wanted=stable(economicState(after));
   // Growth cache is never an authority supplied by the caller.
   if(before.growth)after.growth=before.growth;else delete after.growth;
@@ -97,7 +97,7 @@ export async function runEconomyOperation(rawStore,user,op,options={}){
   if(name==='gear_batch')return gearBatch(rawStore,economyStore,user,a,options);
   if(name==='gear_action'){
    if(a.p_action==='run_return')return settleNormal(store,user,'normal_settle',{p_token:a.p_item,p_wave:a.p_wave,p_kills:a.p_kills,p_stars:0,p_drops:[],p_bossKills:[]},options);
-   try{return await directGear(economyStore(rawStore,{rejectBalanceTruncation:true}),user,a,options);}
+   try{return await directGear(economyStore(rawStore,{rejectBalanceTruncation:true}),user,a,{...options,allowEndgameResearch:true});}
    catch(e){
     // A confirmed atomic no-op lets the existing gear client clear its purchase
     // guard. No consumed item/receipt or unresolved payment is left behind.
@@ -110,5 +110,5 @@ export async function runEconomyOperation(rawStore,user,op,options={}){
   if(name==='dungeon_buy')return directDungeonBuy(store,user,a,options);
   if(name==='spire_start')return directSpireStart(store,user,a,options);
  }
- return runOperation(store,user,op,{...options,hardFirstBonus:true,awakening:true,sortieSettings:true});
+ return runOperation(store,user,op,{...options,hardFirstBonus:true,awakening:true,sortieSettings:true,endgameResearch:true});
 }

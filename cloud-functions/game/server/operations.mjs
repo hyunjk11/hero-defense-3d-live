@@ -117,7 +117,7 @@ export async function execute(tx,user,operation,options={}){
   else if(name==='mail_archive_candidates')result=await archiveCandidates(c,a);
   else if(name==='mail_archive')result=await archiveMail(c,a);
   else if(name==='claim_mail')result=await claimMail(c,a);
-  else if(name.startsWith('growth_'))result=await growth(c,name.slice(7),a,{hardFirstBonus:options.hardFirstBonus,awakening:options.awakening,sortieSettings:options.sortieSettings});
+  else if(name.startsWith('growth_'))result=await growth(c,name.slice(7),a,{hardFirstBonus:options.hardFirstBonus,awakening:options.awakening,sortieSettings:options.sortieSettings,endgameResearch:options.endgameResearch});
   else if(name.startsWith('dungeon_'))result=await dungeon(c,name.slice(8),a);
   else if(name.startsWith('spire_'))result=await spire(c,name.slice(6),a);
   else if(name.startsWith('admin_'))result=await admin(c,name.slice(6),a);
