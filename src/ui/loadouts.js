@@ -30,7 +30,7 @@ export function mountLoadouts(host,s,refresh,onChange,isCurrent=()=>true){
    const expected=loadoutStamp(s,HG.HG.growth?.rev);refresh();
    const [r]=await runDirectGear([{p_action:action,p_count:index,p_hero:s.hero,p_partner:partner,p_expected:expected}]);
    if(Acc.sessionId()!==epoch)return;
-   if(r.ok&&action==='preset_apply')writePartner(Acc.load().hero,Acc.load().battlePartner);
+   if(r.ok&&action==='preset_apply'&&!HG.sortieSettingsEnabled())writePartner(Acc.load().hero,Acc.load().battlePartner);
    await HG.refresh({maxAgeMs:0});
    if(Acc.sessionId()!==epoch)return;
    message=r.ok?(action==='preset_save'?'편성을 저장했어요.':'장비·특성·파트너를 적용했어요.'):reasons[r.reason]||'적용하지 않았어요. 저장 상태를 확인해 주세요.';onChange();

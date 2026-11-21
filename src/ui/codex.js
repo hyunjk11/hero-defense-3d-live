@@ -52,8 +52,13 @@ export function renderCodex(s, X) { const ui = X.ui;
     const el=$('codexRoute'); if(!r){el.textContent='이 등급은 획득 경로가 없습니다.';return;}
     el.innerHTML=`<span>${esc(r.label)}</span> <button class="gbtn sm" id=codexRouteGo>${r.locked?'해금 확인':'찾으러 가기'}</button>`;
     el.scrollIntoView({block:'nearest'});
-    $('codexRouteGo').onclick=()=>{
-      if(r.target && !writeTarget(r.id,row)){el.textContent='목표를 저장하지 못했습니다. 다시 시도해 주세요.';return;}
+    $('codexRouteGo').onclick=async()=>{
+      const epoch = Acc.sessionId(), button = $('codexRouteGo');
+      button.disabled = true;
+      const ok = !r.target || await writeTarget(r.id,row);
+      if (epoch !== Acc.sessionId() || !el.isConnected || !ui.inv || ui.invTab !== 'codex' || button !== $('codexRouteGo')) return;
+      button.disabled = false;
+      if (!ok) { el.textContent='목표를 저장하지 못했습니다. 다시 시도해 주세요.'; return; }
       closeInv(); if(r.dungeon)openDungeon();else openStageSel(r.id);
     };
   };

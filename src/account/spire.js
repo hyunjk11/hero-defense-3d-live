@@ -1,9 +1,10 @@
+import { rankParty, cleanEntryParty } from './sortie-party.js';
 import * as HG from './hero-growth.js';
 import {directEntryEnabled,startDirectEntry,consumeDirectEntry,pendingDirectEntry} from './direct-spire-entry.js';
 // 🗼 무한의 탑 서버 클라이언트 (T-7, 2026-10-24) — supabase/schema.sql hd3d_spire_* RPC (T-6)
 // 기록(최고 층 · 체크포인트 · 이번 주 기록/순위 · 오늘 시작 수)은 서버 값만 메모리에 둠 (세이브/localStorage 에 저장하지 않음)
 // 서버 함수가 없으면(schema.sql 다시 실행 전) st = 'missing' → 기록·보상 없는 '연습 탑'. 게스트·오프라인도 연습 탑 (던전 account/dungeon.js 와 같은 방식)
-import { A, ensureClient, saveAllowed, SAVE_WAIT_MESSAGE } from './account.js';
+import { A, sessionId, ensureClient, saveAllowed, SAVE_WAIT_MESSAGE } from './account.js';
 import { isBannedErr, isMissingErr } from './adminlogic.js';
 import { snapFrom } from '../data/spire.js';
 
@@ -49,17 +50,21 @@ export async function spClaimWeek(week) {
 }
 // 출발: 서버에 도전 등록. → { mode: 'ranked', token, from } | { mode: 'practice', why: 'guest'|'missing'|'error' } | { blocked: true, msg }
 export async function spStart(from) {
-  if (!saveAllowed()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
+  const requestedBy = sessionId();
+  if (!saveAllowed() && !HG.pendingSortieSettings()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
   await HG.refresh();
-  if (!saveAllowed()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
+  if (sessionId() !== requestedBy || !saveAllowed() || HG.pendingSortieSettings()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
   from = snapFrom(from); const u = uid(); if (!u) return { mode: 'practice', why: 'guest', from: 1 };
-  const direct=directEntryEnabled(),response=direct?await startDirectEntry(rpc,from,HG.enabled()?1:0,o=>{const text=JSON.stringify({...o,cleared:SPS.cleared});sessionStorage.setItem(TOK,text);if(sessionStorage.getItem(TOK)!==text)throw Error('Tower token write failed');}):await rpc('hd3d_spire_start', { p_from: from, p_growth: HG.enabled() ? 1 : 0 });
+  if (A.sb?.serverEconomy && !HG.enabled()) return pendingDirectEntry() ? {blocked:true,msg:SAVE_WAIT_MESSAGE} : { mode: 'practice', why: 'error', from: 1 };
+  const party = rankParty('spire');
+  const direct=directEntryEnabled(),response=direct?await startDirectEntry(rpc,from,HG.enabled()?1:0,o=>{const text=JSON.stringify({...o,cleared:SPS.cleared});sessionStorage.setItem(TOK,text);if(sessionStorage.getItem(TOK)!==text)throw Error('Tower token write failed');},party):await rpc('hd3d_spire_start', { p_from: from, p_growth: HG.enabled() ? 1 : 0 });
+  if (uid() !== u || sessionId() !== requestedBy) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
   if(response.blocked)return response;
   const {data,error}=response;
   if (error) { if (isBannedErr(error)) return { blocked: true, msg: '계정이 정지되어 무한의 탑에 입장할 수 없어요.' }; setErr(error); return { mode: 'practice', why: SPS.st === 'missing' ? 'missing' : 'error', from: 1 }; }
   if (!data || data.ok === false) { if (data && data.reason === 'daily_limit') { SPS.left = 0; SPS.used = +data.used || SPS.used; } return { blocked: true, reason: data && data.reason, msg: SP_REASON[data && data.reason] || '입장할 수 없어요.' }; }
   SPS.left = Math.max(0, +data.left || 0); SPS.used = +data.used || 0; const f = Math.floor(+data.from || from);
-  if(!direct)ss.set(TOK, JSON.stringify({ t: String(data.token), u, from: f, best: Math.max(0, +data.best || 0), cleared: SPS.cleared, at: Date.now() })); return { mode: 'ranked', token: String(data.token), from: f };
+  if(!direct)ss.set(TOK, JSON.stringify({ t: String(data.token), u, party, from: f, best: Math.max(0, +data.best || 0), cleared: SPS.cleared, at: Date.now() })); return { mode: 'ranked', token: String(data.token), from: f };
 }
 // 연습 탑 표시 (새로고침 뒤 run.js 가 읽음)
 export const markPractice = (why, from) => ss.set(TOK, JSON.stringify({ practice: String(why || 'guest'), from: snapFrom(from), u: uid(), at: Date.now() }));
@@ -68,7 +73,7 @@ export const markPractice = (why, from) => ss.set(TOK, JSON.stringify({ practice
 export function takeEntry(from) { let o = null; try { o = JSON.parse(ss.get(TOK) || 'null'); } catch (e) {} ss.del(TOK);
   if (!o || typeof o !== 'object' || Date.now() - (+o.at || 0) > 10 * 60 * 1000) return { mode: 'practice', why: uid() ? 'reload' : 'guest' };
   if (o.practice) return { mode: 'practice', why: String(o.practice) };
-  if (typeof o.t === 'string' && /^[0-9a-f-]{36}$/i.test(o.t) && o.u && (!uid() || o.u === uid()) && +o.from === +from) {try{consumeDirectEntry(o);}catch{return {mode:'blocked',blocked:true,why:'entry_storage'};}return { mode: 'ranked', token: o.t, from: +o.from, best: +o.best || 0, cleared: +o.cleared || 0 };}
+  if (typeof o.t === 'string' && /^[0-9a-f-]{36}$/i.test(o.t) && o.u && (!uid() || o.u === uid()) && +o.from === +from) {try{consumeDirectEntry(o);}catch{return {mode:'blocked',blocked:true,why:'entry_storage'};}return { mode: 'ranked', token: o.t, party: cleanEntryParty(o.party), owner: o.u, from: +o.from, best: +o.best || 0, cleared: +o.cleared || 0 };}
   return { mode: 'practice', why: 'reload' }; }
 // 보스층(5의 배수) 돌파 체크포인트 — 연결 오류면 다시 시도. → { ok, floor, best, new_best, week_best, reward } | { ok:false, reason, msg, offline }
 export async function spPing(token, floor) {

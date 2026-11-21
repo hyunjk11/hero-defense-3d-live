@@ -1,7 +1,8 @@
+import { rankParty, cleanEntryParty } from './sortie-party.js';
 import * as HG from './hero-growth.js';
 // One daily entry per account (server) or per guest save (this device).
 import { guestDungeonLeft, startGuestDungeon, finishGuestDungeon } from './dungeon-local.js';
-import { A, ensureClient, load, store, saveAllowed, SAVE_WAIT_MESSAGE } from './account.js';
+import { A, sessionId, ensureClient, load, store, saveAllowed, SAVE_WAIT_MESSAGE } from './account.js';
 import { isBannedErr, isMissingErr } from './adminlogic.js';
 import { DG_REASON } from '../data/dungeon.js';
 import { ls } from '../core/store.js';
@@ -37,9 +38,10 @@ export async function dgStatus() {
 }
 // 출발: 서버 입장 등록. → { mode: 'ranked', token } | { mode: 'practice', why: 'guest'|'missing'|'error' } | { blocked: true, msg }
 export async function dgStart() {
-  if (!saveAllowed()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
+  const requestedBy = sessionId();
+  if (!saveAllowed() && !HG.pendingSortieSettings()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
   await HG.refresh();
-  if (!saveAllowed()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
+  if (sessionId() !== requestedBy || !saveAllowed() || HG.pendingSortieSettings()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
   const u = uid(); if (!u) {
     const enter = () => {
       const r = startGuestDungeon(load(), crypto.randomUUID());
@@ -51,12 +53,14 @@ export async function dgStart() {
     };
     return globalThis.navigator?.locks ? navigator.locks.request('hd3d_live_guest_dungeon', enter) : enter();
   }
+  if (A.sb?.serverEconomy && !HG.enabled()) return {blocked:true,msg:SAVE_WAIT_MESSAGE};
+  const party = rankParty('dungeon');
   const { data, error } = await rpc('hd3d_dungeon_start', { p_growth: HG.enabled() ? 1 : 0, p_max_floors: 10 });
-  if (uid() !== u) return { blocked: true, msg: '계정이 변경됐어요. 다시 입장해 주세요.' };
+  if (uid() !== u || sessionId() !== requestedBy) return { blocked: true, msg: '계정이 변경됐어요. 다시 입장해 주세요.' };
   if (error) { if (isBannedErr(error)) return { blocked: true, msg: '계정이 정지되어 던전에 입장할 수 없어요.' }; setErr(error); return { blocked: true, msg: DGS.msg }; }
   if (!data || data.ok === false) { if (data && data.reason === 'daily_limit') { DGS.left = 0; DGS.used = +data.used || DGS.used; } return { blocked: true, msg: DG_REASON[data && data.reason] || '입장할 수 없어요.' }; }
   DGS.left = Math.max(0, +data.left || 0); DGS.used = +data.used || 0;
-  ss.set(TOK, JSON.stringify({ t: String(data.token), u, maxFloors: data.floors_limit === 10 ? 10 : 5, at: Date.now() })); return { mode: 'ranked', token: String(data.token), maxFloors: data.floors_limit === 10 ? 10 : 5 };
+  ss.set(TOK, JSON.stringify({ t: String(data.token), u, party, maxFloors: data.floors_limit === 10 ? 10 : 5, at: Date.now() })); return { mode: 'ranked', token: String(data.token), maxFloors: data.floors_limit === 10 ? 10 : 5 };
 }
 // 연습 원정 표시 (새로고침 뒤 run.js 가 읽음)
 export const markPractice = why => ss.set(TOK, JSON.stringify({ practice: String(why || 'guest'), u: uid(), at: Date.now() }));
@@ -65,7 +69,7 @@ export function takeEntry() { let o = null; try { o = JSON.parse(ss.get(TOK) || 
   if (!o || typeof o !== 'object' || Date.now() - (+o.at || 0) > 10 * 60 * 1000) return { mode: 'practice', why: 'reload' };
   if (o.local && !uid() && load().guestDungeon?.token === o.t && load().guestDungeon.status === 'active') return { mode: 'local', token: o.t, maxFloors: load().guestDungeon.maxFloors === 10 ? 10 : 5 };
   if (o.practice) return { mode: 'practice', why: String(o.practice) };
-  if (typeof o.t === 'string' && /^[0-9a-f-]{36}$/i.test(o.t) && o.u && (!uid() || o.u === uid())) return { mode: 'ranked', token: o.t, maxFloors: o.maxFloors === 10 ? 10 : 5 }; // 로그인 복원이 늦어도 token 유지 (서버가 정산 때 계정을 다시 확인)
+  if (typeof o.t === 'string' && /^[0-9a-f-]{36}$/i.test(o.t) && o.u && (!uid() || o.u === uid())) return { mode: 'ranked', token: o.t, party: cleanEntryParty(o.party), owner: o.u, maxFloors: o.maxFloors === 10 ? 10 : 5 }; // 로그인 복원이 늦어도 token 유지 (서버가 정산 때 계정을 다시 확인)
   return { mode: 'practice', why: 'reload' }; }
 // 정산: 서버가 층 수·시간을 다시 검사해 메달 지급 (token 당 한 번). → { ok, medals, total, floors, capped } | { ok:false, msg }
 export async function dgFinishLocal(token, floors, win) {

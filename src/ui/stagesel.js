@@ -7,6 +7,7 @@ import * as HG from '../account/hero-growth.js';
 import { hardOpen, hardReward } from '../data/hard.js';
 import { HARD_REWARD_VERSION, collectionOdds, collectionCount } from '../data/hard-collection.js';
 import { selectedSummary } from './skill-tree.js';
+import { banner } from './hud.js';
 import { Snd } from '../audio/audio.js';
 import { $, esc } from '../core/util.js';
 import { mobileApp as isMobile } from './mobile-mode.js';
@@ -39,6 +40,7 @@ export function openStageSel(id = null) {
   const s = HG.viewSave(); if (!ui.open) Snd.play('confirm');
   if (!ui.sel) { try { const last = JSON.parse(localStorage.getItem(LAST) || 'null'); if (last && ST.stageUnlocked(s, last.id)) ui.sel = ST.stars(s, last.id) ? ST.nextStage(s, last.id) || last.id : last.id; } catch (_) {} }
   ui.sel ||= current(s) || '1-1'; ui.hard=!!ST.getStage(ui.sel)?.hard;ui.ch = ST.getStage(ui.sel)?.ch||1; ui.open = true; SP.show(); render(); stageOverlay(true);
+  if (Acc.A.user) void HG.refresh();
 }
 export function closeStageSel(silent) { if (ui.open && !silent) Snd.play('ui'); ui.open = false; SP.hide(); hideTip(); stageOverlay(false); }
 const SP = definePanel('stage', { id: 'stagePanel', z: 40, isOpen: () => ui.open, close: s => closeStageSel(s) });
@@ -86,8 +88,20 @@ function render() {
   info.innerHTML = `<div class="sn">${S.no} · ${S.n}${S.boss ? ' <span class="bossT">챕터 보스</span>' : ''}</div><div class="sd">웨이브 ${S.waves} · 포털 ${S.spawns.length}개 · 몬스터 체력 ×${isMobile ? S.hp : pcHpMultiplier.format(S.hp)}</div><div class="prop" style="--cc:${C.color}"><b>${C.propN}</b> ${C.propD}</div>${S.hint ? `<div class="sd">💡 ${esc(S.hint)}</div>` : ''}<div class="conds">${ST.STAR_D.map((d, i) => `<div class="${i < k ? 'got' : ''}">${i < k ? '★' : '☆'} ${d}</div>`).join('')}</div><div class="rw">영혼석 ${ui.hard?reward.souls:ST.stageReward(S.id, !k)}${ui.hard?' · '+(!k&&!isMobile&&HG.HG.features.hardFirstBonus===1?'기본 ':'')+'장비 상자 '+reward.items.length+'개':k ? ' (재도전)' : ' + 첫 클리어 장비 1개'}</div>${dropHtml(P.dropPreview(S.id, s.hero, s),extra)}${k&&u&&HG.HG.features.repeatTarget===1?targetHtml(S.id):''}<div class="sd">${esc(selectedSummary(s.hero))}</div>${ui.hard&&HG.HG.features.hardParty===1?partnerHtml(s.hero):''}${u ? '<button class="gbtn main bigGo" id="stGo">⚔ 출정!</button>' : `<div class="warn">🔒 ${ui.hard?!hardOpen(s)?'일반 10-6':HG.HG.features.hard!==1?'로그인·하드 서버 연결':'이전 하드 스테이지':ST.chapterUnlocked(s, C.id) ? '이전 스테이지' : '이전 챕터 보스'}를 클리어하면 열려요</div>`}`;
   mountStageAction('stGo');
   if ($('stGo')) $('stGo').onclick = () => { closeStageSel(true); hooks.start(S.id); }; bindTips(info, s);
-  const partner=$('hardPartner'); if(partner)partner.onchange=()=>{if(!writePartner(s.hero,partner.value)){partner.value=readPartner(s.hero)||'';partner.setCustomValidity('편성을 저장하지 못했습니다.');partner.reportValidity();}else partner.setCustomValidity('');};
-  const target=$('repeatTarget');if(target)target.onchange=()=>{if(!writeTarget(S.id,target.value)){target.value=readTarget(S.id)||'';target.setCustomValidity('선택을 저장하지 못했습니다.');target.reportValidity();}else target.setCustomValidity('');};
+  const bindPreference = (id, read, write) => {
+    const control = $(id); if (!control) return;
+    control.onchange = async () => {
+      const epoch = Acc.sessionId(), selectedStage = ui.sel;
+      control.disabled = true;
+      const ok = await write(control.value);
+      control.disabled = false;
+      if (epoch !== Acc.sessionId() || !ui.open || selectedStage !== ui.sel || !$(id)) return;
+      $(id).value = read() || '';
+      if (!ok) { Snd.play('error'); banner(Acc.SAVE_WAIT_MESSAGE, '#ffb06a', 2000); }
+    };
+  };
+  bindPreference('hardPartner', () => readPartner(s.hero), value => writePartner(s.hero, value));
+  bindPreference('repeatTarget', () => readTarget(S.id), value => writeTarget(S.id, value));
 }
 function floaties(ic) { let h = '<div class="floaties">'; for (let i = 0; i < 14; i++) h += `<i style="left:${(i * 37) % 100}%;animation-delay:${-(i * 1.3) % 9}s;animation-duration:${8 + (i % 5)}s;font-size:${14 + (i % 4) * 6}px">${ic[i % ic.length]}</i>`; return h + '</div>'; }
 
@@ -106,6 +120,7 @@ function bindTips(root, s) {
 }
 
 HG.onGrowth(()=>{if(ui.open)render();});
+document.addEventListener('visibilitychange', () => { if (ui.open && Acc.A.user && document.visibilityState === 'visible') void HG.refresh(); });
 
 function targetHtml(id){const selected=readTarget(id)||'';return `<label class=repeatTarget>반복 상자 1개<select id=repeatTarget aria-label="반복 보상 목표 장비">${['',...REPEAT_ROWS].map(row=>`<option value="${row}" ${row===selected?'selected':''}>${esc(targetLabel(row))}</option>`).join('')}</select></label>`;}
 
