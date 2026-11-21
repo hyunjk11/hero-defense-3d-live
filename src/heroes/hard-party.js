@@ -36,13 +36,18 @@ export function startHardParty(run) {
   G.partyAI = supportAI; setControlled(main); buildBar(); refreshHud(); return true;
 }
 function supportAI(h, dt) {
-  if (!battle() || h.dead > 0) return;
+  if (!battle()) return;
+  runSupportAI(h, dt);
+}
+export function runSupportAI(h, dt) {
+  if (h.dead > 0) return;
   h.aiT = (h.aiT || 0) - dt; if (h.aiT > 0) return; h.aiT = .3;
   const enemies = G.enemies.filter(e => !e.dead && e.dying === undefined && !(e.immT > G.t) && e.state !== 'spawn');
   if (!h.hardHold && !skillBusy(h) && !(h.warpT > 0)) {
     const role = dungeonRole(h.cls, h.adv), dragon = h.cls === 'fighter' && h.adv?.k === 'dragon';
     const allies = G.heroes.filter(x => x !== h && x.dead <= 0), tank = allies.find(x => dungeonRole(x.cls, x.adv) === 'tank');
-    const plan = rolePlan(role, { ...pos(h), range: dragon ? FT.jpRange : stat.range(), minRange: dragon ? Math.min(FT.jpRange * .7, Math.max(4, stat.range() + 1.2)) : undefined, jp: FT.jpRange, qSelf: h.adv?.skill === 'tigerquake' ? TQ.R * .85 : 0, skillReady: h.skillCd <= 0 }, { lead: allies[0] ? pos(allies[0]) : null, tank: tank ? pos(tank) : null, enemies: enemies.map(e => ({ ...pos(e), r: isRangedFoe(e.E), fly: !!e.E.fly })), backs: allies.map(pos) });
+    const lead = allies.includes(G.hero) ? G.hero : allies[0];
+    const plan = rolePlan(role, { ...pos(h), range: dragon ? FT.jpRange : stat.range(), minRange: dragon ? Math.min(FT.jpRange * .7, Math.max(4, stat.range() + 1.2)) : undefined, jp: FT.jpRange, qSelf: h.adv?.skill === 'tigerquake' ? TQ.R * .85 : 0, skillReady: h.skillCd <= 0 }, { lead: lead ? pos(lead) : null, tank: tank ? pos(tank) : null, enemies: enemies.map(e => ({ ...pos(e), r: isRangedFoe(e.E), fly: !!e.E.fly })), backs: allies.map(pos) });
     h.aiTgt = plan.focus == null ? null : enemies[plan.focus];
     if (plan.move) {
       if (!h.aiGoal || Math.hypot(h.aiGoal.x - plan.move.x, h.aiGoal.z - plan.move.z) > 1.2 || !h.path.length) { heroGoTo(goal.set(plan.move.x, 0, plan.move.z)); h.aiGoal = plan.move; }

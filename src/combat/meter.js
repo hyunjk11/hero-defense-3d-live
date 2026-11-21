@@ -16,8 +16,15 @@ export const skillShare = m => (m.tot > 0 ? m.sk / m.tot : 0);
 export function meterTaken(m, d) { if (d > 0) { m.taken += d; m.takenN++; } }
 // 타워별 피해: tw.dmT / tw.dmK (hurt() 가 기록) · 피해를 준 타워는 list(G.dmTowers) 에 한 번만 → 판매·파괴돼도 결과 화면에 남음
 // Retired statistics own scalar values only; in-flight shots may still update via tw.dmRecord.
+// Optional observer IDs live in a weak map; a retired record retains no tower reference.
+const towerMeterIds=new WeakMap();
+export function towerMeterIdentity(tw){
+  let id=towerMeterIds.get(tw);if(!id){id={};towerMeterIds.set(tw,id);}
+  return id;
+}
 export function retireTowerMeter(list, tw) {
   const record = tw.dmRecord || (tw.dmRecord = { type: tw.type, lvl: tw.lvl, branch: tw.branch || null, dmT: tw.dmT || 0, dmK: tw.dmK || 0, dead: true });
+  if(towerMeterIds.has(tw))towerMeterIds.set(record,towerMeterIds.get(tw));
   if (list) for (let i = 0; i < list.length; i++) if (list[i] === tw) list[i] = record;
   return record;
 }

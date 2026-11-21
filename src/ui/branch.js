@@ -1,12 +1,13 @@
 import { $ } from '../core/util.js';
 import { G } from '../core/state.js';
-import { BRANCH, canSpecialize } from '../data/growth.js';
+import { towerSpecializable } from '../world/tower-rules.js';
+import { BRANCH } from '../data/growth.js';
 import { chooseBranch } from '../world/growth.js';
 
 let shownTower = null;
 
 export function renderBranch(tower) {
-  const next = tower?.kind === 'tower' && canSpecialize(tower) ? tower : null;
+  const next = tower?.kind === 'tower' && towerSpecializable(tower, G.practiceSandbox) ? tower : null;
   // Keep buttons stable during HUD ticks so a press cannot lose its target.
   if (shownTower === next) return;
   shownTower = next;

@@ -15,7 +15,7 @@
 | `advBar` | ui/flow.js | 1 |  |
 | `advDmg` | heroes/advfx.js | 2 | 계측/카운터 (테스트·통계용) |
 | `advHeal` | heroes/advfx.js · heroes/fighter.js | 2 |  |
-| `advModelFail` | dungeon/run.js · heroes/hard-party.js · ui/flow.js · ui/select.js | 1 |  |
+| `advModelFail` | dungeon/run.js · heroes/hard-party.js · heroes/practice-party.js · ui/flow.js · ui/select.js | 1 |  |
 | `advN` | heroes/advfx.js | 43 | 계측/카운터 (테스트·통계용) |
 | `allModels` | main.js | 3 | main.js 가 노출하는 값/함수 |
 | `autoSkill` | heroes/autoskill.js | 3 | ⚡ 스킬 자동 사용 켜짐 여부 (localStorage hd3d_autoSkill, 기본 false · 2026-10-24) |
@@ -24,10 +24,10 @@
 | `autoSkillT` | heroes/autoskill.js | 2 | ⚡ 다음 자동 판단까지 남은 시간 (게임 시간, 0.25초 주기) |
 | `autoWaveAt` | ui/autowave.js | 0 | Q-13 다음 웨이브 자동 시작 시각 (G.t 기준, 0 = 꺼짐) |
 | `awakeningLevel` | heroes/hero.js · ui/flow.js | 0 |  |
-| `awakeningUseE` | ui/flow.js | 0 |  |
+| `awakeningUseE` | heroes/hero.js · ui/flow.js | 0 |  |
 | `barRes` | ui/flow.js | 1 | 🧱 바리케이드 보강 연구 배수 (account/steel.js barMul, 판 시작 시 · 2026-10-24) |
 | `BARS` | main.js | 1 | main.js 가 노출하는 값/함수 |
-| `beamAttackResearch` | ui/flow.js | 0 | PC 출정 시 고정되는 광선탑 심화 공격력 가산치 |
+| `beamAttackResearch` | ui/flow.js · ui/practice.js | 0 | PC 출정 시 고정되는 광선탑 심화 공격력 가산치 |
 | `bgModels` | main.js | 0 | main.js 가 노출하는 값/함수 |
 | `blessTab` | ui/flow.js | 8 |  |
 | `BLK` | main.js | 1 | main.js 가 노출하는 값/함수 |
@@ -118,7 +118,7 @@
 | `heroStat` | heroes/hero.js | 4 |  |
 | `heroTree` | ui/flow.js | 0 | 출정 시 고정한 영웅 특성 스냅샷 |
 | `hoverTile` | main.js | 3 | main.js 가 노출하는 값/함수 |
-| `hpMul` | core/waves.js · dungeon/run.js | 3 |  |
+| `hpMul` | core/waves.js · dungeon/run.js · ui/practice.js | 3 |  |
 | `hurt` | main.js | 83 | main.js 가 노출하는 값/함수 |
 | `labTab` | ui/lab.js | 2 |  |
 | `legend` | ui/flow.js | 1 | 전설 스킬 상태 |
@@ -149,7 +149,7 @@
 | `openBlessing` | ui/flow.js | 6 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `openDungeon` | ui/dungeon.js | 21 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `openLab` | ui/lab.js | 4 | 함수 훅 (다른 모듈·테스트가 호출) |
-| `partyAI` | dungeon/run.js · heroes/hard-party.js · ui/practice.js | 6 |  |
+| `partyAI` | dungeon/run.js · heroes/hard-party.js · heroes/practice-party.js · ui/practice.js | 6 |  |
 | `pathStats` | main.js · world/pathfinding.js | 1 |  |
 | `pathVer` | world/pathfinding.js | 0 |  |
 | `paused` | dungeon/run.js · ui/speed.js | 19 |  |
@@ -158,6 +158,10 @@
 | `phase` | core/waves.js · dungeon/run.js · ui/flow.js · ui/practice.js · ui/result.js · ui/select.js | 142 |  |
 | `play` | main.js | 3 | main.js 가 노출하는 값/함수 |
 | `practice` | ui/practice.js | 0 | 저장소 격리된 무보상 연습 페이지 여부. 전투·결과 저장 가드 |
+| `practiceHard` | ui/practice.js | 0 | 샌드박스에서 활성 웨이브 정예 및 하드 전투 규칙. 정산 모드에는 영향 없음. |
+| `practiceParty` | heroes/practice-party.js | 0 | 연습장 5인 편성과 조작 영웅 기본 공격 및 동료 AI 설정. |
+| `practiceSandbox` | main.js · ui/practice.js | 0 | PC와 모바일 연습장의 맵·전투·건설·통계 전용 기능. |
+| `practiceWavePlan` | ui/practice.js | 0 | 현재 샌드박스 웨이브의 소환 구성과 정예 제한. |
 | `projs` | core/state.js | 5 | 기본 상태 (state.js 초기값) |
 | `Q` | main.js | 14 | main.js 가 노출하는 값/함수 |
 | `ready` | core/state.js · main.js | 133 | 기본 상태 (state.js 초기값) |
@@ -195,12 +199,12 @@
 | `slowT` | heroes/fighter.js · heroes/mechanic.js · main.js | 2 |  |
 | `Snd` | main.js | 23 | main.js 가 노출하는 값/함수 |
 | `SPAWN` | main.js | 4 | 계측/카운터 (테스트·통계용) |
-| `spawnE` | core/waves.js | 7 |  |
+| `spawnE` | core/waves.js · ui/practice.js | 7 |  |
 | `spawnEnemy` | main.js | 31 | main.js 가 노출하는 값/함수 |
 | `spawnIdx` | monsters/enemy.js | 0 |  |
 | `spawnQ` | core/state.js · core/waves.js · ui/practice.js | 48 | 기본 상태 (state.js 초기값) |
 | `SPAWNS` | main.js | 8 | main.js 가 노출하는 값/함수 |
-| `spawnT` | core/waves.js · main.js | 0 |  |
+| `spawnT` | core/waves.js · main.js · ui/practice.js | 0 |  |
 | `spClaim` | ui/spire.js | 6 | 🗼 마지막 주간 보상 받기 결과 {ok, week, rank, souls, medals, title} (T-9, 테스트 확인용) |
 | `speed` | ui/speed.js | 14 |  |
 | `spEntry` | ui/spire.js | 0 | 🗼 T-8 탑 입장 화면 출발 결과 (account/spire.js spStart: ranked/practice/blocked) — 디버그·테스트용 |
@@ -221,7 +225,7 @@
 | `T` | main.js | 9 | main.js 가 노출하는 값/함수 |
 | `THREE` | main.js | 15 | main.js 가 노출하는 값/함수 |
 | `tileAt` | main.js | 40 | main.js 가 노출하는 값/함수 |
-| `tiles` | core/state.js | 5 | 기본 상태 (state.js 초기값) |
+| `tiles` | core/state.js · world/terrain.js | 5 | 기본 상태 (state.js 초기값) |
 | `tileXZ` | main.js | 37 | 함수 훅 (다른 모듈·테스트가 호출) |
 | `timers` | core/state.js | 0 | 기본 상태 (state.js 초기값) |
 | `tool` | core/state.js · main.js · ui/input.js · ui/mobile-controls.js | 7 | 기본 상태 (state.js 초기값) |

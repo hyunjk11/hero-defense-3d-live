@@ -86,15 +86,18 @@ function killEnemy(e) {
   emit(P, p.x, p.y, p.z, e.E.boss ? 160 : 22, e.E.deathColor || (e.E.fly ? 0xb08aff : 0xe8e0d0), e.E.boss ? 10 : 5, .8, -10, 1.5); emit(P, p.x, p.y, p.z, 10, 0xffe066, 4, .6);
   if (!e.E.fly) debris(p.x, p.y, p.z, e.E.boss ? 30 : 5, e.E.deathDebris || [0xf0ead8, 0xd8d0c0], 5);
   if (e.E.boss) { G.shake = 1.1; emit(PB, p.x, p.y, p.z, 60, 0xff8a3a, 12, 1.2, -3, 3); banner(`${e.E.n} 처치!`, '#ffd23a'); Snd.play('boom', { pos: p, force: true }); later(.6, () => Snd.play('victory', { force: true, exact: true })); }
-  if (e.E.boss && G.perm) (G.runBossKills ||= []).push(G.wave);
-  if (e.E.boss && G.perm && G.hero && !(Acc.A.user && Acc.A.sb?.serverEconomy) && !G.dungeon && !G.stage?.hard && (G.forceDrop || Math.random() < BOSS_DROP)) { const it = randomItem(G.hero.cls, bossOdds(G.wave), Math.random, undefined, G.dropCh); /* 스테이지 = 그 챕터 세트, 도전 모드 = 열린 챕터 무작위 */ (G.runDrops ||= []).push(it); lootFx(p, it.g); // 보스 장비 드롭 (마을 출정 때만 · 던전 원정 제외: 던전 보상은 5단계 던전 메달)
+  if (e.E.boss && G.perm && !G.practiceSandbox) (G.runBossKills ||= []).push(G.wave);
+  if (e.E.boss && G.perm && !G.practiceSandbox && G.hero && !(Acc.A.user && Acc.A.sb?.serverEconomy) && !G.dungeon && !G.stage?.hard && (G.forceDrop || Math.random() < BOSS_DROP)) { const it = randomItem(G.hero.cls, bossOdds(G.wave), Math.random, undefined, G.dropCh); /* 스테이지 = 그 챕터 세트, 도전 모드 = 열린 챕터 무작위 */ (G.runDrops ||= []).push(it); lootFx(p, it.g); // 보스 장비 드롭 (마을 출정 때만 · 던전 원정 제외: 던전 보상은 5단계 던전 메달)
     later(1.2, () => { banner(`✦ ${GRADES[it.g].n} 장비 획득: ${it.n} ✦`, GRADES[it.g].c, 2600); Snd.play('levelUp', { force: true }); Snd.play('coins', { force: true }); }); }
   if (G.dungeon && !G.spire && e.type === "dg_lich") G.onDungeonBossKilled?.(e, p);
-  G.gold += e.E.gold; G.stats.goldEarned += e.E.gold; if (e.type === 'rift_spawn'||e.E.hardSummoned) G.stats.summonedKills = (G.stats.summonedKills || 0) + 1; else G.stats.kills[e.type] = (G.stats.kills[e.type] || 0) + 1; popCoins(p, Math.ceil(e.E.gold / 2)); Snd.play(e.E.fly ? 'poof' : 'bones', { pos: p, rate: e.E.boss ? .6 : 1, force: e.E.boss }); e.dying = e.E.fly ? .7 : 1.6;
+  if (!G.practiceSandbox) { G.gold += e.E.gold; G.stats.goldEarned += e.E.gold; popCoins(p, Math.ceil(e.E.gold / 2)); } if (e.type === 'rift_spawn'||e.E.hardSummoned) G.stats.summonedKills = (G.stats.summonedKills || 0) + 1; else G.stats.kills[e.type] = (G.stats.kills[e.type] || 0) + 1; Snd.play(e.E.fly ? 'poof' : 'bones', { pos: p, rate: e.E.boss ? .6 : 1, force: e.E.boss }); e.dying = e.E.fly ? .7 : 1.6;
   if (!e.E.fly) play(e.m, 'Death_A', { once: true, fade: .1 });
 }
 function reachCore(e) {
-  G.coreHp -= e.E.core; G.stats.leaked++; e.dead = true; removeEnemy(e); G.shake = Math.max(G.shake, .35);
+  if (!G.practiceSandbox) G.coreHp -= e.E.core;
+  G.stats.leaked++; e.dead = true; removeEnemy(e);
+  if (G.practiceSandbox) return;
+  G.shake = Math.max(G.shake, .35);
   emit(P, core.position.x, 3, core.position.z, 30, 0xff3a5a, 6, .7); crystalMat.emissive.setHex(0xff2a3a); later(.22, () => crystalMat.emissive.setHex(0x1890c0)); Snd.play('coreHit', { force: true }); Snd.play('glass', { vol: .6 });
   banner(`코어 피격! -${e.E.core}`, '#ff6a7a', 700); if (G.coreHp <= 0) gameOver();
 }

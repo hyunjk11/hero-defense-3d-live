@@ -7,7 +7,7 @@ import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mulberry32, rnd } from '../core/util.js';
-import { CORE, DUNGEON, GH, GW, NT, S, SPAWN, SPAWNS, STAGE, T, isBlock, tileX, tileZ } from '../core/grid.js';
+import { CORE, DUNGEON, GH, GW, NT, PRACTICE_SANDBOX, S, SPAWN, SPAWNS, STAGE, T, isBlock, tileX, tileZ } from '../core/grid.js';
 import { dungeonLayout } from '../data/dungeon.js';
 import { BLK } from '../data/terrain.js';
 import { G } from '../core/state.js';
@@ -32,6 +32,16 @@ export const WALL_HP = 1.6;
 // // 화산: 용암 강 칸 (건널 수 없음 = BEDROCK 규칙, t.lava 로 따로 그림)
 if (STAGE && STAGE.ch === 1) { BLK[T.DIRT].hp = 105; BLK[T.FOREST].hp = 180; } // 숲: 부드러운 흙
 function genMap() {
+  if (PRACTICE_SANDBOX) {
+    const R = mulberry32(seed);
+    G.tiles = Array.from({ length: GW }, (_, c) => Array.from({ length: GH }, (_, r) => ({
+      c, r, t: T.GRASS, hp: 0, max: 0, tower: null, bar: null,
+      s: R(), s2: R(), s3: R(), shk: 0, ck: (c + r) % 2 ? .03 : 0
+    })));
+    for (const [c, r] of SPAWNS) G.tiles[c][r].t = T.SPAWN;
+    G.tiles[CORE[0]][CORE[1]].t = T.CORE;
+    return;
+  }
   if (DUNGEON) return genDungeon();
   const R = mulberry32(seed), L = Array.from({ length: 64 }, () => Array.from({ length: 64 }, R)), sm = t => t * t * (3 - 2 * t);
   const vn = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi), a = L[xi & 63][yi & 63], b = L[(xi + 1) & 63][yi & 63], c = L[xi & 63][(yi + 1) & 63], d = L[(xi + 1) & 63][(yi + 1) & 63]; return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf; };

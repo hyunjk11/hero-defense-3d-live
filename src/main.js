@@ -3,13 +3,15 @@ import { updateMachineDeco } from './render/machine-environment.js';
 import { updateStormDeco } from './render/storm-environment.js';
 import './ui/saveconflict.js';
 import './ui/settings.js'; // Q-11b 설정 칸 DOM (다른 UI 모듈보다 먼저)
-import { updatePractice } from './ui/practice.js';
+import { updatePractice, practiceSpawnAllowed } from './ui/practice.js';
 import { initQFeedback, updateQFeedback } from './render/q-feedback.js';
 import { updateHardParty } from './heroes/hard-party.js';
+import { updatePracticeParty } from './heroes/practice-party.js';
+import { updatePracticeMeter } from './ui/practice-meter.js';
 import { Snd } from './audio/audio.js';
 import * as THREE from 'three';
 import { $, rand, rnd } from './core/util.js';
-import { CORE, GH, GW, SPAWN, SPAWNS, STAGE, T, tileX, tileZ, toTile } from './core/grid.js';
+import { CORE, GH, GW, SPAWN, SPAWNS, STAGE, PRACTICE_SANDBOX, T, tileX, tileZ, toTile } from './core/grid.js';
 import { BLK } from './data/terrain.js';
 import { startWarp } from './heroes/hero.js';
 import { updPreview } from './ui/preview.js';
@@ -87,26 +89,28 @@ const heroRange = createHeroRange(scene);
 if (mobileApp) document.body.classList.add('mobileApp');
 let refreshTouch=null;
 let lastT = performance.now(), hudT = 0;
-function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt, i === 0 ? raw : 0); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
+function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
   Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { if(G.hero?.awakeningAura)updateAwakeningAura(G.hero,G); for(const h of G.heroes||[])if(h!==G.hero&&h.awakeningAura)updateAwakeningAura(h,G); heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
 G.Snd = Snd; G.sim = (sec, h = .05) => { for (let t = 0; t < sec; t += h) step(h); };
-function step(dt, practiceClockDt = dt) {
-  updatePractice(dt, practiceClockDt);
+function step(dt) {
+  updatePractice();
   if (G.slowT > 0) { dt *= G.slowF || .4; G.slowT -= dt; } // 메카닉 변신 연출: 잠깐 슬로 모션 (변신할 때만)
   G.t += dt;
   for (let i = G.timers.length - 1; i >= 0; i--) { const tm = G.timers[i]; tm.t -= dt; if (tm.t <= 0) { G.timers.splice(i, 1); runTimer(tm); } }
   if (G.phase === 'select') updSelect(dt);
   let clearBonus;
-  if (G.phase === 'wave') { if (G.spawnQ.length) { G.spawnT -= dt; if (G.spawnT <= 0) { G.spawnT = rnd(.55, .9); const t0 = G.spawnQ.shift(), el = G.spawnE ? G.spawnE.shift() : false; spawnEnemy(t0, G.hpMul, undefined, el); if (ETYPES[t0].pack && G.spawnQ[0] === t0) G.spawnT = .22; /* 무리는 붙어서 */ } } else if (!G.enemies.length && !pendingSpawns() && !G.dungeon) clearBonus = endWave(); }
+  if (G.phase === 'wave') { if (G.spawnQ.length) { G.spawnT -= dt; if (G.spawnT <= 0 && (!G.practiceSandbox || practiceSpawnAllowed())) { G.spawnT = rnd(.55, .9); const t0 = G.spawnQ.shift(), el = G.spawnE ? G.spawnE.shift() : false; spawnEnemy(t0, G.hpMul, undefined, el); if (ETYPES[t0].pack && G.spawnQ[0] === t0) G.spawnT = .22; /* 무리는 붙어서 */ } } else if (!G.enemies.length && !pendingSpawns() && !G.dungeon) clearBonus = endWave(); }
   updAutoWave(clearBonus);
   if (G.dungeon) updDungeon(dt); // 던전 원정: 층·웨이브·결과 (src/dungeon/run.js)
   updateHardParty(dt);
+  if (G.practiceSandbox) updatePracticeParty(dt);
   if (hero && G.phase !== 'over' && G.phase !== 'select') {
     if (G.prof) { const pf = G.prof, tm = (k, f) => { const t0 = performance.now(); f(); pf[k] = (pf[k] || 0) + performance.now() - t0; };
       tm('hero', () => { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); }); tm('enemies', () => updEnemies(dt)); tm('separate', () => separate(dt)); tm('towers', () => updTowers(dt)); tm('projs', () => updProjs(dt)); updLegend(dt); }
-    else { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); updEnemies(dt); separate(dt); updTowers(dt); updProjs(dt); updLegend(dt); } if (hero.skillCd > 0) hero.skillCd -= dt; updAutoSkill(dt);
+    else { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); updEnemies(dt); separate(dt); updTowers(dt); updProjs(dt); updLegend(dt); } if (hero.skillCd > 0) hero.skillCd -= dt; if (G.practiceParty?.basic !== false) updAutoSkill(dt);
     if (keys.w || keys.a || keys.s || keys.d || G.trialAxis?.x || G.trialAxis?.y || hero.path.length) cam.target.lerp(new THREE.Vector3(hero.g.position.x * .4, 0, hero.g.position.z * .4 + 1), dt * 2);
   }
+  if (G.practiceSandbox) updatePracticeMeter(G);
   G.distT -= dt; if (G.distDirty && G.distT <= 0) { computeDist(); G.distT = .35; }
   for (const t of G.dirty) { refreshTile(t); if (t.shk > 0) t.shk -= dt; else G.dirty.delete(t); }
   updFlow(dt); updLoot(dt); updPreview(dt); updFx(dt); if (!mobileApp) updateGearArtillery(dt); updateQFeedback(dt); updParticles(P, dt); updParticles(PB, dt); updVolcano(dt); updRuins(dt); updateSwampDeco(G.t); updateStormDeco(G.t); updateMachineDeco(G.t); updDebris(dt); updCoins(dt); updLighting(dt); updRoute(); updBars(dt); updBossBar(dt); Snd.listener = cam.target; if (G.screenMusic) Snd.setMusic(G.screenMusic); else if (G.phase !== 'over') Snd.setMusic(G.phase === 'wave' ? (G.enemies.some(e => e.E.boss && !e.dead) ? 'boss' : 'wave') : 'build');
@@ -115,6 +119,7 @@ function step(dt, practiceClockDt = dt) {
   if (moveMark.visible) { moveMark.scale.multiplyScalar(1 - dt * 3); moveMark.material.opacity = moveMark.scale.x; if (moveMark.scale.x < .2) moveMark.visible = false; }
   G.shake = Math.max(0, G.shake - dt * 1.8); updateCam(); refreshTouch?.(); hudT += dt; if (hudT > .15) { hudT = 0; if (G.phase !== 'select' && G.phase !== 'loading' && G.phase !== 'town' && G.phase !== 'menu') refreshHud(); }
 }
+G.practiceSandbox = PRACTICE_SANDBOX;
 genMap(); initTerrainColors(); refreshAll(); buildPortal(); buildCore(); computeDist(); updateCam(); loop();
 // 첫 로딩 계획 (P-2 지연 로딩). ?test/?skipintro(테스트·영웅 선택 화면) = 전부 먼저 (?lazy 로 끌 수 있음)
 //  스테이지 출정: 몬스터 + 저장된 영웅(유료면 대체 영웅 마법사도, 버들이면 장비·변신 로봇까지)만 — 판 중에는 영웅이 바뀌지 않으므로 백그라운드 로딩 없음

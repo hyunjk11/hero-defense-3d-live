@@ -9,7 +9,7 @@ const source = file => readFileSync(new URL('../'+file, import.meta.url), 'utf8'
 for (const [query,visible,hard] of [
   ['stage=1-1',false,false], ['stage=10-6',false,false],
   ['stage=hard-1-1',true,true], ['challenge=1',true,false],
-  ['practice=1&stage=1-1',true,false], ['dungeon=1',true,false],
+  ['practice=1&stage=1-1',true,true], ['dungeon=1',true,false],
   ['mobileApp=1&stage=1-1',false,false], ['mobileApp=1&stage=hard-1-1',true,true], ['mobileApp=1&challenge=1',true,false],
 ]) test(`actual stage and platform resolve beam availability: ${query}`, () => {
   execFileSync(process.execPath, ['--input-type=module','-e',`
