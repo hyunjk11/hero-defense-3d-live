@@ -4,12 +4,13 @@ import { T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
 import { cam, camera, renderer } from '../render/scene.js';
 import { tileAt } from '../world/terrain.js';
 import { groundY } from '../monsters/ai.js';
-import { towerAvailable, TOWERS, BARRICADE } from '../data/towers.js';
+import { TOWERS, BARRICADE } from '../data/towers.js';
+import { towerAvailable, towerVisible } from '../world/tower-rules.js';
 import { SFX } from '../audio/sfx.js';
 import { clearCost } from '../combat/build.js';
 import { build, select, mouseGround, setTool } from './input.js';
 
-const types = ['arrow','cannon','magic','guardian'];
+const types = ['arrow','cannon','magic','guardian'].filter(towerVisible);
 const icons = {barricade:'🧱',clear:'⛏',arrow:'🏹',cannon:'💣',magic:'🔮',guardian:'🔆'};
 export function tileOptions(t) {
   if (!t || t.tower || t.bar) return [];

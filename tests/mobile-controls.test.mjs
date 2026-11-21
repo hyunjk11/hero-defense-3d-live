@@ -6,7 +6,8 @@ import * as THREE from '../lib/three.module.js';
 import {towerAvailable} from '../src/data/towers.js';
 const read=f=>fs.readFileSync(new URL('../'+f,import.meta.url),'utf8');
 const strip=s=>s.replace(/^import .*;.*$/gm,'').replace(/\bexport (?=function|const)/g,'');
-function fixture(){
+function fixture(beamVisible=true){
+ const towerVisible=k=>k!=='guardian'||beamVisible;
  class Element {
   constructor(){this.handlers={};this.style={};this.children=[];this.dataset={};this.hidden=true;this.classList={add(){}};}
   addEventListener(t,fn){this.handlers[t]=fn;} setPointerCapture(){} replaceChildren(){this.children=[];}
@@ -20,7 +21,7 @@ function fixture(){
  const G={phase:'build',tool:'move',gold:220},tile={t:1},T={GRASS:0,CARVED:9},called=[],cam={r:58,theta:.22,phi:.9},mouseGround=new THREE.Vector3();
  const camera=new THREE.PerspectiveCamera(60,1,.1,100);camera.position.set(0,12,8);camera.lookAt(0,0,0);camera.updateMatrixWorld();
  const towers=Object.fromEntries(['arrow','cannon','magic','guardian'].map(k=>[k,{n:k,cost:60}]));
- const env=vm.createContext({towerAvailable,cam,mouseGround,setTool:k=>G.tool=k,BARRICADE:{cost:30},THREE,G,T,isBlock:t=>t===1,TOWERS:towers,document:doc,renderer:{domElement:cvs},camera,inGrid:()=>true,toTile:()=>[2,3],tileAt:()=>tile,tileX:()=>0,tileZ:()=>0,groundY:()=>0,clearCost:()=>15,
+ const env=vm.createContext({towerAvailable:(k,state)=>towerVisible(k)&&towerAvailable(k,state),towerVisible,cam,mouseGround,setTool:k=>G.tool=k,BARRICADE:{cost:30},THREE,G,T,isBlock:t=>t===1,TOWERS:towers,document:doc,renderer:{domElement:cvs},camera,inGrid:()=>true,toTile:()=>[2,3],tileAt:()=>tile,tileX:()=>0,tileZ:()=>0,groundY:()=>0,clearCost:()=>15,
  select(){},build(c,r){called.push([c,r,G.tool]);if(G.gold<(G.tool==='clear'?15:60))return false;
  if(G.tool==='clear'){G.gold-=15;tile.t=0;}else {G.gold-=60;tile.tower={};}return true;},
  addEventListener(){},innerWidth:720,innerHeight:400,SFX:{init(){}}});
@@ -97,4 +98,10 @@ test('public build helper never places a previously selected tower when laser is
  const G={tool:'arrow',wave:4,phase:'wave',gold:200},ctx=vm.createContext({G,towerAvailable,build(){G.gold-=60;return true;}});
  vm.runInContext('function setTool(t){'+guard+'G.tool=t;}'+main,ctx);
  assert.equal(G.build(2,3,'guardian'),false);assert.equal(G.gold,200);assert.equal(G.tool,'arrow');
+});
+
+test('Normal touch palette omits the beam entirely even after wave five',()=>{
+ const f=fixture(false);f.tile.t=0;f.G.wave=7;f.tap();
+ assert.deepEqual(f.menu.children.map(b=>b.dataset.tool),['arrow','cannon','magic']);
+ f.menu.children[0].onclick(f.event());assert.deepEqual(f.called,[[2,3,'arrow']]);
 });

@@ -11,13 +11,15 @@ const aim=e=>e.g.position.clone().setY(e.E.fly?(e.m?.inner?.position.y??3):e.g.p
 const valid=(e,tw)=>!!e&&!e.dead&&e.state!=='spawn'&&!(e.immT>G.t)&&Math.hypot(e.g.position.x-tw.m.g.position.x,e.g.position.z-tw.m.g.position.z)<=tw.S.range;
 function reset(b){b.target=null;b.age=0;b.acc=0;b.burst=0;b.sweep=0;b.flash=0;b.visual.g.visible=false;}
 export function clearBeam(tw){if(tw.beam){disposeBeamVisual(tw.beam.visual);tw.beam=null;}}
-function select(tw){
-  let best=null,score=Infinity;const focus=tw.B?.beamFocus;
+const heavyRank=e=>e?.E.boss?2:e?.E.elite?1:0;
+function select(tw, onlyHeavy=false){
+  let best=null,score=Infinity;const focus=tw.B?.beamFocus,heavy=tw.S.beamHeavy;
+  const rank=e=>heavy?heavyRank(e):Number(!!e.E.boss);
   for(const e of G.enemies){
-    if(!valid(e,tw))continue;
+    if(!valid(e,tw)||(onlyHeavy&&!heavyRank(e)))continue;
     const d=tw.m.g.position.distanceToSquared(e.g.position);
-    const priority=focus&&best?(Number(!!e.E.boss)-Number(!!best.E.boss)||e.hp-best.hp):0;
-    if(!best||(focus?priority>0||priority===0&&d<score:d<score)){best=e;score=d;}
+    const priority=best&&(focus||heavy)?(rank(e)-rank(best)||(focus?e.hp-best.hp:0)):0;
+    if(!best||priority>0||priority===0&&d<score){best=e;score=d;}
   }
   return best;
 }
@@ -35,7 +37,7 @@ function endpoints(tw,b,sweepAge=b.sweep){
 }
 function reacquire(b,tw){
   const next=select(tw);
-  if(!tw.B?.beamSweep||!next)reset(b);
+  if(tw.S.beamHeavy||!tw.B?.beamSweep||!next)reset(b);
   b.target=next;
 }
 export function updBeam(tw,dt,canAct=true){
@@ -48,18 +50,20 @@ export function updBeam(tw,dt,canAct=true){
   while(b.acc+1e-9>=BEAM_STEP){
     b.acc-=BEAM_STEP;if(!valid(b.target,tw)){reacquire(b,tw);break;}
     const S=tw.S,B=tw.B||{},k=towerRateK(tw,G.t),elapsed=BEAM_STEP*k;
+    if(S.beamHeavy&&!heavyRank(b.target)){const next=select(tw,true);if(next){reset(b);b.target=next;}}
+    const charging=!S.beamHeavy||heavyRank(b.target)>0;
     if(k<=0){reset(b);break;}
     b.sweep+=elapsed;const ray=endpoints(tw,b),base=S.dmg*S.rate;
-    const amount=base*beamHeatIntegral(b.age,elapsed,S.beamWarmup,S.beamMaxHeat);
-    if(ray.active)b.age+=elapsed;b.burst+=elapsed;
+    const cold=base*elapsed,amount=charging?base*beamHeatIntegral(b.age,elapsed,S.beamWarmup,S.beamMaxHeat,S.beamHeavy):cold;
+    if(ray.active&&charging)b.age+=elapsed;if(charging)b.burst+=elapsed;
     if(ray.active){
       const hits=B.beamSweep?G.enemies.filter(e=>valid(e,tw)&&beamTouches(ray.from,ray.to,aim(e),Math.max(.6,(e.E.h||1.5)*.3)+.35)):[b.target];
-      for(const e of hits){hurt(e,amount,B.beamSweep?'#d4b0ff':'#a8f4ff',false,{x:ray.from.x,z:ray.from.z,kind:'beam'});tw.shots++;}
+      for(const e of hits){hurt(e,S.beamHeavy&&e!==b.target?cold:amount,B.beamSweep?'#d4b0ff':'#a8f4ff',false,{x:ray.from.x,z:ray.from.z,kind:'beam'});tw.shots++;}
     }
-    if(B.beamBurst&&b.burst+1e-8>=4&&valid(b.target,tw)){b.burst-=4;hurt(b.target,base*1.8,'#ffffff',true,{x:ray.from.x,z:ray.from.z,kind:'beam'});b.flash=1;tw.shots++;Snd.play('zap',{pos:ray.from,vol:.45});}
+    if(charging&&B.beamBurst&&b.burst+1e-8>=4&&valid(b.target,tw)){b.burst-=4;hurt(b.target,base*1.8,'#ffffff',true,{x:ray.from.x,z:ray.from.z,kind:'beam'});b.flash=1;tw.shots++;Snd.play('zap',{pos:ray.from,vol:.45});}
     if(!valid(b.target,tw)){reacquire(b,tw);break;}
   }
   if(!b.target)return;
-  const preview=b.acc*towerRateK(tw,G.t),ray=endpoints(tw,b,b.sweep+preview),charge=Math.min(1,(b.age+(ray.active?preview:0))/tw.S.beamWarmup),heat=1+charge*1.6;
+  const preview=b.acc*towerRateK(tw,G.t),ray=endpoints(tw,b,b.sweep+preview),charge=Math.min(1,(b.age+(ray.active&&(!tw.S.beamHeavy||heavyRank(b.target))?preview:0))/tw.S.beamWarmup),heat=1+charge*1.6;
   if(ray.active)drawBeam(b.visual,ray.from,ray.to,{heat,charge,color:tw.B?.beamSweep?0xc18bff:0x72e4ff,flash:b.flash,cut:!!tw.B?.beamSweep});else b.visual.g.visible=false;
 }

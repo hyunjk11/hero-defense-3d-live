@@ -64,3 +64,46 @@ test('sweep carries heat across uninterrupted targets, cools on idle and disable
  b.dead=true;h.tick(.2);assert.equal(h.tw.beam.age,0);assert.equal(h.tw.beam.visual.g.visible,false);
  b.dead=false;h.tick(.2);assert.ok(h.visuals[0].last.charge<.05);h.tick(.2,1,false);assert.equal(h.tw.beam.age,0);
 });
+
+
+const heavy=(branch=null,lvl=1)=>{
+ const h=harness(branch,lvl);h.tw.S.dmg*=.35;h.tw.S.beamMaxHeat*=1.5/.35;h.tw.S.beamHeavy=true;
+ return h;
+};
+test('Hard beam retargets trash to an elite, but never interrupts a valid heavy lock',()=>{
+ for(const branch of [null,'guardian_bulwark','guardian_assault']){
+  const h=heavy(branch,5),near=h.enemy(0,2),elite=h.enemy(0,4,{elite:true}),boss=h.enemy(0,6,{boss:true});
+  near.hp=1e7;h.G.enemies=[near];h.tick(.2,10);assert.equal(h.tw.beam.age,0);
+  h.G.enemies.push(elite);h.tick(.2,10);assert.equal(h.tw.beam.target,elite);assert.ok(h.tw.beam.age>1);
+  h.G.enemies.push(boss);h.tick(.2);assert.equal(h.tw.beam.target,elite);
+  elite.dead=true;h.tick(.2);assert.equal(h.tw.beam.target,boss);assert.ok(h.tw.beam.age<=.2);
+ }
+});
+test('Hard beam stays cold against trash, starts weak against elite, and reaches 150% of legacy hot damage',()=>{
+ const h=heavy(),elite=h.enemy(0,4,{elite:true}),trash=h.enemy(0,4);h.G.enemies=[trash];h.tick(.2,35);
+ const cold=24*.35*.2;assert.ok(h.hits.every(x=>Math.abs(x.n-cold)<1e-9));
+ assert.equal(h.visuals[0].last.charge,0);
+ h.G.enemies=[elite];trash.dead=true;h.tick(.2);
+ const first=h.hits.at(-1).n;assert.ok(first>cold&&first<24*.2*.4);
+ h.tick(.2,35);assert.equal(h.visuals[0].last.charge,1);
+ assert.ok(Math.abs(h.hits.at(-1).n-24*4.8*1.5*.2)<1e-7);
+ assert.ok(h.hits.at(-1).n/first>19);
+});
+test('Hard sweep does not transfer heavy heat into adjacent targets and Hard focus never flashes on trash',()=>{
+ const h=heavy('guardian_assault',5),a=h.enemy(0,2,{boss:true}),b=h.enemy(.2,2),c=h.enemy(.3,2,{elite:true});
+ h.G.enemies=[b,c,a];h.tick(.2,36);
+ for(const e of [b,c]){
+  const hits=h.hits.filter(x=>x.e===e);assert.ok(hits.length>0);
+  assert.ok(hits.every(x=>Math.abs(x.n-h.tw.S.dmg*h.tw.S.rate*.2)<1e-8));
+ }
+ assert.equal(h.visuals[0].last.charge,1);
+ const f=heavy('guardian_bulwark',5);f.G.enemies=[f.enemy()];f.tick(.2,40);assert.equal(f.sounds.length,0);
+ f.G.enemies.push(f.enemy(0,4,{elite:true}));f.tick(.2,20);assert.equal(f.sounds.length,1);
+});
+test('Hard quadratic heat integral is continuous, capped, and stable across frame rates',()=>{
+ const a=beamHeatIntegral(0,6,6,7,true);
+ assert.equal(a,18);assert.ok(Math.abs(beamHeatIntegral(0,5.9,6,7,true)+beamHeatIntegral(5.9,.3,6,7,true)-beamHeatIntegral(0,6.2,6,7,true))<1e-8);
+ assert.equal(beamHeatIntegral(6,2,6,7,true),14);
+ const run=hz=>{const h=heavy(),e=h.enemy(0,4,{elite:true});h.G.enemies=[e];h.tick(1/hz,8*hz);return [e.hp,h.tw.shots,h.tw.beam.age];};
+ assert.deepEqual(run(144),run(10));
+});

@@ -7,7 +7,8 @@ import { typing } from './keys.js';
 import { T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
 import { BLK, TNAME } from '../data/terrain.js';
 import { UPS, UP_GROWTH } from '../data/heroes.js';
-import { towerAvailable, TOWERS, BARRICADE } from '../data/towers.js';
+import { TOWERS, BARRICADE } from '../data/towers.js';
+import { towerAvailable, hardBeam, HARD_BEAM_COLD } from '../world/tower-rules.js';
 import { G } from '../core/state.js';
 import { cam, camera, renderer, scene } from '../render/scene.js';
 import { SFX } from '../audio/sfx.js';
@@ -83,7 +84,7 @@ $('rotL').onclick = () => { cam.theta += Math.PI / 4; Snd.play('ui'); }; $('rotR
 function previewTip(t, why) { const tool = G.tool, cost = toolCost(t), name = TOWERS[tool] ? TOWERS[tool].n : TOOLN[tool];
   let s = `<b>${name}</b> <span class="cost">${cost ? cost + 'G' : ''}</span>`;
   if (tool === 'clear' && isBlock(t.t)) s += `<br>${blkName(t)} · 내구도 ${Math.ceil(t.hp)}/${t.max}`;
-  if (TOWERS[tool]) s += `<br>사거리 ${TOWERS[tool].range[0]} · 피해 ${TOWERS[tool].dmg[0]}`;
+  if (TOWERS[tool]) s += `<br>사거리 ${TOWERS[tool].range[0]} · 피해 ${tool === 'guardian' && hardBeam ? Math.round(TOWERS[tool].dmg[0] * HARD_BEAM_COLD * 100) / 100 : TOWERS[tool].dmg[0]}`;
   return s + `<br>${why ? `<span class="bad">✖ ${why}</span>` : `<span class="good">✔ 클릭하여 ${tool === 'clear' ? '개간' : '건설'}</span>`}`; }
 function build(c, r) {
   if (G.dungeon || !towerAvailable(G.tool,G)) return false; // 던전 원정: 타워·바리케이드 없음

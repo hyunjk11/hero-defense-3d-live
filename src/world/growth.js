@@ -2,6 +2,7 @@ import { Snd } from '../audio/audio.js';
 import * as THREE from 'three';
 import { G } from '../core/state.js';
 import { TOWERS } from '../data/towers.js';
+import { hardBeam, HARD_BEAM_COLD, HARD_BEAM_HOT } from './tower-rules.js';
 import { BRANCH, towerStats, branchFor, XP_NEED, starsFor, canSpecialize } from '../data/growth.js';
 import { Q } from '../render/quality.js';
 import { camera, scene } from '../render/scene.js';
@@ -32,7 +33,15 @@ function specializationMark() {
   const mark = new THREE.Mesh(readyGeo, readyMat); mark.position.y = 1.05; mark.renderOrder = 20; mark.name = 'specialization-ready'; return mark;
 }
 
-export const recalc = tw => { tw.S = towerStats(tw.type, tw.lvl, tw.branch, tw.mods, tw.stars); tw.B = branchFor(tw.type, tw.branch, tw.mods, tw.lvl); };
+export const recalc = tw => {
+  tw.S = towerStats(tw.type, tw.lvl, tw.branch, tw.mods, tw.stars);
+  tw.B = branchFor(tw.type, tw.branch, tw.mods, tw.lvl);
+  if (hardBeam && tw.type === 'guardian') {
+    tw.S.dmg *= HARD_BEAM_COLD;
+    tw.S.beamMaxHeat *= HARD_BEAM_HOT / HARD_BEAM_COLD;
+    tw.S.beamHeavy = true;
+  }
+};
 export function decorate(tw) {
   if (!G.grow || !tw.m) return; const g = tw.m.g, box = new THREE.Box3().setFromObject(g), top = box.max.y + .55, D = { orb: [], top };
   const bill = new THREE.Group(); bill.position.y = top; g.add(bill); D.bill = bill; D.stars = [];

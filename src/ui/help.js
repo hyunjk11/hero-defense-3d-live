@@ -2,6 +2,7 @@
 // H 또는 ? = 열기/닫기 · Esc·바깥 클릭 = 닫기 (ui/keys.js 층 46). 지금 화면(전투·마을·던전) 칸을 맨 앞에 강조
 import { $ } from '../core/util.js';
 import { G } from '../core/state.js';
+import { towerVisible } from '../world/tower-rules.js';
 import { escLayer, typing } from './keys.js';
 export const HELP = [
   { id: 'battle', t: '⚔ 전투', k: [['1~5', '도구 (화살탑·대포탑·마법탑 · 바리케이드 · 개간)'], ['6', '광선탑'], ['Q', '영웅 스킬'], ['Z', '스킬 자동 사용 켜기/끄기'], ['E', '영웅 Lv.10 고유 스킬'], ['T', '워프'], ['R', '수리 (선택한 타워, 없으면 전체)'], ['Space', '웨이브 시작'], ['P', '일시정지'], ['F', '×2 배속'], ['C', '전투 통계'], ['M', '소리 켜기/끄기'], ['Esc', '이동/선택 · 맨 위 창 닫기'], ['WASD', '영웅 이동'], ['우클릭 드래그 · 휠', '카메라 회전 · 확대'], ['타워 성장', '전투 XP · 골드 강화']] },
@@ -14,7 +15,7 @@ export const helpOpen = () => !!el && !el.classList.contains('hidden');
 export function openHelp() {
   if (!el) { el = document.createElement('div'); el.id = 'keyHelp'; el.className = 'hidden'; el.onclick = e => { if (e.target === el) closeHelp(); }; document.body.appendChild(el); }
   const w = where(), secs = [...HELP].sort((a, b) => (b.id === w) - (a.id === w));
-  el.innerHTML = `<div class="khBox gpanel" role="dialog" aria-label="단축키 안내"><div class="khHead"><b>⌨ 단축키 안내</b><button class="xbtn ui-x" id="khClose" aria-label="닫기">✕</button></div><div class="khCols">${secs.map(s => `<section class="khSec ${s.id === w ? 'now' : ''}" data-s="${s.id}"><h3>${s.t}${s.id === w ? ' <small>지금 화면</small>' : ''}</h3>${s.k.map(([k, d]) => `<div class="khRow"><kbd>${k}</kbd><span>${d}</span></div>`).join('')}</section>`).join('')}</div><div class="khFoot">H 또는 ? 로 열고 닫기</div></div>`;
+  el.innerHTML = `<div class="khBox gpanel" role="dialog" aria-label="단축키 안내"><div class="khHead"><b>⌨ 단축키 안내</b><button class="xbtn ui-x" id="khClose" aria-label="닫기">✕</button></div><div class="khCols">${secs.map(s => `<section class="khSec ${s.id === w ? 'now' : ''}" data-s="${s.id}"><h3>${s.t}${s.id === w ? ' <small>지금 화면</small>' : ''}</h3>${s.k.filter(([k]) => s.id !== 'battle' || k !== '6' || towerVisible('guardian')).map(([k, d]) => `<div class="khRow"><kbd>${k}</kbd><span>${d}</span></div>`).join('')}</section>`).join('')}</div><div class="khFoot">H 또는 ? 로 열고 닫기</div></div>`;
   $('khClose').onclick = () => closeHelp(); el.classList.remove('hidden');
 }
 export function closeHelp() { if (el) el.classList.add('hidden'); }

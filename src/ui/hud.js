@@ -6,7 +6,8 @@ import { healK } from '../data/spire.js';
 import { eDescription } from '../data/hero-e.js';
 import { $ } from '../core/util.js';
 import { UPS } from '../data/heroes.js';
-import { towerAvailable, TOWERS, BARRICADE, barHpAt } from '../data/towers.js';
+import { TOWERS, BARRICADE, barHpAt } from '../data/towers.js';
+import { towerAvailable, towerVisible } from '../world/tower-rules.js';
 import { upPreview } from './stats.js';
 import { repairCost } from '../world/towers.js';
 import { G } from '../core/state.js';
@@ -51,7 +52,7 @@ function refreshHud() {
   document.querySelectorAll('.up').forEach(b => { const k = b.dataset.up, c = upCost(k); b.classList.toggle('hidden', k === 'focus' ? !G.growthEnabled || !!G.dungeon : !!G.growthEnabled && k !== 'bar'); if (k === 'focus') { const n = G.focus || 0; b.textContent = `전투 집중 ${n}/${FOCUS_MAX} · ${n >= FOCUS_MAX ? 'MAX' : c + 'G'}`; b.title = '단계당 공격 +4% · 공속 +2% · 스킬 계수 +4% · 쿨 ×0.98 (회복 없음)'; b.disabled = n >= FOCUS_MAX || G.gold < c || G.paused || G.navigating || !['build', 'wave'].includes(G.phase); return; } const h = `<span class="row"><span>${UPS[k].n} Lv.${G.ups[k]}</span><small>${c}G</small></span>${k === 'bar' ? '' : `<span class="desc">${UPS[k].d}</span>`}`; if (b._h !== h) { b._h = h; b.innerHTML = h; if (k === 'bar') b.setAttribute('aria-label', `${UPS[k].n} Lv.${G.ups[k]}, ${c}골드, ${UPS[k].d}`); }
     const tt = k === 'bar' ? `바리케이드 체력 ${Math.round(barHpAt(G.ups.bar, (G.advBar || 1) * (G.barRes || 1)))} → ${Math.round(barHpAt(G.ups.bar + 1, (G.advBar || 1) * (G.barRes || 1)))}` : upPreview(G.hero, k); if (b._tt !== tt) { b._tt = tt; b.title = tt ? `${UPS[k].n}: ${tt}` : ''; b.dataset.nx = tt; } /* Q-7: 지금 → 다음 (툴팁 · data-nx) */
     const dis = G.gold < c; if (b.disabled !== dis) b.disabled = dis; }); // 바뀔 때만 다시 그림 (매 프레임 innerHTML 교체 → 클릭 씹힘 방지)
-  document.querySelectorAll('.tool').forEach(b => { const T2 = TOWERS[b.dataset.tool]; if (T2) b.disabled = !towerAvailable(b.dataset.tool,G) || G.gold < T2.cost; if (b.dataset.tool === 'barricade') b.disabled = G.gold < BARRICADE.cost; });
+  document.querySelectorAll('.tool').forEach(b => { const T2 = TOWERS[b.dataset.tool]; if (b.dataset.tool === 'guardian') b.classList.toggle('hidden', !towerVisible('guardian')); if (T2) b.disabled = !towerAvailable(b.dataset.tool,G) || G.gold < T2.cost; if (b.dataset.tool === 'barricade') b.disabled = G.gold < BARRICADE.cost; });
   const allRepair = $('repairAllBtn');
   if (allRepair) {
     const costs = G.towers.map(repairCost).filter(c => c > 0), total = costs.reduce((a, b) => a + b, 0);

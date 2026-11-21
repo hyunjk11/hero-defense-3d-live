@@ -1,7 +1,15 @@
-// Exact integral of a linear warm-up ramp, independent of rendering frame rate.
+// Integrate over fixed ticks: legacy linear heat or a delayed quadratic Hard ramp.
 export const BEAM_STEP = .2;
-export function beamHeatIntegral(age, dt, warmup, maximum) {
-  const area=t=>{const a=Math.max(0,t),w=Math.max(.01,warmup),r=maximum-1;return a<=w?a+r*a*a/(2*w):w+r*w/2+(a-w)*maximum;};
+export function beamHeatIntegral(age, dt, warmup, maximum, delayed=false) {
+  const w=Math.max(.01,warmup),r=maximum-1;
+  if(!delayed){
+    const area=t=>{const a=Math.max(0,t);return a<=w?a+r*a*a/(2*w):w+r*w/2+(a-w)*maximum;};
+    return area(age+dt)-area(age);
+  }
+  const area=t=>{
+    const a=Math.max(0,t),u=Math.min(a,w),ramp=u/w;
+    return u+r*u*ramp*ramp/3+Math.max(0,a-w)*maximum;
+  };
   return area(age+dt)-area(age);
 }
 export function beamTouches(a,b,p,radius=.65) {
