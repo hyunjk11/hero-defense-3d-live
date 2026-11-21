@@ -126,6 +126,29 @@ test('research, barricade and daily exchange use original exact server prices an
  const s=saved(db);assert((await act('exchange-test','exchange',{p_count:15})).data.ok);assert.equal(saved(db).souls,s.souls+15*SX.XCH.souls);assert.equal(saved(db).mat.steel,s.mat.steel-15*SX.XCH.steel);
  assert.equal((await act('exchange-over','exchange',{p_count:1})).data.reason,'cap');const paid=saved(db);assert((await act('exchange-test','exchange',{p_count:15})).data.already);assert.deepEqual(saved(db),paid);
 });
+test('barricade Lv.10 saves continue to Lv.20 with exact steel prices and replay protection',async()=>{
+ const base=funded();base.barLv=10;const db=fixture(base);
+ const act=(id)=>rpc(db,'gear_action',{p_id:id,p_action:'bar'});
+ for(let lv=10;lv<20;lv++){
+  const before=saved(db),id='bar-extension-'+lv;
+  assert.equal(before.barLv,lv);
+  const out=await Promise.all([act(id),act(id)]);
+  assert(out.every(r=>r.data.ok));assert.equal(out.filter(r=>r.data.already).length,1);
+  assert.equal(db.tables.hd3d_progress[0].data.barLv,lv+1);
+  assert.equal(saved(db).mat.steel,before.mat.steel-(40+20*lv));
+ }
+ const after=saved(db),rows=structuredClone(db.tables.hd3d_progress);
+ assert.equal(after.barLv,20);assert.equal(after.mat.steel,base.mat.steel-3300);
+ assert.equal(after.souls,base.souls);assert.equal(after.mat.crystal,base.mat.crystal);assert.equal(after.mat.essence,base.mat.essence);
+ assert.equal((await act('bar-over-cap')).data.ok,false);
+ const stale={...after,barLv:10};
+ await assert.rejects(query(db,stale,rows[0].updated_at),e=>e.code==='ECONOMY_ACTION_REQUIRED');
+ assert.deepEqual(db.tables.hd3d_progress,rows);
+ const poor=funded();poor.barLv=10;poor.mat.steel=239;
+ const low=fixture(poor);
+ assert.equal((await rpc(low,'gear_action',{p_id:'bar-too-poor',p_action:'bar'})).data.ok,false);
+ assert.equal(saved(low).barLv,10);assert.equal(saved(low).mat.steel,239);
+});
 test('dungeon purchase receipt debits once and its mail credits server save once',async()=>{
  const [item,def]=Object.entries(dungeonItems).find(([,d])=>d.reward?.souls),db=fixture(P.empty(),{hd3d_dungeon_wallet:[{user_id:user.id,medals:1000,earned:1000,spent:0,titles:[],uniques:[],uq_pity:0}]});
  const a={p_id:'dungeon-purchase',p_item:item},out=await Promise.all([rpc(db,'dungeon_buy',a),rpc(db,'dungeon_buy',a)]);assert(out.every(r=>r.data.ok));assert.equal(db.tables.hd3d_dungeon_wallet[0].medals,1000-def.price);assert.equal(db.tables.hd3d_mail.length,1);

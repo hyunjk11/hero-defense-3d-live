@@ -765,7 +765,7 @@ body:not(.mobileApp) #sndPanel{z-index:calc(var(--z-toast) + 1)}
 .xchBox{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px}.xchRate{display:flex;align-items:center;gap:12px;font-size:18px}.xchRate b{color:var(--gold-hi);font-size:24px}.xchLeft{font-size:15px}.xchLeft b{color:#8aff9a;font-size:18px}.xchLeft small{color:#9aa0c0}
 .xchPips{display:flex;gap:3px;width:min(420px,90%)}.xchPips i{flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#3ac0ff,#bff0ff)}.xchPips i.on{background:#2a3050}
 .xchBtns{display:flex;gap:10px}.xchBtns .gbtn{min-height:var(--hit);min-width:120px;display:flex;flex-direction:column;align-items:center}.xchBtns .gbtn small{font-size:11px;opacity:.85}.xchMsg{min-height:20px;color:#ffb07a;font-size:13px}
-.labBarRow{margin-top:10px;border-color:#ffb03a99;background:linear-gradient(#3a2e20,#1a1410)}.labBarRow .lrTag{font-size:11px;color:#ffd27a;font-weight:normal}.labBarRow .lrPips i.on{background:linear-gradient(90deg,#ffb03a,#ffe0a0);box-shadow:0 0 5px #ffb03a}
+.labBarRow{flex:none;margin-top:10px;border-color:#ffb03a99;background:linear-gradient(#3a2e20,#1a1410)}.labBarRow .lrTag{font-size:11px;color:#ffd27a;font-weight:normal}.labBarRow .lrPips i.on{background:linear-gradient(90deg,#ffb03a,#ffe0a0);box-shadow:0 0 5px #ffb03a}
 
 /* 🗼 무한의 탑 T-8 (2026-10-24): 던전 패널 탭 · 시작 층 칩 · 다음 5개 층 미리보기 · 랭킹 · 결과 기록 — SP_OPEN 일 때만 쓰임 */
 .dgTabs{justify-content:center;margin:6px 0 2px}.dgTabs .ftab{font-size:15px;padding:7px 18px;min-height:40px}
