@@ -4,9 +4,9 @@ import {fixture} from './support/advance-e-runtime.mjs';
 import {LSK} from '../src/account/equip.js';
 const cases=[['archer','pierce'],['mage','meteorstorm'],['warrior','quake'],['gunner','rosebarrage'],['fighter','tigerdash']];
 for(const [h,key] of cases)test(key+': actual proc owns a brief signature; cooldown prevents duplicate cues/sounds',()=>{
- const f=fixture(h,null),sounds=[];let stopped=0;f.hero.lsk=key;f.env.Snd.skill=k=>{sounds.push(k);return ()=>stopped++;};
+ const f=fixture(h,null),sounds=[];f.hero.lsk=key;f.env.Snd.combatCue=k=>sounds.push(k);
  const t=f.target(0,2);f.target(1,2);f.api.legendProc(t,{mode:'melee'});assert.equal(f.G.legendN[key],1);assert.equal(f.hero.licd,LSK[key].icd);assert.ok(f.legendCues.active()>0);
- const active=f.legendCues.active();f.api.legendProc(t,{mode:'melee'});assert.equal(f.legendCues.active(),active);assert.deepEqual(sounds,['legend_'+key]);f.tick(.5);assert.equal(f.legendCues.active(),0);assert.equal(stopped,1);assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);
+ const active=f.legendCues.active();f.api.legendProc(t,{mode:'melee'});assert.equal(f.legendCues.active(),active);assert.deepEqual(sounds,['gear_'+key]);f.tick(.5);assert.equal(f.legendCues.active(),0);assert.equal(f.FX.length,0);assert.equal(f.scene.children.length,1);
 });
 test('cancelled presentation clears on death/warp/town/map/owner change and never adds damage',()=>{
  for(const mode of ['death','warp','town','map','owner']){const f=fixture('mage',null);f.hero.lsk='meteorstorm';const t=f.target();f.api.legendProc(t);const hits=f.hits.length;

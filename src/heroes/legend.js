@@ -22,6 +22,7 @@ import { groundY } from '../monsters/ai.js';
 import { ARTILLERY, artilleryTargets, equipProc } from '../data/gear-proc-pc.js';
 import { createGearArtilleryFx } from '../render/gear-artillery.js';
 import { weaponProcFeed } from '../ui/weapon-proc-feed.js';
+import { mobileApp } from '../ui/mobile-mode.js';
 import { eSkillFor, eKeyFor } from '../data/hero-e.js';
 import { procTargets } from '../data/legend-procs.js';
 import { banner } from '../ui/hud.js';
@@ -79,7 +80,10 @@ function legendProc0(t, attack) {
   if (s === ARTILLERY) { artillery(t,s); return; }
   // A ricochet needs a second target. Report it only when the first tracer really appears.
   if (hero.lsk === 'ricochet') { const caster = hero; ricochet(t,s,4,true,() => legendFeedback(caster,t,s,[],FX,true)); return; }
-  if (oldProc) { legendFeedback(hero,t,s,[],FX,true); oldProc(t, s, attack); } else impactProc(t, s, attack);
+  if (oldProc) {
+    if (!mobileApp && hero.cls !== 'mechanic') Snd.combatCue?.('gear_' + hero.lsk, hero.g.position);
+    legendFeedback(hero,t,s,[],FX,true); oldProc(t, s, attack);
+  } else impactProc(t, s, attack);
 }
 let artilleryFx = null, artilleryMap = null;
 const battleFx = () => (!G.screen || G.screen === 'game' || G.screen === 'run') && ['build','wave'].includes(G.phase);
@@ -99,8 +103,7 @@ function artillery(target, s) {
   const cancel=fx.mark(x,z,s.delay,s.radius);
   weaponProcFeed.record(document.getElementById('weaponProcFeed'),G,caster,s,performance.now());
   const point=new THREE.Vector3(x,groundY(x,z),z);
-  Snd.play('glass',{pos:point,rate:1.7,vol:.35});
-  Snd.whoosh(point,.46,1150,180,.44);
+  Snd.combatCue?.('artillery_call',point);
   later(s.delay,()=> {
     if (G.tiles!==map || G.wave!==wave || !battleFx() || (G.hero!==caster && !G.heroes?.includes(caster))) {
       if (typeof cancel==='function') cancel();
@@ -108,7 +111,8 @@ function artillery(target, s) {
     }
     if (typeof cancel==='function') cancel();
     fx.strike(x,z,s.radius);
-    Snd.play('boom',{pos:point,rate:.8,vol:.82});
+    Snd.combatCue?.('artillery_impact',point);
+    Snd.play('boom',{pos:point,rate:.8,vol:.55});
     G.shake=Math.max(G.shake||0,.22);
     for(const e of artilleryTargets(G.enemies,x,z,G.t)) hurt(e,damage,'#ffda9c',true,src);
   });
@@ -122,7 +126,11 @@ function impactProc(t, s, attack) {
     if (!e.dead && s.slow) { e.slowAmt = e.slowT > 0 ? Math.max(e.slowAmt || 0, s.slow) : s.slow; e.slowT = Math.max(e.slowT || 0, s.slowTime); }
     emit(P, e.g.position.x, e.g.position.y + 1.3, e.g.position.z, 12, s.color, 4, .35);
   }
-  if (targets.length) { ringFx(t.g.position, s.radius || .8, s.color, .25); Snd.play('zap', { pos: t.g.position, vol: .35, rate: 1.5 }); }
+  if (targets.length) {
+    ringFx(t.g.position, s.radius || .8, s.color, .25);
+    if (mobileApp || hero.cls === 'mechanic') Snd.play('zap', { pos: t.g.position, vol: .35, rate: 1.5 });
+    else Snd.combatCue?.('gear_' + hero.lsk,t.g.position);
+  }
   legendFeedback(hero,t,s,targets,FX);
 }
 // 멀티샷: 황금 화살 5발 부채꼴

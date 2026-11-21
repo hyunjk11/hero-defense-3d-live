@@ -25,7 +25,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
   const hero={cls,C:{level},eq:{},lsk:null,adv:{k:branch},max:1000,hp:600,atkT:0,licd:0,lcd:0,dead:0,face:0,g:new THREE.Group(),ch:{acts:{}},path:[]};
   scene.add(hero.g);G.hero=hero;G.heroes=[hero];G.tiles=[];G.screen='game';const FX=[];
   const artilleryFx={mark:no,strike:no,update:no,clear:no};
-  const env=vm.createContext({awakeningESpec,ARTILLERY,artilleryTargets,equipProc,createGearArtilleryFx:()=>artilleryFx,abyssalStrike,ABYSSAL_PROC,skillAllowed,THREE,G,hero,scene,LSK,eSkillFor,eKeyFor,procTargets,treeESkill,treeCooldown,treeSkillUsed,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
+  const env=vm.createContext({mobileApp,awakeningESpec,ARTILLERY,artilleryTargets,equipProc,createGearArtilleryFx:()=>artilleryFx,abyssalStrike,ABYSSAL_PROC,skillAllowed,THREE,G,hero,scene,LSK,eSkillFor,eKeyFor,procTargets,treeESkill,treeCooldown,treeSkillUsed,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
     heroFx:()=>FX,asSkill:(f,...args)=>f(...args),later:(time,f)=>timers.push({time,f}),
     stat:{dmg:()=>100,skillMul:()=>1,range:()=>10},heroTip:()=>hero.g.position.clone(),mouseGround:new THREE.Vector3(),passAt:()=>true,groundY:()=>0,
     hurt0:(e,d)=>{if(e.dead)return;const loss=Math.min(e.hp,d*(1-(e.E.armor||0)));e.hp-=loss;hits.push({target:e.id,loss});if(e.hp<=0)e.dead=true;},
@@ -38,7 +38,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
   const cats=vm.createContext({THREE});vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/cat-spirit.js',import.meta.url),'utf8'))+';this.api={createCatSpirit,animateCatSpirit};',cats);
   const aura=vm.createContext({THREE});
   vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/awakening-aura.js',import.meta.url),'utf8'))+';this.api={addAwakeningAura,updateAwakeningAura,pulseAwakeningAura};',aura);
-  const adv=vm.createContext({...aura.api,awakeningCatHits,AWAKENING_CAT_LIMIT,shareAwakeningShield,createHellfireBurn,createSkillCues,THREE,G,hero,scene,catFlight,stepCatFlight,...cats.api,disposeOwned:toon.dispose,groundY:()=>0,hurt:env.hurt0,grantEShield,stat:env.stat,play:env.play,Snd:env.Snd,banner:no,knock:(e,x,z,d)=>{e.knock=d;}});
+  const adv=vm.createContext({mobileApp,...aura.api,awakeningCatHits,AWAKENING_CAT_LIMIT,shareAwakeningShield,createHellfireBurn,createSkillCues,THREE,G,hero,scene,catFlight,stepCatFlight,...cats.api,disposeOwned:toon.dispose,groundY:()=>0,hurt:env.hurt0,grantEShield,stat:env.stat,play:env.play,Snd:env.Snd,banner:no,knock:(e,x,z,d)=>{e.knock=d;}});
   vm.runInContext(strip(advanceSource??fs.readFileSync(new URL('../../src/heroes/advance-e.js',import.meta.url),'utf8'))+';this.cast=castAdvanceE;this.cues=typeof skillCues===\'undefined\'?null:skillCues;',adv);env.castAdvanceE=adv.cast;
   const feed=createWeaponFeed(),rows=[],root={ownerDocument:{createElement:()=>({remove(){const i=rows.indexOf(this);if(i>=0)rows.splice(i,1);}})},appendChild:n=>rows.push(n)};
   Object.assign(env,{weaponProcFeed:feed,document:{getElementById:()=>root},performance:{now:()=>G.t*1000}});

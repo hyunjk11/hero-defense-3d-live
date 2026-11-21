@@ -1,5 +1,6 @@
 import { skillVoice, SKILL_VOICES } from './skill-voice.js';
 import { catVoice } from './cat-voice.js';
+import { COMBAT_CUES, playCombatCue } from './combat-cues.js';
 // 사운드: Kenney CC0 효과음 + OpenGameArt CC0 BGM, 일부(뿔나팔/보스 포효/번개)는 WebAudio 합성
 const SFX_FILES = {
   arrow: ['pluck_001', 'pluck_002'], bolt: ['pluck_002'], cannon: ['explosionCrunch_000'], boom: ['explosionCrunch_001', 'lowFrequency_explosion_001'],
@@ -78,6 +79,18 @@ export const Snd = {
     this.last[key]=now;this.voices++;
     const out=c.createGain();out.gain.value=1/(1+(pos?Math.hypot(pos.x-this.listener.x,pos.z-this.listener.z)/22:0)**2);out.connect(this.sfxG);
     return skillVoice(c,out,kind,()=>{out.disconnect();this.voices--;});
+  },
+  combatCue(kind, pos) {
+    if (!Object.hasOwn(COMBAT_CUES, kind) || !this.ctx || this.ctx.state !== 'running' ||
+        this.sfxOff() || !(this.cfg.sfx > 0) || (this.combatCueVoices || 0) >= 4) return;
+    const now = this.ctx.currentTime, key = 'cue:' + kind;
+    if (now - (this.last[key] ?? -Infinity) < .1) return;
+    this.last[key] = now;
+    this.combatCueVoices = (this.combatCueVoices || 0) + 1; this.voices++;
+    const distance = pos ? Math.hypot(pos.x - this.listener.x, pos.z - this.listener.z) : 0;
+    return playCombatCue(this.ctx, this.sfxG, kind, Math.max(.6, 1 / (1 + (distance / 26) ** 2)), () => {
+      this.combatCueVoices--; this.voices--;
+    });
   },
   meow(pos) {
     // Signature cast cue gets one reserved voice, even during a crowded battle.

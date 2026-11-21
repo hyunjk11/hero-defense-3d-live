@@ -12,7 +12,7 @@ export function fixture(cls='mage',level=10,lsk=null,baseline=false) {
   const no=()=>{},G={t:0,phase:'wave',enemies:[],fxs:[],legendForce:true},scene=new THREE.Scene(),hits=[],casts=[],timers=[];
   const hero={cls,C:{level},eq:{},lsk,licd:0,lcd:0,dead:0,face:0,g:new THREE.Group(),ch:{acts:{}},path:[]};
   const FX=[];
-  const env=vm.createContext({awakeningESpec,legendFeedback:()=>{},skillAllowed,THREE,G,hero,scene,LSK,ARTILLERY,equipProc,eSkillFor,eKeyFor,procTargets,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
+  const env=vm.createContext({mobileApp:false,awakeningESpec,legendFeedback:()=>{},skillAllowed,THREE,G,hero,scene,LSK,ARTILLERY,equipProc,eSkillFor,eKeyFor,procTargets,QS:{get:()=>null},mulberry32:()=>()=>.1,addEventListener:no,
     heroFx:()=>FX,asSkill:f=>f(),later:(time,f)=>timers.push({time,f}),
     stat:{dmg:()=>100,skillMul:()=>1,range:()=>10},heroTip:()=>hero.g.position.clone(),mouseGround:new THREE.Vector3(),passAt:()=>true,groundY:()=>0,
     hurt0:(e,d)=>{if(e.dead)return;const loss=Math.min(e.hp,d*(1-(e.E.armor||0)));e.hp-=loss;hits.push({target:e.id,loss});if(e.hp<=0)e.dead=true;},
