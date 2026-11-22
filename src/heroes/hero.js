@@ -30,7 +30,6 @@ import { banner } from '../ui/hud.js';
 import { keys } from '../ui/input.js';
 import { legendProc, updLeap, updLegendHero } from './legend.js';
 import { gunAttack, updRose } from './gunner.js';
-import { mechAbsorb, mechInit, mechRevert, mechSwing, updMech } from './mechanic.js';
 import { fighterInit, fighterTick, ftStop, updFtLeap, ftGuard } from './fighter.js';
 import { advFx, advInit, advUpd, advPick, advArrow, advOrb, advLeech, advAtkMul, advOnHurt } from './advfx.js';
 
@@ -46,7 +45,7 @@ function setControlled(h) { if (!h) return; hero = G.hero = G.curHero = h; heroH
 const NOM = { rate: 1, dmg: 1, crit: 0, critD: 0, range: 1, cd: 1, taken: 1 }, dgm = (h = hero) => (G.dgM && h && G.dgM(h)) || NOM;
 const stat = {
   dmg: (focus = G.focus, target, mode) => { const M = dgm(), b = hero.C.dmg * (G.growthEnabled ? focusMods(focus).dmg : 1 + .15 * G.ups.atk) * (hero.adv ? advAtkMul() : 1) * M.dmg, q = hero.eq, cc = ((q && q.crit) || 0) + ((hero.adv && hero.adv.atk.crit) || 0) + M.crit; stat.crit = cc > 0 && Math.random() * 100 < cc; return (stat.crit ? b * (1.5 + (((q && q.critD) || 0) + M.critD) / 100) : b)*(mode?basicTreeMul(hero,target,mode,G.t):1); }, // 치명타 = 장비 + 전직(장미 저격수 +15%). stat.crit = 마지막 계산이 치명타였는지
-  rate: () => hero.C.rate * (G.growthEnabled ? focusMods(G.focus).rate : 1 + .1 * G.ups.spd) * dgm().rate * (hero.treeMods?.rate||1), basicDmg:(target,mode='ranged',deferImpact=false)=>stat.dmg()*basicTreeMul(hero,target,mode,G.t,deferImpact), range: () => hero.C.range * (G.growthEnabled ? 1 : 1 + .08 * G.ups.rng) * (hero.robo ? 1.45 : 1) * dgm().range * (hero.treeMods?.basicRange||1), // 메카닉 로봇: 사거리 +45%
+  rate: () => hero.C.rate * (G.growthEnabled ? focusMods(G.focus).rate : 1 + .1 * G.ups.spd) * dgm().rate * (hero.treeMods?.rate||1), basicDmg:(target,mode='ranged',deferImpact=false)=>stat.dmg()*basicTreeMul(hero,target,mode,G.t,deferImpact), range: () => hero.C.range * (G.growthEnabled ? 1 : 1 + .08 * G.ups.rng) * dgm().range * (hero.treeMods?.basicRange||1),
   skillMul: (focus = G.focus) => (hero.C.levelSkill || 1) * (G.growthEnabled ? focusMods(focus).skill : 1 + .25 * G.ups.skill) * (1 + ((hero.eq && hero.eq.skill) || 0) / 100), skillCd: () => treeCooldown(hero.C.cd * (G.growthEnabled ? focusMods(G.focus).cd : Math.pow(.92, G.ups.skill)) * (1 - Math.min(40, (hero.eq && hero.eq.cdr) || 0) / 100) * dgm().cd,hero.C.cd,hero.treeMods?.qCd||1),
 };
 G.heroStat = stat; // 테스트용 (현재 문맥 영웅의 공격력·공속·사거리…)
@@ -67,7 +66,7 @@ function spawnHero(cls, L = null, party = false) {
   Object.assign(hero,{tree:build?structuredClone(build):null,treeMods:treeMods(build)});
   Object.assign(hero, { lsk: G.perm ? G.legend || null : null, lcd: 0, licd: 0, leap: null }); // E cooldown belongs to the hero, independently of the equipped proc.
   advInit(hero); // 전직: 오라 링 · 무기 스케일 (전직 없으면 카운터만 초기화)
-  hero.hb = hpBar(ch.g, 3.1, 1.6, 0x55ff77); play(ch, 'Idle'); if (cls === 'mechanic') mechInit(hero); if (cls === 'fighter') fighterInit(hero);
+  hero.hb = hpBar(ch.g, 3.1, 1.6, 0x55ff77); play(ch, 'Idle'); if (cls === 'fighter') fighterInit(hero);
   heroHud();
   hero.dm = newMeter(G.t); if (!party || !G.dmOther) { G.dmOther = newMeter(G.t); G.dmTowers = []; G.waveLog = []; } // 피해 미터 (combat/meter.js · 능력치 창) · 공용 = 타워·합동 공격
   const h0 = hero; if (party) { G.heroes.push(h0); if (prevCtl && G.heroes.includes(prevCtl)) setControlled(prevCtl); } else G.heroes = [h0]; // 파티: 첫 영웅이 계속 조작 영웅
@@ -76,10 +75,10 @@ function spawnHero(cls, L = null, party = false) {
 // 하단 영웅 이름·스킬 버튼 = 조작 영웅 (spawnHero · 던전 초상화 전환)
 function heroHud() { if (!hero) return; $('heroName').textContent = hero.C.title ? `${CLASSES[hero.cls].nm} · ${hero.C.title}` : heroLabel(hero.cls); $('heroName').classList.toggle('adv', !!hero.C.title); if (hero.C.adv) $('heroName').style.setProperty('--adv', hero.C.adv.c); else $('heroName').style.removeProperty('--adv'); $('skillName').textContent = hero.C.skill; $('skillName').classList.toggle('long', hero.C.skill.length > 5); }
 function heroDamage(d, h = hero) { if (!h) return; if (h !== hero) return withHero(h, () => heroDamage(d, h)); // 피해는 맞은 영웅에게 (파티)
-  if (hero.dead > 0) return; d *= (1 - hero.C.armor)*treeTaken(hero); if (hero.ft) d *= ftGuard(); /* 백호진천권 시전 중 -30% */ if (G.dungeon && G.dgDmg) d *= G.dgDmg * dgm().taken; /* 던전 층 몬스터 공격력 배수 (data/dungeon.js dmgMul) · 축복 '수호자의 맹세' */ if (hero.mech) { d = mechAbsorb(d); if (d <= 0) return; } d = absorbEShield(hero,d,G.t); if(d<=0)return; const hp0 = hero.hp; hero.hp -= d; if (hero.dm) meterTaken(hero.dm, Math.min(d, Math.max(0, hp0))); if (hero.adv && hero.hp > 0) advOnHurt(); hero.flash = .1; Snd.play('heroHurt', { pos: hero.g.position, vol: .8 }); if (hero.ch.acts.Hit && hero.hp > 0 && hero.atkT <= 0 && hero.spinT <= 0 && !(hero.roseT > 0) && !(hero.gunT > 0) && hero.warpT <= 0 && !hero.robo && !(hero.ft && (hero.ft.jp || hero.ft.leap))) { play(hero.ch, 'Hit', { once: true, force: true, speed: 1.6 }); hero.atkT = .35; }
+  if (hero.dead > 0) return; d *= (1 - hero.C.armor)*treeTaken(hero); if (hero.ft) d *= ftGuard(); /* 백호진천권 시전 중 -30% */ if (G.dungeon && G.dgDmg) d *= G.dgDmg * dgm().taken; /* 던전 층 몬스터 공격력 배수 (data/dungeon.js dmgMul) · 축복 '수호자의 맹세' */ d = absorbEShield(hero,d,G.t); if(d<=0)return; const hp0 = hero.hp; hero.hp -= d; if (hero.dm) meterTaken(hero.dm, Math.min(d, Math.max(0, hp0))); if (hero.adv && hero.hp > 0) advOnHurt(); hero.flash = .1; Snd.play('heroHurt', { pos: hero.g.position, vol: .8 }); if (hero.ch.acts.Hit && hero.hp > 0 && hero.atkT <= 0 && hero.spinT <= 0 && !(hero.roseT > 0) && !(hero.gunT > 0) && hero.warpT <= 0 && !(hero.ft && (hero.ft.jp || hero.ft.leap))) { play(hero.ch, 'Hit', { once: true, force: true, speed: 1.6 }); hero.atkT = .35; }
   if(hero.hp<=0&&hero.awakeningAura)hero.awakeningAura.visible=false;
-  if (hero.hp <= 0 && G.dungeon) { if (hero.mech) mechRevert(); if (hero.ft) ftStop(); hero.eShield = null; hero.eCastT = 0; hero.hp = 0; hero.dead = 1e9; hero.spinT = 0; hero.roseT = 0; hero.gunT = 0; hero.snipeT = 0; hero.warpT = 0; if (hero.swirl) hero.swirl.visible = false; hero.path = []; play(hero.ch, 'Death_A', { once: true }); hero.hb.show(false); emit(P, hero.g.position.x, 1.5, hero.g.position.z, 50, 0xff4a5a, 6, .9); banner(`${CLASSES[hero.cls].nm} 쓰러짐!`, '#ff8a9a', 1500); if (G.onHeroDown) G.onHeroDown(hero); return; } // 던전: 이 층에서는 부활 없음 → 다음 층 시작 때 체력 30% 로 복귀 (dungeon/run.js startFloor)
-  if (hero.hp <= 0) { if (hero.mech) mechRevert(); if (hero.ft) ftStop(); hero.eShield = null; hero.eCastT = 0; hero.hp = 0; hero.dead = 5; hero.spinT = 0; hero.roseT = 0; hero.gunT = 0; hero.snipeT = 0; if (hero.swirl) hero.swirl.visible = false; hero.path = []; play(hero.ch, 'Death_A', { once: true }); hero.hb.show(false); emit(P, hero.g.position.x, 1.5, hero.g.position.z, 50, 0xff4a5a, 6, .9); banner('영웅 쓰러짐! 5초 후 부활', '#ff8a9a', 1500); }
+  if (hero.hp <= 0 && G.dungeon) { if (hero.ft) ftStop(); hero.eShield = null; hero.eCastT = 0; hero.hp = 0; hero.dead = 1e9; hero.spinT = 0; hero.roseT = 0; hero.gunT = 0; hero.snipeT = 0; hero.warpT = 0; if (hero.swirl) hero.swirl.visible = false; hero.path = []; play(hero.ch, 'Death_A', { once: true }); hero.hb.show(false); emit(P, hero.g.position.x, 1.5, hero.g.position.z, 50, 0xff4a5a, 6, .9); banner(`${CLASSES[hero.cls].nm} 쓰러짐!`, '#ff8a9a', 1500); if (G.onHeroDown) G.onHeroDown(hero); return; } // 던전: 이 층에서는 부활 없음 → 다음 층 시작 때 체력 30% 로 복귀 (dungeon/run.js startFloor)
+  if (hero.hp <= 0) { if (hero.ft) ftStop(); hero.eShield = null; hero.eCastT = 0; hero.hp = 0; hero.dead = 5; hero.spinT = 0; hero.roseT = 0; hero.gunT = 0; hero.snipeT = 0; if (hero.swirl) hero.swirl.visible = false; hero.path = []; play(hero.ch, 'Death_A', { once: true }); hero.hb.show(false); emit(P, hero.g.position.x, 1.5, hero.g.position.z, 50, 0xff4a5a, 6, .9); banner('영웅 쓰러짐! 5초 후 부활', '#ff8a9a', 1500); }
 }
 const heroPass = (c, r) => { if (!inGrid(c, r)) return false; const t = tileAt(c, r); return (t.t === T.GRASS || t.t === T.CARVED || t.t === T.SPAWN || t.t === T.CORE) && !t.tower && !t.bar; };
 function passAt(x, z) { for (const [ox, oz] of [[-.4, -.4], [.4, -.4], [-.4, .4], [.4, .4]]) { const [c, r] = toTile(x + ox, z + oz); if (!heroPass(c, r)) return false; } return true; }
@@ -98,7 +97,7 @@ function unstuck() { const h = hero, p = h.g.position, goal = h.path.length ? h.
 // ================= 워프 (T): 1초 채널링 → 코어 앞 빈 칸으로 순간이동, 쿨다운 10초 =================
 const WARP_CH = 1, WARP_CD = 10;
 function warpTarget() { return freeTileNear(CORE[0] - 1, CORE[1]); }
-function startWarp() { const h = hero; if (!movementAllowed(h)) return false; if (G.dungeon) return false; /* 던전: 코어 없음 → 워프 없음 */ if (!h || h.dead > 0 || G.phase === 'select' || G.phase === 'over' || (h.mech && h.mech.busy > 0) || (h.ft && h.ft.leap)) return false;
+function startWarp() { const h = hero; if (!movementAllowed(h)) return false; if (G.dungeon) return false; /* 던전: 코어 없음 → 워프 없음 */ if (!h || h.dead > 0 || G.phase === 'select' || G.phase === 'over' || (h.ft && h.ft.leap)) return false;
   if (h.warpT > 0) return false; if (h.warpCd > 0) { Snd.play('error'); banner(`워프 재사용 대기 ${Math.ceil(h.warpCd)}초`, '#9ae8ff', 800); return false; }
   h.path = []; h.spinT = 0; h.roseT = 0; h.gunT = 0; h.snipeT = 0; if (h.swirl) h.swirl.visible = false; if (h.ft) ftStop(); h.warpT = WARP_CH; play(h.ch, 'Cheer');
   if (!h.warpFx) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.9, .9, 6, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0x7ad8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); m.position.y = 3; h.warpFx = m; h.g.add(m); }
@@ -150,14 +149,13 @@ function updHero(dt) {
   if (h.warpCd > 0) h.warpCd -= dt;
   if (h.leap) { updLeap(dt); h.hb.set(h.hp / h.max); return; } // 천지파열무 도약 중
   if (h.ft && h.ft.leap) { asSkill(updFtLeap, dt); h.hb.set(h.hp / h.max); return; } // 격투가: 냥냥 진각 도약 · 맹호 돌진 · 백호진천권(제자리) 중
-  if (h.mech && updMech(dt)) { h.g.rotation.y += Math.atan2(Math.sin(h.face - h.g.rotation.y), Math.cos(h.face - h.g.rotation.y)) * Math.min(1, dt * 10); h.hb.set(h.hp / h.max); return; } // 메카닉 변신/피니시 연출 중
   if (h.warpT > 0) { // 워프 채널링: 이동 입력 시 취소
     if (mv.lengthSq() > 0 || h.path.length) cancelWarp(); else { h.warpT -= dt; warpChannelFx(dt); if (h.warpT <= 0) doWarp(); h.hb.set(h.hp / h.max); return; } }
   if (!movementAllowed(h)) { mv.set(0,0,0); h.path=[]; }
   if (mv.lengthSq() > 0) h.path = [];
   else if (h.path.length) { fromPath = true; mv.subVectors(h.path[0], h.g.position).setY(0); if (mv.length() < .15) { h.path.shift(); if (!h.path.length) mv.set(0, 0, 0); } }
   let moving = false; const treeX=h.g.position.x,treeZ=h.g.position.z;
-  if (mv.lengthSq() > 0) { const want = mv.length(), stp = h.C.speed * (G.dungeon && h.blessHasteUntil>G.t?1.3:1) * (h.treeMods?.move||1) * (h.hardSlowUntil>G.t?.8:1) * dt * (h.spinT > 0 ? h.spinSpd || .7 : h.roseT > 0 ? .7 : 1) * (h.robo ? .9 : 1); mv.normalize().multiplyScalar(fromPath ? Math.min(stp, want) : stp); const p = h.g.position; // 경로 지점을 지나치며 왕복하던 떨림 방지 const p = h.g.position;
+  if (mv.lengthSq() > 0) { const want = mv.length(), stp = h.C.speed * (G.dungeon && h.blessHasteUntil>G.t?1.3:1) * (h.treeMods?.move||1) * (h.hardSlowUntil>G.t?.8:1) * dt * (h.spinT > 0 ? h.spinSpd || .7 : h.roseT > 0 ? .7 : 1); mv.normalize().multiplyScalar(fromPath ? Math.min(stp, want) : stp); const p = h.g.position; // 경로 지점을 지나치며 왕복하던 떨림 방지 const p = h.g.position;
     // 근본 원인 수정: 현재 위치가 이미 막힌 칸과 겹쳐 있으면(타워/바리케이드가 옆에 생기거나 밀려서) 4모서리 검사가 모든 이동을 거부해 영구히 갇혔음.
     // 겹친 상태에서는 '덜 겹치는' 방향(중심 칸이 통과 가능)으로의 이동을 허용해 빠져나오게 함
     const ok = (x, z) => passAt(x, z) || (!passAt(p.x, p.z) && heroPassXZ(x, z) && overlap(x, z) <= overlap(p.x, p.z));
@@ -179,8 +177,6 @@ function updHero(dt) {
   else if (h.snipeT > 0) { h.snipeT -= dt; h.face = h.snipeA; } // 장미 저격수 관통 저격 조준 중: 일반 사격 없음, 방향 고정
   else if (h.cls === 'gunner' && tgt) { h.face = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); // 총사: 이동 중에도 목표를 겨누며 연사
     if (h.cd <= 0) { h.cd = 1 / stat.rate(); h.gunT = Math.max(.45, h.cd + .15); /* 소총(느린 연사): 다음 발까지 조준 유지 */ const t0 = tgt; later(.02, () => { if (!t0.dead && hero.dead <= 0 && !practiceRest(hero)) { gunAttack(t0); if (hero.lsk) legendProc(t0); } }); } }
-  else if (h.cls === 'mechanic' && tgt) { const want = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); if (!moving || h.robo) h.face = want; // 메카닉: 드릴/해머 교대 (로봇: 펀치·드릴 돌진·해머)
-    if (h.cd <= 0) { h.cd = 1 / stat.rate() * (h.robo ? 1.1 : 1); mechSwing(tgt, moving, hero.lsk ? legendProc : null); } }
   else if (h.cls === 'fighter' && !rest) fighterTick(dt, tgt, moving); // 격투가: 3연타 / 사거리 밖 원거리·비행 적에게 장풍 충전 (fighter.js)
   else if (tgt && h.spinT <= 0) { const want = Math.atan2(tgt.g.position.x - h.g.position.x, tgt.g.position.z - h.g.position.z); if (!moving) h.face = want;
     if (h.cd <= 0) { h.cd = 1 / stat.rate();

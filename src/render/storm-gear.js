@@ -21,8 +21,6 @@ export function updateStormGear(ch,items){
     }else if(it.h==='gunner'||it.h==='fighter'){
       for(const side of [-1,1]){const g=mount(side<0?['LeftHand','handslotl']:['RightHand','handslotr'],[0,.03,.03]);if(!g)continue;add(g,blue,0,0,0,.11,.13,.12);add(g,pale,0,.07,.08,.16,.09,it.h==='gunner'?.26:.16);
         if(it.h==='gunner'){for(let i=0;i<detail;i++){const coil=mk(ring,gold,0,.08,.05+i*.1,g,0);coil.scale.setScalar(.7);}add(g,light,0,.08,.3,.055);}else{for(let i=0;i<3;i++)add(g,pale,(i-1)*.09,.2,.08,.045,.3,.05,cone).rotation.z=(i-1)*-.15;if(detail>1)plume(g,side,3,.75);}}
-    }else if(it.h==='mechanic'){
-      const g=mount(['RightHand','handslotr'],[0,.03,.08]);if(!g)continue;add(g,blue,0,0,0,.24,.22,.2);const loop=mk(ring,gold,0,.03,.22,g,0);loop.scale.setScalar(1.2);for(let i=0;i<4;i++){const a=i*Math.PI/2,n=add(g,pale,Math.cos(a)*.12,.03+Math.sin(a)*.12,.24,.06,.18,.03,box);n.rotation.z=a+.4;}add(g,light,0,.03,.27,.07);add(g,gold,0,.33,.06,.12,.35,.12,cone);
     }else{
       const g=mount(['RightHand','handslotr'],[0,.03,.02]);if(!g)continue;add(g,blue,0,0,0,.1,.18,.08);add(g,gold,0,.18,0,.35,.06,.14,box);for(const[x,y,a]of [[0,.34,-.15],[.08,.55,.3],[.1,.75,-.2]])add(g,pale,x,y,0,.08,.3,.055,box).rotation.z=a;add(g,light,.13,.95,0,.1,.3,.055,cone).rotation.z=-.2;if(detail>1)plume(g,-1,2,.7);
     }

@@ -7,13 +7,13 @@ import { cleanGuestDungeon } from './dungeon-local.js';
 import * as E from './equip.js';
 import * as ST from '../data/stages.js';
 import * as GR from '../data/growth.js';
-import { HERO_KEYS, DEFAULT_HERO, VISIBLE_HEROES, isHidden } from '../data/heroes.js';
+import { SAVE_HERO_KEYS, RETIRED_HEROES, DEFAULT_HERO, VISIBLE_HEROES, isHidden } from '../data/heroes.js';
 import * as AD from '../data/advance.js';
 import * as RI from './rewarditems.js';
 import * as SX from './steel.js';
 import { CHSET, CH_KEYS, chOdds, hardGearOdds, CHAL_ESS, CODEX_RW } from '../data/items.js';
 // save = { inv[], chests[], eq{cls:{weapon,armor,acc}}, mat{steel,crystal}, v, hero, souls, bestWave, heroLv{cls:{hp,atk}}, stats{runs,kills,waves,souls}, settings{audio{}}, nick }
-export const HEROES = HERO_KEYS; // gunner·mechanic = 유료 영웅 (소유 여부는 서버 hd3d_owned, account/shop.js)
+export const HEROES = SAVE_HERO_KEYS; // Retired IDs retain historical gear, advancement and upgrade data.
 export const PERM = { hp: { n: '체력 단련', d: '최대 체력 +6%', max: 10, base: 30 }, atk: { n: '무기 숙련', d: '공격력 +5%', max: 10, base: 40 } };
 export const STATS = ['runs', 'kills', 'waves', 'souls'];
 const num = (v, d = 0) => (Number.isFinite(+v) && v !== null && v !== '' ? +v : d);
@@ -132,7 +132,7 @@ export function claimCodex(save, key) { const s = clean(save), [ch, row] = Strin
   s.mat.crystal += rw.crystal || 0; if (rw.essence) s.mat.essence = (s.mat.essence || 0) + rw.essence; s.souls += rw.souls || 0; s.codexRw.push(key); return [s, rw]; }
 
 // ---------- 전직 (design 7절) ----------  adv = { 영웅: { b: 분기 키, n: 전직·재전직 횟수(1~) } }, hq = { 영웅: { boss: 보스 스테이지 클리어, clr: 스테이지 클리어 } }
-export function cleanAdv(v) { v = obj(v); const o = {}; for (const h of HEROES) { const r = obj(v[h]); if (AD.ADV[h] && AD.ADV[h][r.b]) o[h] = { b: r.b, n: int(r.n || 1, 1, 1e6) }; } return o; }
+export function cleanAdv(v) { v = obj(v); const o = {}; for (const h of HEROES) { const r = obj(v[h]); if (AD.ADV[h]?.[r.b] || RETIRED_HEROES.includes(h) && ['armor','engineer'].includes(r.b)) o[h] = { b: r.b, n: int(r.n || 1, 1, 1e6) }; } return o; }
 export function cleanHq(v) { v = obj(v); const o = {}; for (const h of HEROES) { const r = obj(v[h]), q = { boss: int(r.boss, 0, 1e6), clr: int(r.clr, 0, 1e6) }; if (q.boss || q.clr) o[h] = q; } return o; }
 // 병합: 전직 기록은 n(전직·재전직 횟수)이 큰 쪽 (같으면 계정 쪽), 시련 카운터는 최댓값
 export function mergeAdv(a, b) { a = cleanAdv(a); b = cleanAdv(b); const o = {}; for (const h of HEROES) { const x = a[h], y = b[h]; if (x || y) o[h] = !x ? y : !y ? x : x.n > y.n ? x : y; } return o; }

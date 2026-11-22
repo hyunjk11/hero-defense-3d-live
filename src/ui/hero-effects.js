@@ -45,9 +45,6 @@ export function heroEffects(h, context = {}) {
     if (context.damageScale < 1) add('resisted','적 저항',`피해 −${pct(1-context.damageScale)}%`,null,'debuff');
     if (context.healScale < 1) add('curse','층 저주',`회복 −${pct(1-context.healScale)}%`,null,'debuff');
   }
-  if (h.mech?.inv) add('invulnerable','무적');
-  if (h.mech?.shield > 0) add('mech-shield','기계 보호막',`${Math.ceil(h.mech.shield)}`);
-  if (h.robo && h.mech?.rT > 0) timed('robot','로봇 변신','사거리 +45%',h.mech.rT);
   return out;
 }
 
@@ -58,7 +55,7 @@ const EFFECT_ICONS = {
  'bless-rally':'💨',shield:'🛡',sanctuary:'✚','tiger-guard':'🐯','ice-slow':'❄',weave:'✦',pursuit:'➤','pursuit-ranged':'↗',flow:'☯',
  fury:'🔥','lastguard':'⬟',mobile:'➶',stack:'▥',sustain:'⤳',focus:'◎',
  'bless-dmg':'⚔','bless-rate':'⚡','bless-range':'🏹','bless-guard':'🛡','bless-cd':'⏱','bless-crit':'🎯','bless-regen':'🌿',
- resisted:'⛨',curse:'☠',invulnerable:'◇','mech-shield':'▣',robot:'🤖'
+ resisted:'⛨',curse:'☠',invulnerable:'◇'
 };
 const effectLabel = e => [e.kind==='buff'?'버프':'디버프',e.name,e.detail,duration(e.time),e.note].filter(Boolean).join(' · ');
 function closeEffectTip(view) {

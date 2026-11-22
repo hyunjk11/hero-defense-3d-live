@@ -325,12 +325,9 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .mailBtn{white-space:nowrap;flex-shrink:0}.mailBtn .lbl{white-space:nowrap}
 
 /* 버들 (메카닉) 카드 · 상점 상품 탭 */
-.card.paid.mech{border-color:#7aff5a;box-shadow:0 0 18px #7aff5a55}.card.paid.mech h2{color:#c8ffb0}.card.mech .lockTag{color:#c8ffb0}
 .shopTabs{display:flex;gap:8px;margin-bottom:10px}.shopTab{flex:1;display:flex;align-items:center;gap:8px;background:#1a1226;border:2px solid #fff2;border-radius:12px;padding:6px 10px;color:#eee;cursor:pointer;font:inherit;text-align:left;position:relative}
 .shopTab i{font-style:normal;font-size:22px}.shopTab b{font-size:16px}.shopTab small{color:#bbb;font-size:12px;margin-left:auto}.shopTab em{font-style:normal;font-size:12px;background:#3a8a3a;color:#fff;border-radius:8px;padding:1px 6px}
 .shopTab.on{border-color:var(--pc);box-shadow:0 0 12px var(--pc);background:#261a34}.shopTab:hover{border-color:var(--pc)}
-.shopCard.p_mechanic .pvTag{background:linear-gradient(#5ad83a,#2a8a1a);box-shadow:0 0 10px #5ad83a}.shopCard.p_mechanic .pvName{color:#e8ffe0;text-shadow:0 0 12px #3aff3a,0 2px 0 #1a5a10}
-.shopCard.p_mechanic .pvWrap{background:radial-gradient(circle at 50% 70%,#7aff5a44,#0f2a14 70%),linear-gradient(#153a1a,#0a160c);border-color:#7aff5a;box-shadow:inset 0 0 30px #3aff3a33}.shopCard.p_mechanic .shopTitle{color:#c8ffb0}.shopCard.p_mechanic .shopStats span{background:#14301a;border-color:#7aff5a66}.shopCard.p_mechanic .shopStats b{color:#b0ff9a}.shopCard.p_mechanic .shopSk b{color:#9aff6a}.shopCard.p_mechanic .shopSk.lg b{color:#ffc94a}
 /* ===== 보상 상자 보관함: 한 개씩 · 10개 · 모두 열기 + 요약 ===== */
 #twChest{position:relative;background:linear-gradient(#7a4a1a,#4a2a0a);border-color:#ffd27a;animation:chestPulse 1.8s ease-in-out infinite;min-height:var(--hit)}#twChest b{color:var(--gold-txt);margin-left:4px}#twChest.hidden{display:none}
 @keyframes chestPulse{50%{box-shadow:0 0 14px #ffd27a99}}
@@ -1215,8 +1212,13 @@ body.drawn-game-icons :is(.scStars,.snode .stars)>i:not(.on) game-icon::before{
  background:#766987;mask:var(--drawn-icon) center/100% min(100%,1.18em) no-repeat;
 }
 body.drawn-game-icons .scStars>i.on game-icon::before{filter:drop-shadow(0 2px 0 #7f4d18) drop-shadow(0 0 .14em #ffb74ea0)}
+body.drawn-game-icons:not(.mobileApp) .scStars>i.on game-icon::before{background-image:var(--drawn-clear-star,var(--drawn-icon));filter:drop-shadow(0 2px 1px #4b280d80) drop-shadow(0 0 .11em #ffc46e90)}
+body.drawn-game-icons:not(.mobileApp) .scStars>i:not(.on) game-icon::before{mask-image:var(--drawn-clear-star,var(--drawn-icon))}
 body.drawn-game-icons .snode .stars>i.on game-icon::before{filter:drop-shadow(0 0 .16em #ffb03a79)}
 body.drawn-game-icons .conds>div:not(.got) game-icon::before{filter:grayscale(1) brightness(.82)}
 /* The town level badge already has a 16px vector; replace paint, not its box. */
 body.drawn-game-icons .hcard .heroBadge.level svg{background:var(--drawn-level-star) center/contain no-repeat}
 body.drawn-game-icons .hcard .heroBadge.level svg path{opacity:0}
+
+#cam #repeatStop{position:absolute;right:0;bottom:calc(100% + 4px);border-color:#ffb575;color:#ffb575}
+#cam #repeatStop:hover,#cam #repeatStop:focus-visible{border-color:#ffddaa;background:#492c31;color:#fff2dc}

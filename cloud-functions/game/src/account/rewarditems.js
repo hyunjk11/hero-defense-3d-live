@@ -3,11 +3,11 @@
 
 import { MORVIA, MORVIA_SHOP, MORVIA_HEROES, BOSS_SETS } from '../data/boss-sets.js';
 import { CHSET, CH_KEYS } from '../data/items.js';
-import { CLASSES, HERO_KEYS, VISIBLE_HEROES } from '../data/heroes.js';
+import { CLASSES, SAVE_HERO_KEYS, VISIBLE_HEROES } from '../data/heroes.js';
 import { GRADES, SLOTS, SLOT_KEYS, GEAR_NAMES } from './equip.js';
 
 export const MAX_ITEMS = 10, MAX_ESSENCE = 10000;
-export const ITEM_HEROES = HERO_KEYS; // 서버가 받는 영웅 키 (숨긴 영웅은 받을 때 기본 영웅 무기로 — equip.randomItem 과 같은 규칙)
+export const ITEM_HEROES = SAVE_HERO_KEYS; // 서버가 받는 영웅 키 (숨긴 영웅은 받을 때 기본 영웅 무기로 — equip.randomItem 과 같은 규칙)
 const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 export function validItem(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return false;

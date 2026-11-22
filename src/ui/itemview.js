@@ -5,7 +5,7 @@ import { morviaIcon } from './morvia-icons.js';
 import { stormIcon } from './storm-icons.js';
 
 import { esc } from '../core/util.js';
-import { CLASSES, HERO_KEYS } from '../data/heroes.js';
+import { CLASSES, HERO_KEYS, isHidden } from '../data/heroes.js';
 import * as E from '../account/equip.js';
 import { equipProc } from '../data/gear-proc-pc.js';
 import * as ST from '../data/stages.js';
@@ -26,7 +26,7 @@ export const GC = g => E.GRADES[g].c;
 export const eqOf = (s, id) => { for (const h in s.eq) for (const sl in s.eq[h]) if (s.eq[h][sl] === id) return h; return null; };
 export function sorted(list, s) { return [...list].sort((a, b) => (!!eqOf(s, b.id) - !!eqOf(s, a.id)) || b.g - a.g || b.e - a.e || E.power(b) - E.power(a)); }
 export function tile(it, s, extra = '') { const h = eqOf(s, it.id), C = setOf(it); return `<button class="itile g${it.g}${C ? ' cset' : ''} ${extra}" data-id="${esc(it.id)}" style="--gc:${GCi(it)}${C ? `;--cc:${C.color}` : ''}"><span class="ic">${icon(it)}</span>${it.e ? `<span class="en">+${it.e}</span>` : ''}${h ? `<span class="eqb">${clsN(h)[0]}</span>` : ''}${E.isLocked(s,it.id)?'<span class="gearLock" title="분해 잠금">🔒</span>':''}${E.legendKey(it) ? '<span class="lst">✦</span>' : ''}${C ? `<span class="chb">${C.badge}</span>` : ''}</button>`; }
-export function lskHtml(it) { const k = E.legendKey(it); if (!k) return ''; const L = equipProc(k); return `<div class="lsk"><div class="lskH">✦ ${L.n} <i>자동 발동</i></div><div class="lskD">${L.d}</div></div>`; }
+export function lskHtml(it) { if(isHidden(it?.h))return ''; const k = E.legendKey(it); if (!k) return ''; const L = equipProc(k); return `<div class="lsk"><div class="lskH">✦ ${L.n} <i>자동 발동</i></div><div class="lskD">${L.d}</div></div>`; }
 export function card(it, cmp) {
   if (!it) return '<div class="icard empty">빈 칸</div>'; const st = E.itemStats(it), cs = cmp ? E.itemStats(cmp) : null, keys = new Set([...Object.keys(st), ...(cs ? Object.keys(cs) : [])]);
   const lines = [...keys].map(k => { const v = st[k] || 0, d = cs ? Math.round((v - (cs[k] || 0)) * 10) / 10 : 0; return `<div class="sl ${k === it.m[0] ? 'main' : ''}">${E.STAT[k]} <b>+${v}%</b>${cs && d ? `<i class="${d > 0 ? 'gup' : 'gdn'}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</i>` : ''}</div>`; }).join('');

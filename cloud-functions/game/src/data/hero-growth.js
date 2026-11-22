@@ -1,5 +1,5 @@
 // Shared client/server rules. XP fractions always floor; stat HP rounds at each existing stat layer.
-import { HERO_KEYS, VISIBLE_HEROES } from './heroes.js';
+import { SAVE_HERO_KEYS, VISIBLE_HEROES } from './heroes.js';
 import { cleanAwakening, cleanAwakeningSkills } from './awakening.js';
 import { cleanSortieSettings } from './sortie-settings.js';
 import { cleanTrees } from './skill-tree.js';
@@ -33,14 +33,14 @@ export const spireXP = (from, top) => Math.max(0, Math.min(30, whole(top, 100000
 export function initialGrowth(save = {}) {
   const first = Object.keys(STAGES).filter(k => STAGES[k].ch <= 8 && Number(save.st?.[k]) >= 1);
   const granted = first.reduce((n, k) => n + campaignXP(k, STAGES[k].waves, true, true), 0);
-  return { version: VERSION, rev: 0, earned: 0, granted, spent: 0, balance: granted, xp: Object.fromEntries(HERO_KEYS.map(h => [h, 0])), first, legacyAdv: Object.keys(save.adv || {}).filter(h => HERO_KEYS.includes(h)), migrated: true };
+  return { version: VERSION, rev: 0, earned: 0, granted, spent: 0, balance: granted, xp: Object.fromEntries(SAVE_HERO_KEYS.map(h => [h, 0])), first, legacyAdv: Object.keys(save.adv || {}).filter(h => SAVE_HERO_KEYS.includes(h)), migrated: true };
 }
 export function cleanGrowth(v) {
   if (!v || v.version !== VERSION) return null;
   const g = initialGrowth(); for (const k of ['rev', 'earned', 'granted', 'spent', 'balance']) g[k] = whole(v[k]);
-  for (const h of HERO_KEYS) g.xp[h] = Math.min(totalXP(50), whole(v.xp?.[h]));
+  for (const h of SAVE_HERO_KEYS) g.xp[h] = Math.min(totalXP(50), whole(v.xp?.[h]));
   g.first = [...new Set((Array.isArray(v.first) ? v.first : []).filter(k => (STAGES[k]?.ch <= 10 || HARD_STAGES[k])))];
-  g.legacyAdv = (Array.isArray(v.legacyAdv) ? v.legacyAdv : []).filter(h => HERO_KEYS.includes(h));
+  g.legacyAdv = (Array.isArray(v.legacyAdv) ? v.legacyAdv : []).filter(h => SAVE_HERO_KEYS.includes(h));
   if(v.trees)g.trees=cleanTrees(v.trees); if(v.hard)g.hard=cleanHard(v.hard);
   if(v.awakening){const awakening=cleanAwakening(v.awakening);if(Object.keys(awakening).length)g.awakening=awakening;}
   if(v.awakeningSkill){const awakeningSkill=cleanAwakeningSkills(v.awakeningSkill);if(Object.keys(awakeningSkill).length)g.awakeningSkill=awakeningSkill;}

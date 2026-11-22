@@ -1,3 +1,4 @@
+import { updateKnockback } from './knockback.js';
 import { abyssalStrike } from '../data/abyssal-set.js';
 import { ABYSSAL_PROC } from '../data/boss-sets.js';
 import {legendFeedback} from '../render/legend-feedback.js';
@@ -29,7 +30,6 @@ import { banner } from '../ui/hud.js';
 import { mouseGround } from '../ui/input.js';
 import { hero, heroTip, passAt, stat } from './hero.js';
 import { ricochet, rosebarrage, updGun, gunFlash } from './gunner.js';
-import { gigahammer, overdrill, updMechFx } from './mechanic.js';
 import { pawstorm, pawCanProc, tigerdash, updFtFx } from './fighter.js';
 
 const lr = mulberry32(((+QS.get('rng') || (Math.random() * 1e9 | 0)) ^ 0x1e9e7d) >>> 0);
@@ -62,6 +62,7 @@ function aim(maxD, at, facingOnly=false) {
 // ---------- proc (기본 공격 직후 호출) ----------
 export function legendProc(t, attack) { return asSkill(() => legendProc0(t, attack)); } // 피해 미터: 전설 효과 = 스킬 피해
 function legendProc0(t, attack) {
+  if (hero?.cls === 'mechanic') return; // No proc can run for an old restored character context.
   if(hero?.equippedSets?.some(s=>s.key==='abyssal') && !(hero.cls==='fighter'&&!pawCanProc(t,attack))) {
     const stars=abyssalStrike(hero,t,G.enemies,G.t,attack);
     if(stars.length){
@@ -76,12 +77,12 @@ function legendProc0(t, attack) {
   if (hero.cls === 'fighter' && !pawCanProc(t, attack)) return; // 빗나감·사거리 이탈은 확률/쿨다운을 소비하지 않음
   if (s.max && !procTargets(s, t, G.enemies, G.t, attack).length) return;
   if (LR() >= (G.legendForce ? 1 : s.chance)) return; hero.licd = s.icd; count(hero.lsk);
-  const oldProc = ({ multishot, frostorb, boomerang, overdrill, pawstorm })[hero.lsk];
+  const oldProc = ({ multishot, frostorb, boomerang, pawstorm })[hero.lsk];
   if (s === ARTILLERY) { artillery(t,s); return; }
   // A ricochet needs a second target. Report it only when the first tracer really appears.
   if (hero.lsk === 'ricochet') { const caster = hero; ricochet(t,s,4,true,() => legendFeedback(caster,t,s,[],FX,true)); return; }
   if (oldProc) {
-    if (!mobileApp && hero.cls !== 'mechanic') Snd.combatCue?.('gear_' + hero.lsk, hero.g.position);
+    if (!mobileApp) Snd.combatCue?.('gear_' + hero.lsk, hero.g.position);
     legendFeedback(hero,t,s,[],FX,true); oldProc(t, s, attack);
   } else impactProc(t, s, attack);
 }
@@ -128,7 +129,7 @@ function impactProc(t, s, attack) {
   }
   if (targets.length) {
     ringFx(t.g.position, s.radius || .8, s.color, .25);
-    if (mobileApp || hero.cls === 'mechanic') Snd.play('zap', { pos: t.g.position, vol: .35, rate: 1.5 });
+    if (mobileApp) Snd.play('zap', { pos: t.g.position, vol: .35, rate: 1.5 });
     else Snd.combatCue?.('gear_' + hero.lsk,t.g.position);
   }
   legendFeedback(hero,t,s,targets,FX);
@@ -180,10 +181,10 @@ function boomerang(t, s) {
 // ---------- active ([E]) ----------
 export function castLegend(at) { if (!skillAllowed(hero, 'E')) return false; return asSkill(castLegend0, at); }
 function castLegend0(at) {
-  const s = legendActive(); if (!s || !hero || hero.dead > 0 || hero.lcd > 0 || hero.eCastT > 0 || hero.leap || (hero.ft && hero.ft.leap) || (hero.mech && hero.mech.busy > 0) || (G.phase !== 'build' && G.phase !== 'wave')) { if (s && hero && hero.lcd > 0) Snd.play('error'); return false; }
+  const s = legendActive(); if (!s || !hero || hero.dead > 0 || hero.lcd > 0 || hero.eCastT > 0 || hero.leap || (hero.ft && hero.ft.leap) || (G.phase !== 'build' && G.phase !== 'wave')) { if (s && hero && hero.lcd > 0) Snd.play('error'); return false; }
   if (hero.warpT > 0) return false; hero.qPoseT=0;hero.ePoseT=0; hero.lcd = legendCd(); hero.spinT = 0; hero.roseT = 0; if (hero.swirl) hero.swirl.visible = false; const key = s.key; G.heroEN ||= {}; G.heroEN[key] = (G.heroEN[key] || 0) + 1;
   if (!s.kind) legendFeedback(hero,hero,s,[],FX,true);
-  if (s.kind) castAdvanceE(s, aim((s.reach*(s.reachMul||1)) || 1, at,s.awakening&&s.b==='dragon'), FX); else if (key === 'rosebarrage') rosebarrage(s, aim(14, at)); else if (key === 'gigahammer') gigahammer(s, aim(12, at)); else if (key === 'tigerdash') tigerdash(s, aim(9, at)); else ({ pierce, meteorstorm, quake })[key](s, at);
+  if (s.kind) castAdvanceE(s, aim((s.reach*(s.reachMul||1)) || 1, at,s.awakening&&s.b==='dragon'), FX); else if (key === 'rosebarrage') rosebarrage(s, aim(14, at)); else if (key === 'tigerdash') tigerdash(s, aim(9, at)); else ({ pierce, meteorstorm, quake })[key](s, at);
   if(!s.kind&&(key==='pierce'||key==='meteorstorm')){hero.ePoseT=Math.max(0,hero.atkT||0);hero.ePoseTerrain=G.tiles;}
   if(hero.treeMods?.weave||hero.treeMods?.pursuit||hero.treeMods?.pursuitRanged)treeSkillUsed(hero,'e',G.t);hero.autoSkillUntil = G.t + Math.max(.8, hero.atkT || 0); return true;
 }
@@ -263,7 +264,7 @@ function smash(c, s) {
 export function updLegend(dt) {
   if (hero) { hero.eCastT = Math.max(0, (hero.eCastT || 0) - dt); hero.lcd = Math.max(0, (hero.lcd || 0) - dt); hero.licd = Math.max(0, (hero.licd || 0) - dt); }
   for (let i = FX.length - 1; i >= 0; i--) if (!FX[i](dt)) FX.splice(i, 1);
-  updGun(dt); updMechFx(dt); updFtFx(dt);
+  updGun(dt); updateKnockback(dt); updFtFx(dt);
 }
 // 파티의 다른 영웅(조작 영웅 아닌): 영웅별 부분만 (이펙트 목록은 updLegend 가 한 번만 돌림)
 export function updLegendHero(dt) {

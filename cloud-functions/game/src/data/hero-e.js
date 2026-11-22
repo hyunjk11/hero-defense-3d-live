@@ -5,7 +5,6 @@ export const HERO_E = {
   meteorstorm: { key: 'meteorstorm', h: 'mage', type: 'active', n: '메테오 스톰', cd: 12, mul: 4, d: '[E] 목표 지역에 운석 6개를 쏟아부음 (일반 5개 각 400%·마지막 600% 피해) · 기본 재사용 12초' },
   quake: { key: 'quake', h: 'warrior', type: 'active', n: '천지파열무', cd: 14, mul: 4, d: '[E] 도약해 땅을 내리쳐 충격파 — 주변 적 400% 피해 + 0.8초 공중에 띄움(기절) · 기본 재사용 14초' },
   rosebarrage: { key: 'rosebarrage', h: 'gunner', type: 'active', n: '장미 탄막', cd: 11, mul: 1.5, d: '[E] 목표 방향 부채꼴로 장미 탄환 3연속 일제 사격(각 150% 피해·3명 관통) → 끝에서 장미 폭발 (300% 피해) · 기본 재사용 11초' },
-  gigahammer: { key: 'gigahammer', h: 'mechanic', type: 'active', n: '기가 해머 낙하', cd: 13, mul: 4, d: '[E] 목표 지점에 거대한 해머를 떨어뜨림 — 주변 적 400% 피해 · 밀쳐내기 · 1초 기절 · 기본 재사용 13초' },
   tigerdash: { key: 'tigerdash', h: 'fighter', type: 'active', n: '맹호 돌진', cd: 10, mul: 3, d: '[E] 목표 방향으로 질풍처럼 돌진하며 지나가는 모든 적에게 300% 피해 + 밀쳐내기 · 기본 재사용 10초' },
 };
 const BY_HERO = Object.fromEntries(Object.values(HERO_E).map(s => [s.h, s.key]));

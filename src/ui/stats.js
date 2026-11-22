@@ -51,7 +51,7 @@ export function closeStats() { if (!st.town) return; st.town = false; STP.hide()
 const STP = definePanel('statPanel', { id: 'statPanel', z: 40, isOpen: () => st.town, close: () => closeStats() });
 
 // ---------- 전투 ----------
-const liveM = h => { const a = h.adv && h.adv.atk; return { tree:h.treeMods, cls: h.cls, ups: G.ups, growthEnabled: G.growthEnabled, focus: G.focus, advLow: a && a.lowHp && h.hp <= h.max * a.lowHp ? a.lowAtk : 1, M: (G.dgM && G.dgM(h)) || NOM, robo: !!h.robo, max: h.max }; };
+const liveM = h => { const a = h.adv && h.adv.atk; return { tree:h.treeMods, cls: h.cls, ups: G.ups, growthEnabled: G.growthEnabled, focus: G.focus, advLow: a && a.lowHp && h.hp <= h.max * a.lowHp ? a.lowAtk : 1, M: (G.dgM && G.dgM(h)) || NOM, max: h.max }; };
 // Q-7 (2026-10-24): 전투 업그레이드(#ups) "지금 → 다음" 수치 — 같은 finalStats 를 G.ups[k]+1 로 한 번 더 (barricade 는 hud 에서)
 export function upPreview(h, k) {
   if (!h || !h.C) return ''; const m = liveM(h), a = finalStats(h.C, h.eq, m), b = finalStats(h.C, h.eq, { ...m, ups: { ...m.ups, [k]: (m.ups[k] || 0) + 1 } }), r2 = v => Math.round(v * 100) / 100;
@@ -66,7 +66,7 @@ function buffs(h, m) { const o = h.tree&&Object.keys(h.tree.choices).length?['�
   for (const [k, n, p] of [['atk', '공격', 15], ['spd', '공속', 10], ['rng', '사거리', 8], ['skill', '스킬', 25]]) if (u[k]) o.push(`영웅 강화 ${n} Lv.${u[k]} (+${u[k] * p}%)`);
   if (G.growthEnabled) { o.splice(0,o.length,...(h.tree&&Object.keys(h.tree.choices).length?['특성 · '+treeSummary(h.tree)]:[])); o.push(`영웅 Lv.${h.C.level || 1} · 전투 집중 ${G.focus || 0}/${FOCUS_MAX}`); }
   if(h.eShield?.until>G.t) o.push(`성광 방벽 · 흡수 ${Math.ceil(h.eShield.value)}`);
-  if (m.advLow !== 1) o.push(`광전사 분노 공격 +${r1((m.advLow - 1) * 100)}%`); if (m.robo) o.push('변신 로봇 사거리 +45%');
+  if (m.advLow !== 1) o.push(`광전사 분노 공격 +${r1((m.advLow - 1) * 100)}%`);
   if (M !== NOM) { const b = []; if (M.dmg !== 1) b.push(`공격 ×${r1(M.dmg * 100) / 100}`); if (M.rate !== 1) b.push(`공속 ×${r1(M.rate * 100) / 100}`); if (M.crit) b.push(`치명 +${M.crit}%`); if (M.critD) b.push(`치명 피해 +${M.critD}%`); if (M.range !== 1) b.push(`사거리 ×${r1(M.range * 100) / 100}`); if (M.cd !== 1) b.push(`재사용 ×${r1(M.cd * 100) / 100}`); if (M.taken !== 1) b.push(`받는 피해 ×${r1(M.taken * 100) / 100}`); if (b.length) o.push('던전 축복: ' + b.join(' · ')); }
   return o; }
 const heroesNow = () => (G.heroes && G.heroes.length ? G.heroes : G.hero ? [G.hero] : []);

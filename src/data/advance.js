@@ -39,11 +39,6 @@ export const ADV = {
     dragon: { n: '천기권사', icon: '🐉', c: '#65dfff', col: 0x65dfff, d: '피해 ×1.2 · 공격속도 ×0.9 · 장풍 완전 충전 1.2→0.8초 · 완전 장풍 250→300% · 판정 폭 +20% · 장풍 맞은 적 1초 20% 둔화 — 대열을 꿰뚫는 기공', mod: { dmg: 1.2, rate: .9 }, atk: { jpFull: .8, jpFullMul: 3, jpWMul: 1.2, jpSlow: .2, jpSlowT: 1 },
       skill: 'dragonwave', sk: '천룡파', sd: '거대한 푸른 용이 적을 쫓아 날아감(비행 24 · 폭 3.8 · 가까운 적 자동 추적) 관통 500% (적마다 1회) · 일반 적 1초 기절 / 보스 2초 25% 둔화', tower: { magic: { rng: 1.06 } }, td: '마법 타워 사거리 +6%', ws: 1 },
   },
-  // 버들(숨김): 분기 예약만 — 숨김 해제 때 수치·스킬 확정 (reserved → 전직 탭·해금·적용 모두 제외)
-  mechanic: {
-    armor: { n: '중장 기갑', icon: '⚙️', c: '#7aff5a', col: 0x7aff5a, d: '(예약) 로봇 지속 +5초 · 흡수 +30%', mod: {}, atk: {}, skill: null, sk: '', sd: '', tower: {}, td: '', ws: 1, reserved: true },
-    engineer: { n: '현장 공병', icon: '🔧', c: '#ffa04a', col: 0xffa04a, d: '(예약) 변신 대신 20초 임시 미니 화살 타워 2개', mod: {}, atk: {}, skill: null, sk: '', sd: '', tower: {}, td: '', ws: 1, reserved: true },
-  },
 };
 for (const h in ADV) for (const b in ADV[h]) Object.assign(ADV[h][b], { h, k: b });
 export const ADV_COST = { souls: 1500, crystal: 20, essence: 3 }, ADV_SWITCH = { souls: 500 };

@@ -42,7 +42,7 @@ export const LSK = {
   ricochet: { h: 'gunner', type: 'proc', n: '도탄 난사', chance: .22, icd: .8, mul: .7, d: '공격 시 22% 확률로 탄환이 주변 적 최대 4명에게 차례로 튕김 (각 70% 피해)' },
   rosebarrage: { h: 'gunner', type: 'proc', n: HERO_E.rosebarrage.n, chance: .2, icd: 1.5, mul: .9, max: 1, slow: .4, slowTime: 1, color: 0xff7ea9, d: '기본 공격 시 20% 확률로 대상에게 추가 90% 피해와 1초간 40% 둔화 · 1명 · 내부 쿨타임 1.5초' },
   overdrill: { h: 'mechanic', type: 'proc', n: '과부하 드릴', chance: .2, icd: 1.6, mul: .45, d: '공격 시 20% 확률로 드릴이 과열 — 앞쪽 부채꼴을 6번 연속 갈아버림 (각 45% 피해) + 40% 둔화' },
-  gigahammer: { h: 'mechanic', type: 'proc', n: HERO_E.gigahammer.n, chance: .2, icd: 2, mul: 1.4, max: 1, slow: .3, slowTime: 1, color: 0x9ce876, d: '기본 공격 시 20% 확률로 대상에게 추가 140% 피해와 1초간 30% 둔화 · 1명 · 내부 쿨타임 2초' },
+  gigahammer: { h: 'mechanic', type: 'proc', n: '기가 해머 낙하', chance: .2, icd: 2, mul: 1.4, max: 1, slow: .3, slowTime: 1, color: 0x9ce876, d: '기본 공격 시 20% 확률로 대상에게 추가 140% 피해와 1초간 30% 둔화 · 1명 · 내부 쿨타임 2초' },
   pawstorm: { h: 'fighter', type: 'proc', n: '냥냥 난타', chance: .2, icd: 1.5, mul: .45, hits: 6, d: '기본 공격 적중 시 20% 확률로 6연타 (각 45%) — 근접: 전방 지상 부채꼴 / 장풍: 적중 방향으로 발 기탄 6발(비행 포함·발당 1명·사거리 10). 장풍 1회당 판정 1회 · 내부 쿨타임 1.5초' },
   tigerdash: { h: 'fighter', type: 'proc', n: HERO_E.tigerdash.n, chance: .2, icd: 1.8, mul: 1.2, radius: 1.8, max: 2, color: 0xffcd8b, d: '기본 공격 적중 시 20% 확률로 대상과 반경 1.8의 적 최대 2명에게 120% 피해 · 근접은 지상, 장풍은 비행 포함 · 장풍 1회당 판정 1회 · 내부 쿨타임 1.8초' },
 };

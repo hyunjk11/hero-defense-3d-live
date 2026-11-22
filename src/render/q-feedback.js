@@ -11,13 +11,12 @@ export function createQFeedback(scene, ground, state, perf, capacity=6) {
     if(kind==='mage'){radial(6,.25,.95,.12,0,a);radial(6,.25,.45,.08,Math.PI/6,a);}
     if(kind==='warrior'){for(let j=0;j<3;j++)for(let i=0;i<9;i++){const x=j*2.094+i*.095,r=1.08;polygon([[Math.sin(x)*r,0,Math.cos(x)*r],[Math.sin(x+.1)*r,0,Math.cos(x+.1)*r],[Math.sin(x+.1)*.86,0,Math.cos(x+.1)*.86],[Math.sin(x)*.86,0,Math.cos(x)*.86]],a);}}
     if(kind==='gunner'){radial(5,.06,1.12,.32,0,a);radial(5,.04,.5,.14,Math.PI/5,a);}
-    if(kind==='mechanic'){for(let i=0;i<8;i++){const q=i*Math.PI/4;blade(Math.sin(q)*.68,Math.cos(q)*.68,q,.55,.2,a);}radial(4,0,.5,.13,Math.PI/4,a);}
     if(kind==='fighter'){for(let i=-1;i<=1;i++)blade(i*.5,-.8,Math.PI*.12,1.8,.16,a);}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.computeVertexNormals();return g;
   };
-  const classes=['archer','mage','warrior','gunner','mechanic','fighter'],geos=Object.fromEntries(classes.map(k=>[k,make(k)]));
+  const classes=['archer','mage','warrior','gunner','fighter'],geos=Object.fromEntries(classes.map(k=>[k,make(k)]));
   const ring=new THREE.RingGeometry(.94,1,48);ring.rotateX(-Math.PI/2);
-  const colors={archer:0x8affb7,mage:0xffa454,warrior:0xffce8e,gunner:0xff91c5,mechanic:0xa8ff68,fighter:0xffc58b};
+  const colors={archer:0x8affb7,mage:0xffa454,warrior:0xffce8e,gunner:0xff91c5,fighter:0xffc58b};
   const slots=Array.from({length:capacity},()=>{const root=new THREE.Group(),mat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,blending:THREE.AdditiveBlending}),echo=mat.clone(),rim=mat.clone();
     const symbol=new THREE.Mesh(geos.archer,mat),ghost=new THREE.Mesh(geos.archer,echo),edge=new THREE.Mesh(ring,rim);root.add(symbol,ghost,edge);root.name='q-signature';root.visible=false;return{root,mat,echo,rim,symbol,ghost,edge,h:null,t:0};});
   const clear=s=>{s.h=null;s.root.visible=false;s.root.removeFromParent();};

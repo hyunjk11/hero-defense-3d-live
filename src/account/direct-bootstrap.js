@@ -7,7 +7,7 @@ export function bootstrapDocuments(uid,email,now=Date.now(),project=DEMO_PROJECT
     ['hd3d_growth_wallet',uid,{user_id:uid,...initialGrowth(save)}],
     ['hd3d_sequences','_revision',{id:'_revision',value:0}],
     ['hd3d_sequences','_activation',{id:'_activation',schema:1,enabled:true,spireVersion:1}]];
-  for(const item of ['hero_gunner','hero_mechanic','hero_fighter'])rows.push(['hd3d_sequences','order-pending-'+item,{id:'order-pending-'+item,value:0}]);
+  for(const item of ['hero_gunner','hero_fighter'])rows.push(['hd3d_sequences','order-pending-'+item,{id:'order-pending-'+item,value:0}]);
   return rows.map(([table,id,row])=>{const d=directDocument(project,uid,table,id,row);d.fields.commitRevision=encodeFields({x:0}).x;return d;});
 }
 // Fresh live signup: never import local/legacy money or replace an existing live account.

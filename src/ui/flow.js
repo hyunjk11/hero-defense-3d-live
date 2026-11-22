@@ -1,3 +1,4 @@
+import { activateStageRepeat, makeRepeatHandoff, receiveStageRepeat, stopStageRepeat } from './stage-repeat.js';
 import { startPractice, preparePractice } from './practice.js';
 import { prepareHardParty, startHardParty } from '../heroes/hard-party.js';
 import { heroBadges } from './hero-badges.js';
@@ -83,16 +84,32 @@ function applyEndgameResearch() {
   G.beamAttackResearch = beamAttackBonus(save);
 }
 // ---------- 스테이지 ----------
-async function departStage(id) { if (!Acc.saveAllowed()) return; if (departing) return; departing = true; rememberStage(id); Snd.play('meteorCast', { force: true }); Snd.play('confirm'); $('fade').classList.add('on'); // Q-5 지도·Q-6 재도전/다음 공통 (47b5eb7 에서 주석 안으로 들어가 소리·화면 어두워짐이 빠졌던 것 복구)
-  if (G.xpPendingWrite && !await G.xpPendingWrite) { departing = false; $('fade').classList.remove('on'); banner('XP 기록을 저장하지 못했습니다. 다시 시도해 주세요.'); return; }
-  go({ stage: id }, 500); }
+async function departStage(id, mode=false, current=()=>true) {
+  if (!mode) stopStageRepeat();
+  if (!Acc.saveAllowed() || departing || !current()) return false;
+  const handoff=mode?makeRepeatHandoff(id):null;
+  if (mode&&!handoff) return false;
+  departing = true; rememberStage(id); Snd.play('meteorCast', { force: true }); Snd.play('confirm'); $('fade').classList.add('on'); // Q-5 지도·Q-6 재도전/다음 공통 (47b5eb7 에서 주석 안으로 들어가 소리·화면 어두워짐이 빠졌던 것 복구)
+  if (G.xpPendingWrite && !await G.xpPendingWrite) { departing = false; $('fade').classList.remove('on'); banner('XP 기록을 저장하지 못했습니다. 다시 시도해 주세요.'); return false; }
+  return go({stage:id,repeatRun:handoff?.nonce},500,handoff?async()=>{
+    if(!current()||!await Acc.flush()||!current()||HG.HG.pending||Acc.serverSaveState())return false;
+    return handoff.save();
+  }:undefined);
+}
 function startStageRun() { // 저장된 영웅이 유료 영웅이면 서버 소유권(hd3d_owned)을 먼저 확인
   const s0 = Acc.load(); if (CLASSES[s0.hero] && CLASSES[s0.hero].paid) { $('loadTxt').textContent = '영웅 확인 중…'; Sh.verifyOwned().then(() => startStageRun2(true)); } else startStageRun2(false);
 }
 async function startStageRun2(logged) {
   if (!logged) await Acc.autoLogin().catch(() => {}); if (!Acc.A.user && Acc.A.mode !== 'guest') { show('login'); refreshLogin(); return; }
   if (STAGE.hard) await Sh.verifyOwned();
-  const s = Acc.load(); s.hero = Sh.usableHero(s.hero); if (!await prepareGrowth(STAGE.id, s.hero)) { enterTown(); if (HG.pendingSortieSettings()) banner(Acc.SAVE_WAIT_MESSAGE); return; } if(STAGE.hard&&!G.xpRun){enterTown();banner('하드 출정 확인 실패 · 연결과 해금 확인');return;} showSelect(); $('select').classList.add('hidden'); hideAll(); s.hero = Sh.usableHero(s.hero); // 잠긴 유료 영웅이면 기본 영웅
+  let repeat=false;
+  if (!mobileApp && QS.has('repeatRun')) {
+    const epoch=Acc.sessionId();
+    await HG.refresh();
+    repeat=receiveStageRepeat(STAGE.id);
+    if(!repeat||epoch!==Acc.sessionId()){go({town:1},0);return;}
+  }
+  const s = Acc.load(); s.hero = Sh.usableHero(s.hero); if (!await prepareGrowth(STAGE.id, s.hero)) { enterTown(); if (HG.pendingSortieSettings()) banner(Acc.SAVE_WAIT_MESSAGE); return; } if(repeat&&!G.xpRun?.repeat){go({town:1},0);return;} if(STAGE.hard&&!G.xpRun){enterTown();banner('하드 출정 확인 실패 · 연결과 해금 확인');return;} showSelect(); $('select').classList.add('hidden'); hideAll(); s.hero = Sh.usableHero(s.hero); // 잠긴 유료 영웅이면 기본 영웅
   G.perm = s.heroLv[s.hero]; G.equip = E.bonus(s, s.hero); G.legend = E.legendOf(s, s.hero); G.adv = AD.advOf(s.hero, s.adv[s.hero]); G.advBar = AD.advBarMul(G.adv); G.barRes = SX.barMul(SX.barLv(s)); G.dropCh = STAGE ? STAGE.ch : P.openChapters(s); G.runBossKills = []; G.grow = true; G.research = s.research; G.runDrops = []; G.runStart = performance.now(); G.stage = STAGE; G.gold += STAGE.startGold || 0; applyEndgameResearch(); G.phase = 'select';
   if (STAGE.hard && G.xpRun?.party) {
     const run = G.xpRun, current = () => G.xpRun === run && Acc.A.user?.id === run.owner && Acc.sessionId() === run.session;
@@ -101,16 +118,17 @@ async function startStageRun2(logged) {
     catch (error) { if(current()){enterTown(); banner('영웅 모델을 불러오지 못했습니다. 다시 출정해 주세요.');} return; }
     finally { if(current())$('loading').classList.add('hidden'); }
   } else choose(s.hero);
+  if(repeat) activateStageRepeat(STAGE.id);
   $('retreat').classList.remove('hidden');
   const C = (STAGE.hard ? ST.HARD_CHAPTERS : ST.CHAPTERS).find(c => c.id === STAGE.ch); setTimeout(() => banner(`${STAGE.no} ${STAGE.n} · 웨이브 ${STAGE.waves} · ${C.propN}`, C.color, 3200), 500);
   const bt = equipLine(G.equip); if (bt) setTimeout(() => banner(bt, '#ffe08a', 2200), 3900);
 }
-initResult({ departStage: (id) => departStage(id) }); initAuth({ show: id => show(id) });
+initResult({ departStage: (id) => departStage(id), repeatStage:(id,current)=>departStage(id,true,current) }); initAuth({ show: id => show(id) });
 // ---------- 시작 ----------
 export function startFlow() {
   if (QS.get('practice') === '1') { hideAll(); void startPractice(); return; }
   // Keep game-input protection; result statistics stay usable while saving.
-  const resultInput=event=>!!event.target?.closest?.('#scStats,#overStats,#esClose,#esBack,#endStats');
+  const resultInput=event=>!!event.target?.closest?.('#scStats,#overStats,#esClose,#esBack,#endStats,#repeatStop');
   addEventListener('keydown', event => { if (G.navigating && !event.ctrlKey && !event.metaKey && !event.altKey && !resultInput(event) && !['c','C','Escape'].includes(event.key)) { event.preventDefault(); event.stopImmediatePropagation(); } }, { capture: true });
   for (const type of ['pointerdown','pointerup','pointermove','click','dblclick','contextmenu','touchstart','touchmove','wheel'])
     addEventListener(type, event => { if (G.navigating && !resultInput(event)) { event.preventDefault(); event.stopImmediatePropagation(); } }, { capture:true, passive:false });
@@ -268,7 +286,7 @@ function bindUI() {
   document.querySelectorAll('#twRail .railBtn[data-go]').forEach(b => { if (b.dataset.go === 'dungeon' && !DG_OPEN) b.classList.add('hidden'); b.onclick = e => { e.stopPropagation(); setMobileHeroPicker(false); const f = railGo[b.dataset.go]; if (f) f(); }; });
   $('twPractice').onclick = () => { setMobileHeroPicker(false); if (!Acc.saveAllowed()) return; preparePractice(); go({ practice: true }); };
   $('twGo').onclick = () => { setMobileHeroPicker(false); closeDungeon(true); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); openStageSel(); };
-  initStageSel({ challenge: () => depart(), start: (id) => departStage(id) }); $('twMenu').onclick = () => { Snd.play('ui'); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); if (th) { disposeHeroModel(th); th = null; } town.visible = false; G.phase = 'menu'; cam.target.set(0, 1.5, 22); cam.r = 13.5; cam.phi = 1.3; toMenu(); };
+  initStageSel({ challenge: () => depart(), start: (id, repeat) => departStage(id, repeat) }); $('twMenu').onclick = () => { Snd.play('ui'); closeBless(); closeShopUI(); closeLab(true); closeSmith(true); closeInv(); closeStats(); closeStageSel(true); if (th) { disposeHeroModel(th); th = null; } town.visible = false; G.phase = 'menu'; cam.target.set(0, 1.5, 22); cam.r = 13.5; cam.phi = 1.3; toMenu(); };
   $('retreat').onclick = async () => { if (G.phase !== 'build') { Snd.play('error'); return; } if (!(await askConfirm({ title: '마을로 귀환', icon: '🏠', body: '지금까지의 보상을 가지고 마을로 귀환할까요?', ok: '귀환' }))) return; if (G.phase !== 'build') { Snd.play('error'); return; } onRunEnd('retreat'); };
   $('overTown').onclick = () => goTown();
   $('overRetry').onclick = () => { if (STAGE) departStage(STAGE.id); else if (DUNGEON) reload(); else go({ challenge: true }); }; // Q-6: 스테이지 판은 같은 스테이지 재도전 (보상은 onRunEnd 에서 이미 저장)

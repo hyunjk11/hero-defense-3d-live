@@ -7,7 +7,7 @@ export const AS_TICK = .25;   // 판단 주기 (초, 게임 시간)
 export const AS_MIN = 3;      // 광역: 범위 안 적 3+ (또는 보스·정예)
 export const AS_LINE_MIN = 3; // 직선: 한 줄에 3+ 관통
 // 시전 중(채널·도약·변신·조준·회전) — 던전 파티 AI 와 같은 판정 (dungeon/run.js partyAI 도 이 함수를 씀)
-export const skillBusy = h => !!(h.eCastT > 0 || h.spinT > 0 || h.roseT > 0 || h.snipeT > 0 || h.leap || (h.mech && h.mech.busy > 0) || (h.ft && h.ft.leap));
+export const skillBusy = h => !!(h.eCastT > 0 || h.spinT > 0 || h.roseT > 0 || h.snipeT > 0 || h.leap || (h.ft && h.ft.leap));
 // 스킬 모양: kind 'ground'(지점 광역: r 판정 반경 · reach 최대 시전 거리) | 'self'(제자리 광역/버프: r) | 'line'(직선 관통: len · w 반폭 · reach 대상 찾는 거리)
 // ground: true = 지상 적만 셈 (비행은 안 맞음). r 은 실제 피해 반경보다 조금 작게 (가장자리 적은 셈에서 뺌)
 export function skillShape(cls, skill, range = 8) {
@@ -30,7 +30,6 @@ export function skillShape(cls, skill, range = 8) {
     case 'warrior': return { kind: 'self', r: 3.0 };                        // 회오리 베기
     case 'gunner': return { kind: 'self', r: Math.min(6.5, range * .8) };   // 로즈 피니시 (사방 난사)
     case 'fighter': return { kind: 'ground', r: FT.qR * .8, reach: FT.qLeap, ground: true }; // 냥냥 진각 (최대 9 도약 → 반경 4.5)
-    case 'mechanic': return { kind: 'self', r: 6 };                         // 변신 (숨김 영웅)
   }
   return { kind: 'ground', r: 3.5, reach: 12 };
 }
@@ -42,7 +41,6 @@ export function legendShape(skill) {
     case 'meteorstorm': return { kind: 'ground', r: 4, reach: 16 };
     case 'quake': return { kind: 'ground', r: 4.6, reach: 8, ground: true };
     case 'rosebarrage': return { kind: 'line', len: 13, w: 1.8, reach: 13 };
-    case 'gigahammer': return { kind: 'ground', r: 3.2, reach: 12 };
     case 'tigerdash': return { kind: 'line', len: 9, w: 2, reach: 9 };
     default: return null;
   }

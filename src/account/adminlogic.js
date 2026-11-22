@@ -5,7 +5,7 @@ export const MAX_RW = 1000000, MAX_MEDALS = 10000; // 던전 메달(2026-10-23):
 export const UPDATE_MSG = '서버 업데이트 필요: schema.sql 을 다시 실행해 주세요';
 // 폼 값 → 보상 객체 (0 은 빼고, 0~1,000,000 정수). hero 는 판매 영웅 키만
 // items: 보상 아이템 줄 목록 (rewarditems.validItem 으로 거른 뒤 최대 10개), essence = 전직 정수 0~10,000
-export function buildReward({ souls, steel, crystal, essence, hero, items, medals } = {}, heroes = ['gunner', 'mechanic', 'fighter']) {
+export function buildReward({ souls, steel, crystal, essence, hero, items, medals } = {}, heroes = ['gunner', 'fighter']) {
   const n = (v, cap = MAX_RW) => Math.max(0, Math.min(cap, Math.floor(+v || 0))), r = {};
   if (n(souls)) r.souls = n(souls); if (n(steel)) r.steel = n(steel); if (n(crystal)) r.crystal = n(crystal); if (n(essence, MAX_ESSENCE)) r.essence = n(essence, MAX_ESSENCE); if (n(medals, MAX_MEDALS)) r.medals = n(medals, MAX_MEDALS);
   if (hero && heroes.includes(hero)) r.hero = hero; const L = cleanItems(items); if (L.length) r.items = L.map(x => ({ ...x })); return r;

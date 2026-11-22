@@ -23,7 +23,7 @@ export function togglePick(cur, cls, cands) { const p = pickParty(cands, cur);
   if (p.length >= DG_MAX) return { pick: p, msg: `최대 ${DG_MAX}명까지 출전할 수 있어요` };
   return { pick: cands.filter(x => p.includes(x) || x === cls), msg: null }; }
 // 역할: tank = 앞에서 어그로, ranged = 뒤에서 사격, caster = 밀집 지점 광역, bruiser = 측면에서 원거리 적을 먼저 덮침 (서윤)
-export const ROLE = { warrior: 'tank', archer: 'ranged', gunner: 'ranged', mage: 'caster', mechanic: 'tank', fighter: 'bruiser' };
+export const ROLE = { warrior: 'tank', archer: 'ranged', gunner: 'ranged', mage: 'caster', fighter: 'bruiser' };
 export const dungeonRole = (cls, adv) => cls === 'fighter' && adv?.k === 'dragon' ? 'ranged' : ROLE[cls] || 'ranged';
 export const ROLE_N = { tank: '전방 · 어그로', ranged: '후방 · 사격', caster: '광역 · 밀집 공격', bruiser: '측면 · 원거리 적 덮치기' };
 // 어그로: 몬스터가 노릴 영웅을 고를 때 탱커는 이만큼 가깝게 친다 (AGGRO_R 안에 있을 때만)

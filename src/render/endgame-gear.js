@@ -14,6 +14,6 @@ export function updateEndgameGear(ch,items){
   else if(it.h==='mage'){const p=mount(['RightHand','handslotr'],[0,.04,0],true);if(p){add(p,'body',0,.12,0,.07,.55,.07,rod);sigil(p,0,.38);for(const s of [-1,1])add(p,'edge',s*.2,.34,0,.06,.45,.07,cone).rotation.z=-s*.3;}}
   else if(it.h==='archer'){const p=mount(['LeftHand','handslotl'],[0,.02,.03]);if(p){for(const s of [-1,1]){add(p,'body',s*.2,s*.2,0,.48,.07,.08).rotation.z=.7;add(p,'edge',s*.33,s*.4,0,.06,.3,.07,cone).rotation.z=-s*.25;}sigil(p);}}
   else if(it.h==='fighter'||it.h==='gunner'){for(const s of [-1,1]){const p=mount(s<0?['LeftHand','handslotl']:['RightHand','handslotr'],[0,.03,.04]);if(!p)continue;add(p,'body',0,0,0,.24,.22,.25);if(it.h==='gunner'){const n=add(p,'edge',0,.08,.24,.07,.43,.07,rod);n.rotation.x=Math.PI/2;sigil(p,0,.02,.02);}else{for(let i=0;i<3;i++)add(p,'edge',(i-1)*.08,.14,.13,.05,abyss?.16:.25,.065,abyss?gem:cone);add(p,'core',0,.11,.22,.07,.05,.03,gem);}}}
-  else {const p=mount(['RightHand','handslotr'],[0,.02,.03]);if(p){add(p,'body',0,.15,0,.1,.3,.09);add(p,'edge',0,.29,0,.38,.06,.1);add(p,'body',0,.7,0,it.h==='mechanic'?.35:.18,.8,.08,abyss?gem:box);sigil(p,0,.39,.06);add(p,'edge',0,1.15,0,.14,.35,.07,cone);}}
+  else {const p=mount(['RightHand','handslotr'],[0,.02,.03]);if(p){add(p,'body',0,.15,0,.1,.3,.09);add(p,'edge',0,.29,0,.38,.06,.1);add(p,'body',0,.7,0,.18,.8,.08,abyss?gem:box);sigil(p,0,.39,.06);add(p,'edge',0,1.15,0,.14,.35,.07,cone);}}
  }
 }

@@ -5,7 +5,7 @@ const fail=code=>Object.assign(Error(code),{code});
 export function createOrderTransport(config,{auth,fetcher=fetch,storage=globalThis.localStorage,uuid=()=>crypto.randomUUID()}={}){
  const {root,endpoint}=assertDirectConfig(config);let busy=false;
  return async(q,user)=>{
-  const item=q.values?.item;if(!q.values||Object.keys(q.values).join()!=='item'||!['hero_gunner','hero_mechanic','hero_fighter'].includes(item))throw fail('23514');
+  const item=q.values?.item;if(!q.values||Object.keys(q.values).join()!=='item'||!['hero_gunner','hero_fighter'].includes(item))throw fail('23514');
   const columns=q.columns&&q.columns!=='*'?q.columns.split(',').map(x=>x.trim()):null;if(columns?.some(x=>!/^[a-z_]+$/.test(x)))throw fail('23514');
   const present=row=>({data:q.returning?(q.single?(columns?Object.fromEntries(columns.map(k=>[k,row[k]??null])):row):[columns?Object.fromEntries(columns.map(k=>[k,row[k]??null])):row]):null,error:null});
   if(!storage||busy)throw fail('DIRECT_ORDER_PENDING');busy=true;let job,clear=false,snapshot,call;

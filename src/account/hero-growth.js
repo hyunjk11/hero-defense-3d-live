@@ -11,7 +11,7 @@ import { isMissingErr } from './adminlogic.js';
 import { mobileApp } from '../ui/mobile-mode.js';
 import { AWAKENING_VERSION, AWAKENING_SKILL_VERSION, awakeningSkillOn } from '../data/awakening.js';
 
-export const HG = { owner: null, session: -1, status: 'idle', growth: null, message: '', pending: 0, hasInvestment: false, rewardXP: {}, hardRewards: {}, features: {}, buildBusy:false };
+export const HG = { owner: null, session: -1, status: 'idle', growth: null, message: '', pending: 0, hasInvestment: false, rewardXP: {}, hardRewards: {}, hardClearReceipt: null, features: {}, buildBusy:false };
 const listeners = [], prefix = 'hd3d_live_growth_v1_', guestKey = prefix + 'guest_ledger';
 const owner = () => Acc.A.user?.id || (Acc.A.mode === 'guest' ? 'guest' : null);
 const stamp = () => owner() + ':' + Acc.sessionId();
@@ -128,6 +128,8 @@ export async function retry() {
         }
         if(!r.ok){HG.message='XP 지급 대기: '+r.reason;continue;}
         HG.rewardXP[token]=r.xp;if(r.hardReward)HG.hardRewards[token]=r.hardReward;
+        if(hardFinish&&a.p_win&&r.hardSaved===true&&r.win===true&&r.completed===a.p_completed&&r.hardReward)
+          HG.hardClearReceipt={token,stage:a.p_stage,owner:u,session:Acc.sessionId(),completed:r.completed,ok:true,reward:r.hardReward};
       }finally{if(lease)Acc.finishServerSave(lease,false);}
       delete out.rewards[token]; write(outKey(u), out);
     }
@@ -268,7 +270,7 @@ export async function guestDungeon(token, floors, win) {
   return locked('guest', async () => { const out = readOut('guest'); out.dungeon = { token, floors, win }; write(outKey('guest'), out); const r = await rpc('guest', 'dungeon', out.dungeon); if (!valid(s)) return { ok: false }; accept(r, s); out.dungeon = null; write(outKey('guest'), out); return r; });
 }
 export function receipt(r, expectedOwner) { if (owner() === expectedOwner && enabled() && r?.growth) accept(r, stamp()); }
-Acc.onChange(() => { if (HG.owner !== owner() || HG.session !== Acc.sessionId()) { HG.status = 'idle'; HG.growth = null; HG.owner = owner(); HG.session = Acc.sessionId(); HG.pending = 0; HG.hasInvestment = false; HG.rewardXP = {}; HG.hardRewards={}; HG.features={}; HG.battlePartner=undefined; HG.buildBusy=false; HG.message = ''; emit(); } });
+Acc.onChange(() => { if (HG.owner !== owner() || HG.session !== Acc.sessionId()) { HG.status = 'idle'; HG.growth = null; HG.owner = owner(); HG.session = Acc.sessionId(); HG.pending = 0; HG.hasInvestment = false; HG.rewardXP = {}; HG.hardRewards={}; HG.hardClearReceipt=null; HG.features={}; HG.battlePartner=undefined; HG.buildBusy=false; HG.message = ''; emit(); } });
 addEventListener('online', () => { void refresh(); });
 
 export async function settleMode(name, args) {

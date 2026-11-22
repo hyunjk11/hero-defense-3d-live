@@ -11,7 +11,7 @@ import { hurt as hurt0 } from '../monsters/enemy.js';
 import { groundY } from '../monsters/ai.js';
 import { banner } from '../ui/hud.js';
 import { hero, passAt, stat } from './hero.js';
-import { knock } from './mechanic.js';
+import { knock } from './knockback.js';
 import { legendProc } from './legend.js';
 import { FT, comboMul, isKick, jpLevel, jpMul, ftOpt, comboHeal, TQ, DW, steer, jpWants, ftSkillId } from '../data/fighter.js';
 import { Q } from '../render/quality.js';

@@ -18,7 +18,7 @@ export const shiftDay = (d, n) => new Date(Date.parse(d + 'T00:00:00Z') + n * 86
 export const paidHeroes = ['gunner', 'mechanic', 'fighter'];
 export const heroes = ['warrior', 'archer', 'mage', ...paidHeroes];
 export const itemNames = { hero_gunner: '총사 로즈', hero_mechanic: '메카닉 버들', hero_fighter: '격투가 서윤' };
-export const itemReward = item => typeof item === 'string' && Object.hasOwn(itemNames, item) ? { hero: item.slice(5) } : null;
+export const itemReward = item => typeof item === 'string' && item !== 'hero_mechanic' && Object.hasOwn(itemNames, item) ? { hero: item.slice(5) } : null;
 export function validItem(x) {
   return !!x && typeof x === 'object' && !Array.isArray(x) && x.k === 'gear' && Object.keys(x).every(k => ['k','s','h','g','c','set'].includes(k))
     && ['weapon','armor','acc'].includes(x.s) && Number.isInteger(x.g) && x.g >= 0 && x.g <= 4
@@ -26,11 +26,11 @@ export function validItem(x) {
     && (!('c' in x) || Number.isInteger(x.c) && x.c >= 1 && x.c <= 10)
     && (!('set' in x) || Object.hasOwn(BOSS_SETS, x.set) && x.g === BOSS_SETS[x.set].grade && !('c' in x) && (x.s !== 'weapon' || MORVIA_HEROES.includes(x.h)));
 }
-export function validReward(r) {
+export function validReward(r, { legacy = true } = {}) {
   if (r == null) return true;
   if (typeof r !== 'object' || Array.isArray(r) || Object.keys(r).some(k => !['souls','steel','crystal','hero','essence','items','medals'].includes(k))) return false;
   for (const k of ['souls','steel','crystal','essence','medals']) if (k in r && (!Number.isInteger(r[k]) || r[k] < 0 || r[k] > (['essence','medals'].includes(k) ? 10000 : 1000000))) return false;
-  return (!('hero' in r) || paidHeroes.includes(r.hero)) && (!('items' in r) || Array.isArray(r.items) && r.items.length >= 1 && r.items.length <= 10 && r.items.every(validItem));
+  return (!('hero' in r) || paidHeroes.includes(r.hero) && (legacy || r.hero !== 'mechanic')) && (!('items' in r) || Array.isArray(r.items) && r.items.length >= 1 && r.items.length <= 10 && r.items.every(x=>validItem(x)&&(legacy||x.h!=='mechanic')));
 }
 export async function context(tx, user, { now = Date.now(), random = Math.random, uuid = () => crypto.randomUUID() } = {}) {
   if (!user?.id) denied('not authenticated');

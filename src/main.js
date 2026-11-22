@@ -45,6 +45,7 @@ import './ui/speed.js';
 import { startTouchControls } from './ui/mobile-controls.js';
 import { mobileApp } from './ui/mobile-mode.js';
 import { updAutoWave } from './ui/autowave.js'; // Q-13 다음 웨이브 자동 시작 (설정, 기본 off)
+import { updateStageRepeat } from './ui/stage-repeat.js';
 import { updAutoSkill } from './heroes/autoskill.js'; // ⚡ 스킬 자동 사용 (설정, 기본 off)
 import './ui/help.js'; // Q-3 단축키 안내 (H/?)
 import { createHeroRange } from './render/hero-range.js';
@@ -94,13 +95,13 @@ function loop() { requestAnimationFrame(loop); const now = performance.now(), ra
 G.Snd = Snd; G.sim = (sec, h = .05) => { for (let t = 0; t < sec; t += h) step(h); };
 function step(dt) {
   updatePractice();
-  if (G.slowT > 0) { dt *= G.slowF || .4; G.slowT -= dt; } // 메카닉 변신 연출: 잠깐 슬로 모션 (변신할 때만)
+  if (G.slowT > 0) { dt *= G.slowF || .4; G.slowT -= dt; } // 스킬 히트스톱: 잠깐의 슬로 모션
   G.t += dt;
   for (let i = G.timers.length - 1; i >= 0; i--) { const tm = G.timers[i]; tm.t -= dt; if (tm.t <= 0) { G.timers.splice(i, 1); runTimer(tm); } }
   if (G.phase === 'select') updSelect(dt);
   let clearBonus;
   if (G.phase === 'wave') { if (G.spawnQ.length) { G.spawnT -= dt; if (G.spawnT <= 0 && (!G.practiceSandbox || practiceSpawnAllowed())) { G.spawnT = rnd(.55, .9); const t0 = G.spawnQ.shift(), el = G.spawnE ? G.spawnE.shift() : false; spawnEnemy(t0, G.hpMul, undefined, el); if (ETYPES[t0].pack && G.spawnQ[0] === t0) G.spawnT = .22; /* 무리는 붙어서 */ } } else if (!G.enemies.length && !pendingSpawns() && !G.dungeon) clearBonus = endWave(); }
-  updAutoWave(clearBonus);
+  if (!updateStageRepeat(dt, clearBonus)) updAutoWave(clearBonus);
   if (G.dungeon) updDungeon(dt); // 던전 원정: 층·웨이브·결과 (src/dungeon/run.js)
   updateHardParty(dt);
   if (G.practiceSandbox) updatePracticeParty(dt);
@@ -122,15 +123,15 @@ function step(dt) {
 G.practiceSandbox = PRACTICE_SANDBOX;
 genMap(); initTerrainColors(); refreshAll(); buildPortal(); buildCore(); computeDist(); updateCam(); loop();
 // 첫 로딩 계획 (P-2 지연 로딩). ?test/?skipintro(테스트·영웅 선택 화면) = 전부 먼저 (?lazy 로 끌 수 있음)
-//  스테이지 출정: 몬스터 + 저장된 영웅(유료면 대체 영웅 마법사도, 버들이면 장비·변신 로봇까지)만 — 판 중에는 영웅이 바뀌지 않으므로 백그라운드 로딩 없음
-//  인트로/마을: 저장된 영웅만 먼저 → 백그라운드로 몬스터(마을 '도전' 출정용) → 무료 영웅 → 유료 영웅 → 변신 로봇 (버들 저장이면 로봇을 앞쪽으로)
+//  스테이지 출정: 몬스터 + 저장된 영웅(유료면 대체 영웅 마법사도)만 — 판 중에는 영웅이 바뀌지 않으므로 백그라운드 로딩 없음
+//  인트로/마을: 저장된 영웅만 먼저 → 백그라운드로 몬스터(마을 '도전' 출정용) → 무료 영웅 → 유료 영웅
 function bootPlan() {
   if ((QS.has('test') || QS.has('skipintro')) && !QS.has('lazy')) return { first: ASSETS, bg: [] };
   let h = 'mage'; try { const s = accLoad(); if (CLASSES[s.hero] && !isHidden(s.hero)) h = s.hero; } catch (e) {}
   const heroes = CLASSES[h].paid ? [h, 'mage'] : [h], uniq = a => [...new Set(a)];
   if (DUNGEON && QS.has('run')) return { first: uniq([...MON_ASSETS, ...pickParty([...DG_BASE, ...DG_PAID].filter(c => !isHidden(c)), loadPick()).flatMap(c => heroAssets(c, true))]), bg: [] }; // 던전 원정: 몬스터 + 고른 파티 (유료 영웅은 소유 확인 전이라 고른 대로 받음 · 실제 파티가 다르면 startDungeonRun 이 나머지를 받음) (로즈는 소유 확인 전이라 같이 받음)
   if (STAGE && QS.has('run')) return { first: uniq([...MON_ASSETS, ...heroes.flatMap(c => heroAssets(c, true))]), bg: [] };
-  const first = uniq(heroes.flatMap(c => heroAssets(c))), order = [...MON_ASSETS, ...(h === 'mechanic' ? ['mech_robot_meshy'] : []), ...VISIBLE_HEROES.filter(c => !CLASSES[c].paid).flatMap(c => heroAssets(c)), ...VISIBLE_HEROES.filter(c => CLASSES[c].paid).flatMap(c => heroAssets(c, true))];
+  const first = uniq(heroes.flatMap(c => heroAssets(c))), order = [...MON_ASSETS, ...VISIBLE_HEROES.filter(c => !CLASSES[c].paid).flatMap(c => heroAssets(c)), ...VISIBLE_HEROES.filter(c => CLASSES[c].paid).flatMap(c => heroAssets(c, true))];
   return { first, bg: uniq(order).filter(k => !first.includes(k)) };
 }
 void import('./ui/game-icons.js').catch(e => console.warn('drawn icons', e));

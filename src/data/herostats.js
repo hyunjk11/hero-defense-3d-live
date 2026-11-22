@@ -8,7 +8,7 @@ import { equipProc } from './gear-proc-pc.js';
 import { eInfoFor, eDescription, E_LEVEL } from './hero-e.js';
 
 export const NOM = Object.freeze({ rate: 1, dmg: 1, crit: 0, critD: 0, range: 1, cd: 1, taken: 1 }); // hero.js NOM 과 같음 (던전 밖)
-export const CRIT_BASE = 1.5, CDR_CAP = 40, ROBO_RANGE = 1.45;
+export const CRIT_BASE = 1.5, CDR_CAP = 40;
 const r1 = v => Math.round(v * 10) / 10, pc = v => `${v >= 0 ? '+' : ''}${r1(v)}%`, xm = v => `×${Math.round(v * 1000) / 1000}`;
 
 // 출정 영웅 C (spawnHero 와 같은 계산). L = { perm: {hp,atk}|null, adv: ADV 분기|null, eq: E.bonus 결과|null } — perm 없으면(마을 밖 영웅 선택) 기본값 그대로
@@ -29,7 +29,7 @@ export function finalStats(C, eq, m = {}) {
   const focus = m.growthEnabled ? focusMods(m.focus || 0) : null;
   const dmg = C.dmg * (focus ? focus.dmg : (1 + .15 * (u.atk || 0))) * (m.advLow || 1) * M.dmg;
   const rate = C.rate * (focus ? focus.rate : (1 + .1 * (u.spd || 0))) * M.rate*(tree.rate||1);
-  const range = C.range * (focus ? 1 : (1 + .08 * (u.rng || 0))) * (m.robo ? ROBO_RANGE : 1) * M.range*(tree.basicRange||1);
+  const range = C.range * (focus ? 1 : (1 + .08 * (u.rng || 0))) * M.range*(tree.basicRange||1);
   const crit = (q.crit || 0) + advCrit + M.crit, critX = CRIT_BASE + ((q.critD || 0) + M.critD) / 100;
   const skillMul = (C.levelSkill || 1) * (focus ? focus.skill : (1 + .25 * (u.skill || 0))) * (1 + (q.skill || 0) / 100), cdr = Math.min(CDR_CAP, q.cdr || 0);
   const cd = treeCooldown(C.cd * (focus ? focus.cd : Math.pow(.92, u.skill || 0)) * (1 - cdr / 100) * M.cd,C.cd,tree.qCd||1), taken = (1 - (C.armor || 0)) * M.taken*(tree.taken||1);
@@ -49,7 +49,7 @@ export function breakdown(cls, L = {}, m = {}) {
     { k: 'rate', n: '공격 속도', v: `${Math.round(F.rate * 100) / 100}회/초`, parts: add(add(add(add([['기본', `${C0.rate}회/초`]], am.rate && am.rate !== 1, `전직 ${A && A.n}`, xm(am.rate)), q.spd, '장비', pc(q.spd)), u.spd, `영웅 강화 Lv.${u.spd}`, pc(10 * u.spd)), M.rate !== 1, '던전 축복', pc((M.rate - 1) * 100)) },
     { k: 'crit', n: '치명타 확률', v: `${r1(Math.min(100, F.crit))}%`, parts: add(add(add([['기본', '0%']], q.crit, '장비', pc(q.crit)), A && A.atk && A.atk.crit, `전직 ${A && A.n}`, pc((A && A.atk && A.atk.crit) || 0)), M.crit, '던전 축복', pc(M.crit)) },
     { k: 'critX', n: '치명타 피해', v: `${Math.round(F.critX * 100)}%`, parts: add(add([['기본', `${CRIT_BASE * 100}%`]], q.critD, '장비', pc(q.critD)), M.critD, '던전 축복', pc(M.critD)) },
-    { k: 'range', n: '사거리', v: r1(F.range), parts: add(add(add(add(add([['기본', C0.range]], am.range && am.range !== 1, `전직 ${A && A.n}`, xm(am.range)), q.rng, '장비', pc(q.rng)), u.rng, `영웅 강화 Lv.${u.rng}`, pc(8 * u.rng)), m.robo, '변신 로봇', pc((ROBO_RANGE - 1) * 100)), M.range !== 1, '던전 축복', pc((M.range - 1) * 100)) },
+    { k: 'range', n: '사거리', v: r1(F.range), parts: add(add(add(add([['기본', C0.range]], am.range && am.range !== 1, `전직 ${A && A.n}`, xm(am.range)), q.rng, '장비', pc(q.rng)), u.rng, `영웅 강화 Lv.${u.rng}`, pc(8 * u.rng)), M.range !== 1, '던전 축복', pc((M.range - 1) * 100)) },
     { k: 'hp', n: '체력', v: Math.round(F.hp), parts: add(add(add([['기본', C0.hp]], p.hp, `여신탑 체력 Lv.${p.hp}`, pc(6 * p.hp)), am.hp && am.hp !== 1, `전직 ${A && A.n}`, xm(am.hp)), q.hp, '장비', pc(q.hp)) },
     { k: 'taken', n: '피해 감소', v: `${r1((1 - F.taken) * 100)}%`, parts: add(add([['방어', `${Math.round((C0.armor || 0) * 100)}%`]], am.armor !== undefined, `전직 ${A && A.n}`, `방어 ${Math.round(am.armor * 100)}%`), M.taken !== 1, '던전 축복', pc((M.taken - 1) * 100)) },
     { k: 'skill', n: '스킬 피해', v: `${Math.round(F.skillMul * 100)}%`, parts: add(add([['기본', '100%']], u.skill, `스킬 강화 Lv.${u.skill}`, pc(25 * u.skill)), q.skill, '장비', pc(q.skill)) },

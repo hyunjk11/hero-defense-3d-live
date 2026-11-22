@@ -12,7 +12,7 @@ import {Snd} from '../audio/audio.js';
 // Legacy projectiles keep their own effects and hit timing; no fake impact cue.
 const pool=createSkillCues(scene,16);
 let emblems;
-const identity={multishot:['arrow',0xffd86a],pierce:['arrow',0xffdf85],frostorb:['frost',0x9ae8ff],meteorstorm:['arcane',0xc798ff],boomerang:['blade',0xffb56a],quake:['blade',0xffb56a],ricochet:['rose',0xff84af],rosebarrage:['rose',0xff7ea9],overdrill:['gear',0x9ce876],gigahammer:['gear',0x9ce876],pawstorm:['paw',0xffcfa1],tigerdash:['claw',0xffcd8b]};
+const identity={multishot:['arrow',0xffd86a],pierce:['arrow',0xffdf85],frostorb:['frost',0x9ae8ff],meteorstorm:['arcane',0xc798ff],boomerang:['blade',0xffb56a],quake:['blade',0xffb56a],ricochet:['rose',0xff84af],rosebarrage:['rose',0xff7ea9],pawstorm:['paw',0xffcfa1],tigerdash:['claw',0xffcd8b]};
 // PC-only silhouettes. One shared geometry and three reusable meshes per slot.
 const signatures = mobileApp ? null : (() => {
   const box = new THREE.BoxGeometry(1,1,1), meteor = new THREE.IcosahedronGeometry(.58,0);
@@ -104,7 +104,7 @@ export function legendFeedback(h,t,s,targets,FX,castOnly=false) {
     }
   }
   // PC proc signatures are owned by their actual trigger, independent of visual pool capacity.
-  const stop=(castOnly||!mobileApp&&h.cls!=='mechanic')?null:Snd.skill?.('legend_'+kind,t.g.position);let time=0;
+  const stop=(castOnly||!mobileApp)?null:Snd.skill?.('legend_'+kind,t.g.position);let time=0;
   FX.push(dt=>{time+=dt;const owned=G.hero===h||G.heroes?.includes(h);
     if(time>=.44||!owned||h.dead>0||h.warpT>0||G.tiles!==terrain||G.screen==='town'||!['build','wave'].includes(G.phase)){pool.clear(owner);signatures?.clear(owner);if(hasEmblem)emblems.clear(owner);stop?.();return false;}
     pool.update(owner,dt);signatures?.update(owner,time);if(hasEmblem)emblems.update(owner,time);return true;

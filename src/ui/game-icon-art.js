@@ -84,3 +84,11 @@ function enamel(body) {
 }
 const native32=Object.fromEntries(Object.entries(nature).map(([key,body])=>[key,{viewBox:'0 0 32 32',body:enamel(body)}]));
 export const GAME_ICON_ART=Object.freeze({...UI_ICON_ART,...COMBAT_ICON_ART,...native32});
+
+
+// Clear result only. Smooth enamel, restrained bevel; keep the familiar five-point shape.
+export const CLEAR_STAR_ART = Object.freeze({viewBox:'0 0 32 32',body:
+ `<defs><linearGradient id="starGold" x2="14%" y2="100%"><stop stop-color="#fff0b2"/><stop offset=".46" stop-color="#ffda70"/><stop offset="1" stop-color="#e9a84b"/></linearGradient></defs>
+ <path d="M14.9 2.9a1.25 1.25 0 0 1 2.2 0l3.77 7.6 8.37 1.22a1.25 1.25 0 0 1 .7 2.13l-6.08 5.92 1.44 8.37a1.25 1.25 0 0 1-1.8 1.3L16 25.5l-7.5 3.94a1.25 1.25 0 0 1-1.8-1.3l1.44-8.37-6.08-5.92a1.25 1.25 0 0 1 .7-2.13l8.37-1.22Z" fill="url(#starGold)" stroke="#ba8038" stroke-width=".68" stroke-linejoin="round"/>
+ <path d="M4.8 12.8l7.5-1.1 3.7-7.5 3.7 7.5 7.5 1.1M9.8 19.7l-1.2 7" fill="none" stroke="#fff6c5" stroke-width=".9" stroke-linecap="round" stroke-linejoin="round" opacity=".78"/>
+ <path d="m9.2 27.4 6.8-3.6 6.8 3.6-1.2-7.4" fill="none" stroke="#d88935" stroke-width=".7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>`});

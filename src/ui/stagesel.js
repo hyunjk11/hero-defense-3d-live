@@ -1,3 +1,4 @@
+import { repeatAvailable, repeatOffered } from './stage-repeat.js';
 import { readPartner, writePartner, partners } from '../account/hard-party.js';
 import { CLASSES, heroLabel } from '../data/heroes.js';
 import { REPEAT_ROWS, targetLabel } from '../data/repeat-target.js';
@@ -85,9 +86,18 @@ function render() {
   const rewardVersion=HG.available()&&HG.HG.features.hardCollection===1?HARD_REWARD_VERSION:1;
   const extra=collectionCount(S,S.waves,true,!k,rewardVersion);
   const reward = ui.hard ? hardReward(S, S.waves, true, !k, s.hero,undefined,null,rewardVersion) : null;
-  info.innerHTML = `<div class="sn">${S.no} · ${S.n}${S.boss ? ' <span class="bossT">챕터 보스</span>' : ''}</div><div class="sd">웨이브 ${S.waves} · 포털 ${S.spawns.length}개 · 몬스터 체력 ×${isMobile ? S.hp : pcHpMultiplier.format(S.hp)}</div><div class="prop" style="--cc:${C.color}"><b>${C.propN}</b> ${C.propD}</div>${S.hint ? `<div class="sd">💡 ${esc(S.hint)}</div>` : ''}<div class="conds">${ST.STAR_D.map((d, i) => `<div class="${i < k ? 'got' : ''}">${i < k ? '★' : '☆'} ${d}</div>`).join('')}</div><div class="rw">영혼석 ${ui.hard?reward.souls:ST.stageReward(S.id, !k)}${ui.hard?' · '+(!k&&!isMobile&&HG.HG.features.hardFirstBonus===1?'기본 ':'')+'장비 상자 '+reward.items.length+'개':k ? ' (재도전)' : ' + 첫 클리어 장비 1개'}</div>${dropHtml(P.dropPreview(S.id, s.hero, s),extra)}${k&&u&&HG.HG.features.repeatTarget===1?targetHtml(S.id):''}<div class="sd">${esc(selectedSummary(s.hero))}</div>${ui.hard&&HG.HG.features.hardParty===1?partnerHtml(s.hero):''}${u ? '<button class="gbtn main bigGo" id="stGo">⚔ 출정!</button>' : `<div class="warn">🔒 ${ui.hard?!hardOpen(s)?'일반 10-6':HG.HG.features.hard!==1?'로그인·하드 서버 연결':'이전 하드 스테이지':ST.chapterUnlocked(s, C.id) ? '이전 스테이지' : '이전 챕터 보스'}를 클리어하면 열려요</div>`}`;
+  info.innerHTML = `<div class="sn">${S.no} · ${S.n}${S.boss ? ' <span class="bossT">챕터 보스</span>' : ''}</div><div class="sd">웨이브 ${S.waves} · 포털 ${S.spawns.length}개 · 몬스터 체력 ×${isMobile ? S.hp : pcHpMultiplier.format(S.hp)}</div><div class="prop" style="--cc:${C.color}"><b>${C.propN}</b> ${C.propD}</div>${S.hint ? `<div class="sd">💡 ${esc(S.hint)}</div>` : ''}<div class="conds">${ST.STAR_D.map((d, i) => `<div class="${i < k ? 'got' : ''}">${i < k ? '★' : '☆'} ${d}</div>`).join('')}</div><div class="rw">영혼석 ${ui.hard?reward.souls:ST.stageReward(S.id, !k)}${ui.hard?' · '+(!k&&!isMobile&&HG.HG.features.hardFirstBonus===1?'기본 ':'')+'장비 상자 '+reward.items.length+'개':k ? ' (재도전)' : ' + 첫 클리어 장비 1개'}</div>${dropHtml(P.dropPreview(S.id, s.hero, s),extra)}${k&&u&&HG.HG.features.repeatTarget===1?targetHtml(S.id):''}<div class="sd">${esc(selectedSummary(s.hero))}</div>${ui.hard&&HG.HG.features.hardParty===1?partnerHtml(s.hero):''}${u ? '<button class="gbtn main bigGo" id="stGo">⚔ 출정!</button>'+(repeatOffered(S.id)?'<button type="button" class="gbtn" id="stRepeat">자동 반복</button>':'') : `<div class="warn">🔒 ${ui.hard?!hardOpen(s)?'일반 10-6':HG.HG.features.hard!==1?'로그인·하드 서버 연결':'이전 하드 스테이지':ST.chapterUnlocked(s, C.id) ? '이전 스테이지' : '이전 챕터 보스'}를 클리어하면 열려요</div>`}`;
   mountStageAction('stGo');
   if ($('stGo')) $('stGo').onclick = () => { closeStageSel(true); hooks.start(S.id); }; bindTips(info, s);
+  if ($('stRepeat')) $('stRepeat').onclick = async () => {
+    const button=$('stRepeat');if(button.disabled)return;
+    if(!repeatAvailable(S.id)){banner(Acc.load().chests.length>=E.CHEST_CAP?'상자 보관함이 가득 찼어요.':Acc.SAVE_WAIT_MESSAGE);return;}
+    button.disabled=true;
+    if(!await hooks.start(S.id,true)){
+      if(button.isConnected)button.disabled=false;
+      if(ui.open)banner(Acc.SAVE_WAIT_MESSAGE);
+    }
+  };
   const bindPreference = (id, read, write) => {
     const control = $(id); if (!control) return;
     control.onchange = async () => {

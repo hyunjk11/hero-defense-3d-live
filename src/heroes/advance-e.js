@@ -8,7 +8,7 @@ import { scene } from '../render/scene.js';
 import { disposeOwned } from '../render/toon.js';
 import { groundY } from '../monsters/ai.js';
 import { hurt } from '../monsters/enemy.js';
-import { knock } from './mechanic.js';
+import { knock } from './knockback.js';
 import { hero, stat } from './hero.js';
 import { grantEShield } from '../data/hero-e.js';
 import { play } from '../render/characters.js';
