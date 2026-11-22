@@ -1,6 +1,7 @@
 // Presentation only: keep the authored Unicode and the control's native name.
-// Drawn backgrounds never become a pointer target or replace application data.
+// Painted backgrounds never become a pointer target or replace application data.
 import { GAME_ICON_ART } from './game-icon-art.js';
+import { mobileApp } from './mobile-mode.js';
 
 const prefilter = /[\p{Extended_Pictographic}\p{Regional_Indicator}\u20e3★☆✦✧♛♜☰♫]/u;
 const fallback = /(?:\p{Regional_Indicator}{2}|[#*0-9]\ufe0f?\u20e3|[\p{Extended_Pictographic}★☆✦✧♛♜☰♫][\ufe0e\ufe0f]?\p{Emoji_Modifier}?(?:\u200d\p{Extended_Pictographic}[\ufe0e\ufe0f]?\p{Emoji_Modifier}?)*)/gu;
@@ -23,11 +24,14 @@ export function iconMatches(value, art=GAME_ICON_ART) {
   return picked;
 }
 
-export function installGameIcons(doc=document, art=GAME_ICON_ART) {
+export function installGameIcons(doc=document, art=GAME_ICON_ART, classic=null) {
   const root=doc.body, rootStyle=doc.documentElement.style, images=new Map();
   if (!root || root.classList.contains('drawn-game-icons')) return null;
   const image = key => {
-    if (!images.has(key)) images.set(key,svgImage(art[key]));
+    if (!images.has(key)) {
+      const picture=classic && Object.hasOwn(classic,key) ? classic[key] : null;
+      images.set(key,picture ? 'url("data:image/webp;base64,'+picture+'")' : svgImage(art[key]));
+    }
     return images.get(key);
   };
   for (const [key,name] of [['⚒','tools'],['💀','skull'],['★','level-star']]) {
@@ -79,4 +83,10 @@ export function installGameIcons(doc=document, art=GAME_ICON_ART) {
   observer.observe(root,{subtree:true,childList:true,characterData:true});
   return observer;
 }
-if (typeof document !== 'undefined') installGameIcons();
+if (typeof document !== 'undefined') {
+  if (mobileApp) installGameIcons();
+  else void import('./game-icon-classic-art.js').then(
+    ({CLASSIC_ICON_ART}) => installGameIcons(document, GAME_ICON_ART, CLASSIC_ICON_ART),
+    () => installGameIcons()
+  );
+}

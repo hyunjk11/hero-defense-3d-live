@@ -1,0 +1,6 @@
+Classic game icon images are derived from Noto Color Emoji artwork by Google LLC and contributors.
+Upstream: https://github.com/googlefonts/noto-emoji
+Source font version: 2.051 (e92753bfa55fd449e427d4d325f9c8c40408c74e).
+Bitmap glyph images were extracted, resampled, and encoded as WebP for the game.
+The shield, skull, tools and parcel images received a minor contrast adjustment.
+Upstream's SIL OFL license for its font and Apache 2.0 license for its artwork are enclosed.
