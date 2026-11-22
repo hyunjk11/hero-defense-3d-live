@@ -134,7 +134,7 @@ function step(dt) {
   if (G.practiceSandbox) updatePracticeMeter(G);
   G.distT -= dt; if (G.distDirty && G.distT <= 0) { computeDist(); G.distT = .35; }
   for (const t of G.dirty) { refreshTile(t); if (t.shk > 0) t.shk -= dt; else G.dirty.delete(t); }
-  updFlow(dt); updLoot(dt); updPreview(dt); updFx(dt); if (!mobileApp) updateGearArtillery(dt); updateQFeedback(dt); updParticles(P, dt); updParticles(PB, dt); updVolcano(dt); updRuins(dt); updateSwampDeco(G.t); updateStormDeco(G.t); updateMachineDeco(G.t); updDebris(dt); updCoins(dt); updLighting(dt); updRoute(); updBars(dt); updBossBar(dt); Snd.listener = cam.target; if (G.screenMusic) Snd.setMusic(G.screenMusic); else if (G.phase !== 'over') Snd.setMusic(G.phase === 'wave' ? (G.enemies.some(e => e.E.boss && !e.dead) ? 'boss' : 'wave') : 'build');
+  updFlow(dt); updLoot(dt); updPreview(dt); updFx(dt); updateGearArtillery(dt); updateQFeedback(dt); updParticles(P, dt); updParticles(PB, dt); updVolcano(dt); updRuins(dt); updateSwampDeco(G.t); updateStormDeco(G.t); updateMachineDeco(G.t); updDebris(dt); updCoins(dt); updLighting(dt); updRoute(); updBars(dt); updBossBar(dt); Snd.listener = cam.target; if (G.screenMusic) Snd.setMusic(G.screenMusic); else if (G.phase !== 'over') Snd.setMusic(G.phase === 'wave' ? (G.enemies.some(e => e.E.boss && !e.dead) ? 'boss' : 'wave') : 'build');
   portalDisk.rotation.z -= dt * 2.5; if (rand() < .6) emit(P, portal.position.x + rnd(-.3, .3), rnd(.6, 3.2), portal.position.z + rnd(-1.4, 1.4), 1, 0xc07aff, 1.5, .8, 2, .3);
   crystal.rotation.y += dt * 1.2; crystal.position.y = 3.6 + Math.sin(G.t * 2) * .2; coreRings.forEach((r, k) => r.rotation.z += dt * (k ? -1.5 : 1));
   if (moveMark.visible) { moveMark.scale.multiplyScalar(1 - dt * 3); moveMark.material.opacity = moveMark.scale.x; if (moveMark.scale.x < .2) moveMark.visible = false; }
@@ -156,14 +156,14 @@ function bootPlan() {
 }
 void import('./ui/game-icons.js').catch(e => console.warn('drawn icons', e));
 const PLAN = bootPlan(); G.loadPlan = PLAN;
-const recoverPCStartup = !mobileApp && !QS.has('run') && QS.get('practice') !== '1';
-loadAssets(PLAN.first, recoverPCStartup).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (mobileApp || QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) {
+const recoverStartup = !QS.has('run') && QS.get('practice') !== '1';
+loadAssets(PLAN.first, recoverStartup).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (mobileApp || QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) {
     if (mobileApp) refreshTouch = startTouchControls();
     startFlow();
   } else showSelect(); })
   .catch(err => {
     console.warn(err);
-    if (!recoverPCStartup) { $('loadTxt').textContent = '모델을 불러오지 못했습니다. 새로고침 해주세요.'; return; }
+    if (!recoverStartup) { $('loadTxt').textContent = '모델을 불러오지 못했습니다. 새로고침 해주세요.'; return; }
     $('loadTxt').textContent = '모델을 불러오지 못했습니다.';
     $('loading').querySelector('.spin').classList.add('hidden');
     $('loadRetry').classList.remove('hidden');

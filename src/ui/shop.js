@@ -5,7 +5,6 @@ import { Snd } from '../audio/audio.js';
 import { $, esc } from '../core/util.js';
 import { definePanel } from './panel.js';
 import { G } from '../core/state.js';
-import { mobileApp } from './mobile-mode.js';
 import { Q } from '../render/quality.js';
 import { CLASSES, heroLabel } from '../data/heroes.js';
 import { ensureModels, heroAssets, makeHeroModel, modelsReady, play } from '../render/characters.js';
@@ -20,7 +19,7 @@ const ST_N = { pending: '승인 대기', approved: '승인됨', rejected: '거�
 // 상품별 표시 정보 (상점 카드 · 미리보기 동작 · 색)
 const PROD = {
   hero_gunner: { anim: 'Flourish', col: 0xff6aa8, icon: '🌹', stats: ['⚡ 공격 속도 <b>매우 빠름</b>', '🎯 사거리 <b>중간</b>', '❤ 체력 <b>{hp}</b>', '🔫 쌍권총 교차 연사'],
-    sk: '회전하며 사방으로 탄환 난사 + 두 번의 피니시 폭발', lg: mobileApp ? '<b>✦ 전설 쌍권총</b> 도탄 난사(튕기는 탄환) · 장미 탄막([E] 부채꼴 일제 사격)' : '<b>✦ 전설 쌍권총</b> 포격 요청 · 장미 탄막' },
+    sk: '회전하며 사방으로 탄환 난사 + 두 번의 피니시 폭발', lg: '<b>✦ 전설 쌍권총</b> 포격 요청 · 장미 탄막' },
   hero_fighter: { anim: 'Combat', col: 0xff9a3a, icon: '👊', stats: ['⚡ 주먹·주먹·돌려차기 <b>3연타</b>', '🐾 밀지 않아 <b>콤보 유지</b>', '❤ 체력 <b>{hp}</b>', '🔥 가까우면 주먹 · 멀면 <b>장풍</b>'],
     sk: '높이 뛰어올라 땅을 내려찍어 주변 400% 피해 + 1초 기절 · 땅이 갈라져요', lg: '<b>✦ 전설 손붕대</b> 냥냥 난타(발자국 6연타) · 맹호 돌진([E] 돌진 관통 · 밀쳐내기)' },
 };
@@ -85,7 +84,7 @@ function render() {
     const body = $('shopBody'), bk = k + ':' + PKEYS.map(x => +Sh.owns(x)).join(''); if (body._built !== bk) { const cv = $('shopPv'); body._built = bk; // 상품 탭(2개 이상) + 선택한 상품 카드 (미리보기 캔버스는 재사용)
       const tabs = PKEYS.length > 1 ? `<div class="shopTabs" id="shopTabs">${PKEYS.map(x => { const X = SHOP.items[x], XC = CLASSES[X.hero], XD = PROD[x] || {}; return `<button class="shopTab ${x === k ? 'on' : ''} ${Sh.owns(x) ? 'own' : ''}" data-k="${x}" style="--pc:#${new THREE.Color(XD.col || 0xff6aa8).getHexString()}"><i>${XD.icon || '🎁'}</i><b>${esc(XC.nm)}</b><small>${esc(XC.n)} · ${esc(X.price)}</small>${Sh.owns(x) ? '<em>보유</em>' : ''}</button>`; }).join('')}</div>` : '';
       body.innerHTML = `${tabs}<div class="shopCard p_${esc(I.hero)}"><div class="pvWrap"><canvas id="shopPvSlot"></canvas><div class="pvTag">${esc(I.tag)}</div><div class="pvName">${esc(C.nm)}<small>${esc(C.n)}</small></div></div>
-      <div class="shopInfo"><div class="shopTitle">${esc(I.n)}</div><div class="shopDesc">${esc(!mobileApp && I.hero === 'gunner' ? I.desc.split('전용 전설 쌍권총')[0].trim() : I.desc)}</div>
+      <div class="shopInfo"><div class="shopTitle">${esc(I.n)}</div><div class="shopDesc">${esc(I.hero === 'gunner' ? I.desc.split('전용 전설 쌍권총')[0].trim() : I.desc)}</div>
       <div class="shopStats">${D.stats.map(x => `<span>${x.replace('{hp}', C.hp)}</span>`).join('')}</div>
       <div class="shopSk"><b>Q · ${esc(C.skill)}</b> ${esc(D.sk)}</div><div class="shopSk lg">${D.lg}</div>
       <div class="shopBuy"><div class="price" id="shopPrice"></div><button class="gbtn main" id="shopBuyBtn"></button></div><div class="shopNote" id="shopNote"></div><div class="shopPay">${esc(PAY_INFO)}</div></div></div>

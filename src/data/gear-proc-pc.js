@@ -1,13 +1,12 @@
 import { LSK } from '../account/equip.js';
-import { mobileApp } from '../ui/mobile-mode.js';
 
-// Keep the equipment key/stored loot unchanged; only desktop interprets it as artillery.
+// Keep the equipment key/stored loot unchanged; both clients interpret it as artillery.
 export const ARTILLERY = Object.freeze({
   ...LSK.ricochet, n: '포격 요청', radius: 3.25, delay: .52, maxTargets: 4,
   d: '공격 시 22% · 착탄 범위 내 최대 4명에게 각 70%',
 });
 
-export const equipProc = key => key === 'ricochet' && !mobileApp ? ARTILLERY : LSK[key];
+export const equipProc = key => key === 'ricochet' ? ARTILLERY : LSK[key];
 
 export function artilleryTargets(enemies, x, z, time) {
   const near = [];

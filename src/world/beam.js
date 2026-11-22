@@ -88,10 +88,10 @@ export function updBeam(tw,dt,canAct=true){
   }
   if(!b.target)return;
   const preview=b.acc*towerRateK(tw,G.t),ray=endpoints(tw,b,b.sweep+preview),charge=Math.min(1,(b.age+(ray.active&&(!tw.S.beamHeavy||heavyRank(b.target))?preview:0))/tw.S.beamWarmup),heat=1+charge*1.6;
-  if(ray.active)drawBeam(b.visual,ray.from,ray.to,{heat,charge,color:tw.B?.beamSweep?0xc18bff:0x72e4ff,flash:b.flash,cut:!!tw.B?.beamSweep,heavyCut:!!tw.S.beamHeavy});else b.visual.g.visible=false;
+  if(ray.active)drawBeam(b.visual,ray.from,ray.to,{heat,charge,color:tw.B?.beamSweep?0xc18bff:0x72e4ff,flash:b.flash,cut:!!tw.B?.beamSweep});else b.visual.g.visible=false;
   if(b.cutFlash>0&&tw.S.beamHeavy&&tw.B?.beamSweep){
     const v=b.lance||=createBeamVisual(),hot=lockCharge(b.cutLock);
     // Tracking uses the actual heavy hit point, not the lateral sweep endpoint.
-    drawBeam(v,ray.from,aim(b.target),{heat:1.2+hot,charge:.45+.55*hot,flash:.45*b.cutFlash/STRIKE_FLASH,cut:true,heavyCut:true});
+    drawBeam(v,ray.from,aim(b.target),{heat:1.2+hot,charge:.45+.55*hot,flash:.45*b.cutFlash/STRIKE_FLASH,cut:true});
   }else if(b.lance)b.lance.g.visible=false;
 }

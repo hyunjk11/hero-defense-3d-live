@@ -10,7 +10,6 @@ import { computeDist } from '../world/pathfinding.js';
 import { hero } from '../heroes/hero.js';
 import { banner, setPhaseUI, showNote } from '../ui/hud.js';
 import { select } from '../ui/input.js';
-import { mobileApp } from '../ui/mobile-mode.js';
 import { STAGE } from './grid.js';
 import { stageWave, endlessMix, waveBoss, newTypes } from './roster.js';
 import { resolveRuleset } from '../data/rulesets.js';
@@ -56,8 +55,8 @@ function mixNewTypes(q, n) {
 function endWave() { if (G.practice) return; waveEnd(G.waveLog, G.t); if (G.castleResearch && G.completedWaves !== G.wave) castleWaveRepair(G); G.completedWaves = G.wave; if (G.onXPWave) G.onXPWave();
   G.phase = 'build'; G.nightTarget = 0; const bonus = Math.round((25 + G.wave * 6) * rules.waveGold); G.gold += bonus; G.stats.goldEarned += bonus; Snd.play('waveClear', { force: true, exact: true }); Snd.play('coins', { delay: .3 }); Snd.duck(.4, 1.6); banner(`웨이브 ${G.wave} 클리어! +${bonus}G`, '#ffe066');
   if (hero && hero.dead <= 0) { hero.hp = hero.max; play(hero.ch, 'Cheer', { once: true }); hero.atkT = 1.5; }
-  // PC Hard: preserve the controlled hero's cheer; also heal the living partner.
-  if (STAGE?.hard && !mobileApp && G.hardParty && G.heroes?.length === 2 && G.heroes.includes(hero)) {
+  // Hard: preserve the controlled hero's cheer; also heal the living partner.
+  if (STAGE?.hard && G.hardParty && G.heroes?.length === 2 && G.heroes.includes(hero)) {
     const partner = G.heroes.find(h => h !== hero);
     if (partner && partner.dead <= 0 && partner.hp > 0) partner.hp = partner.max;
   }

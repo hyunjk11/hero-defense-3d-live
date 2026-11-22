@@ -1,5 +1,4 @@
 // Tab-local view state only; never part of account saves.
-import { mobileApp } from './mobile-mode.js';
 import { CH_KEYS } from '../data/items.js';
 import { BOSS_SETS } from '../data/boss-sets.js';
 const KEY = 'hd3d:pc:codex-view:1';
@@ -39,4 +38,4 @@ export function createCodexMemory(storage, keys, enabled = true) {
     }
   };
 }
-export const codexMemory = createCodexMemory(() => globalThis.sessionStorage, [...CH_KEYS, ...Object.keys(BOSS_SETS)], !mobileApp);
+export const codexMemory = createCodexMemory(() => globalThis.sessionStorage, [...CH_KEYS, ...Object.keys(BOSS_SETS)]);

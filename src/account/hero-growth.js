@@ -9,7 +9,6 @@ import { CLASSES } from '../data/heroes.js';
 import { ls } from '../core/store.js';
 import { durableSet } from './durable.js';
 import { isMissingErr } from './adminlogic.js';
-import { mobileApp } from '../ui/mobile-mode.js';
 import { AWAKENING_VERSION, AWAKENING_SKILL_VERSION, awakeningSkillOn } from '../data/awakening.js';
 
 export const HG = { owner: null, session: -1, status: 'idle', growth: null, message: '', pending: 0, hasInvestment: false, rewardXP: {}, hardRewards: {}, hardClearReceipt: null, features: {}, buildBusy:false };
@@ -234,7 +233,7 @@ export async function startRun(stage, hero) {
   const u = owner(), s = stamp();
   const partnerModule = hard ? await import('./hard-party.js') : null;
   if (!valid(s)) return null;
-  const hardFirstBonus = hard && u !== 'guest' && !mobileApp && HG.features.hardFirstBonus === 1;
+  const hardFirstBonus = hard && u !== 'guest' && HG.features.hardFirstBonus === 1;
   let a;
   const startArgs = (partner) => ({ ...(hard?{p_partyVersion:HARD_PARTY_VERSION,p_partner:partner}:{}), ...(hardFirstBonus?{p_hardFirstBonus:1}:{}), ...(HG.features.repeatTarget===1?{p_target:readTarget(stage)}:{}), ...(awakeningEnabled()?{p_awakeningVersion:AWAKENING_VERSION}:{}), ...(awakeningSkillServer()?{p_awakeningSkillVersion:AWAKENING_SKILL_VERSION}:{}), p_id: crypto.randomUUID(), p_mode: stage ? 'campaign' : 'challenge', p_stage: stage || null, p_hero: hero });
   try {
