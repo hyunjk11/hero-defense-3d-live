@@ -124,17 +124,20 @@ function mountBattleTools($,close,reset){
   toggle.onclick=()=>{reset();show(shelf.hidden);};hud.append(toggle,shelf);
   const cameraBar=$('camTop');
   cameraBar.setAttribute('aria-label','카메라');
+  const quick=$('cam');
+  quick?.setAttribute('role','toolbar');
+  quick?.setAttribute('aria-label','전투 바로가기');
   for(const [id,label,icon,step] of [['tiltUp','카메라 각도 올리기','▴',-.12],['tiltDown','카메라 각도 내리기','▾',.12]]){
     const button=document.createElement('button');button.type='button';button.id=id;button.textContent=icon;button.setAttribute('aria-label',label);
     button.onclick=()=>{cam.phi=Math.max(.45,Math.min(1.25,cam.phi+step));};
     button.addEventListener('keydown',e=>{if(e.key===' ')e.stopPropagation();});
     cameraBar.append(button);
   }
-  for(const el of [$('cam'),$('sndBtn'),$('sndPanel'),$('ups'),$('wavePrev'),document.querySelector('#build [data-tool="barricade"]'),$('retreat')])if(el)shelf.append(el);
+  for(const el of [$('sndBtn'),$('sndPanel'),$('ups'),$('wavePrev'),document.querySelector('#build [data-tool="barricade"]'),$('retreat')])if(el)shelf.append(el);
   show(false);
   document.addEventListener('pointerdown',e=>{if(!shelf.hidden&&!toggle.contains(e.target)&&!shelf.contains(e.target))show(false);},true);
   shelf.addEventListener('click',e=>{
-    const b=e.target.closest('button');if(b && (['statBtn','pauseBtn','retreat'].includes(b.id)||b.dataset.tool==='barricade'))show(false);
+    const b=e.target.closest('button');if(b && (b.id==='retreat'||b.dataset.tool==='barricade'))show(false);
   });
   for(const id of ['skillBtn','legBtn'])$(id)?.addEventListener('pointerdown',e=>{
     if(e.pointerType!=='touch'||!G.hero?.g)return;

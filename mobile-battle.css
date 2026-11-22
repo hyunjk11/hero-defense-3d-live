@@ -14,8 +14,6 @@
 .mobileBattle #mobileBattleTools{position:absolute;right:var(--mr);top:calc(var(--mt) + 48px);width:min(310px,calc(100% - var(--ml) - var(--mr)));max-height:calc(100dvh - var(--mt) - var(--mb) - 54px);box-sizing:border-box;display:flex;flex-direction:column;gap:5px;overflow:auto;overscroll-behavior:contain;pointer-events:auto;z-index:10;border:1px solid #bc9e64;background:#171424f7;border-radius:12px;padding:8px;touch-action:pan-y}
 .mobileBattle #mobileBattleTools[hidden]{display:none}
 .mobileBattle #hud #mobileBattleTools>*{position:static;inset:auto;transform:none;flex:none;margin:0;max-width:none;max-height:none;width:auto}
-.mobileBattle #hud #mobileBattleTools #cam{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-start}
-.mobileBattle #mobileBattleTools #cam button{min-width:44px;min-height:44px}
 .mobileBattle #hud #top{left:var(--ml);right:auto;top:var(--mt);width:max-content;max-width:calc(100% - var(--ml) - var(--mr) - 52px);transform:none;display:flex;align-items:center;justify-content:flex-start;gap:3px;flex-wrap:wrap}
 .mobileBattle #hud #top .pill{font-size:11px;min-width:0;height:auto;padding:4px 6px}
 .mobileBattle #hud #top .core .bar{width:38px;max-width:8vw}
@@ -32,7 +30,7 @@
 .mobileBattle.dungeonRun #mobileBattleTools [data-tool="barricade"],.mobileBattle.dungeonRun #mobileBattleTools #retreat{display:none!important}
 @media(max-width:540px){.mobileBattle #bottom #heroBox{flex:0 0 100%;max-width:105px}.mobileBattle #hud #bottom{max-width:55vw}.mobileBattle #hud #hardPartyBar{top:calc(var(--mt) + 69px)}}
 @media(max-height:440px){.mobileBattle #hud #top .pill{padding:3px 5px}.mobileBattle #bossHud{top:48px;max-width:40vw}.mobileBattle #hud #bottom{gap:2px}.mobileBattle #bottom .heroEffect{max-height:20px}}
-.mobileBattle #bottom>button small,.mobileBattle #mobileBattleTools button[data-key]::after{display:none}
+.mobileBattle #bottom>button small,.mobileBattle #cam button[data-key]::after,.mobileBattle #pauseOv .pH{display:none}
 .mobileBattle #hud #statOv{
   left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);
   width:min(420px,calc(100vw - var(--ml) - var(--mr)));
@@ -44,7 +42,8 @@
   --camera-row:var(--mt);
   --tools-row:calc(var(--mt) + 49px);
   --status-space:345px;
-  --side-bottom:calc(var(--mb) + 70px);
+  --quick-bottom:calc(var(--mb) + 56px);
+  --side-bottom:calc(var(--quick-bottom) + 50px);
 }
 .mobileBattle #hud #top{max-width:calc(100% - var(--ml) - var(--mr) - var(--status-space))}
 .mobileBattle #hud #top .pill{gap:4px;line-height:1.15}
@@ -56,6 +55,10 @@
 }
 .mobileBattle #hud #camTop>button{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:19px}
 .mobileBattle #hud #camTop>button:is(#tiltUp,#tiltDown){font-size:18px}
+.mobileBattle #hud #cam,.mobileBattle.dungeonRun #hud:has(#heroEffects:not([hidden])) #cam{
+  left:auto;right:var(--mr);top:auto;bottom:var(--quick-bottom);gap:4px
+}
+.mobileBattle #hud #cam button{width:44px;height:44px;min-width:44px;min-height:44px;touch-action:manipulation}
 .mobileBattle #hud #mobileBattleTools{
   top:var(--tools-row);max-height:calc(100dvh - var(--tools-row) - var(--side-bottom));
   scrollbar-gutter:stable;padding:7px 8px 10px
@@ -111,12 +114,15 @@
 /* Keep the handover above the action row and clear of the movement thumb. */
 .mobileBattle #hud>#repeatControl{
   left:calc(50% + (var(--ml) - var(--mr))/2);
-  bottom:calc(var(--mb) + 84px);
+  bottom:calc(var(--quick-bottom) + 53px);
   padding:3px 4px 3px 9px;gap:7px;font-size:12px
 }
 .mobileBattle #hud #repeatControl #repeatStop{
   min-width:44px;min-height:44px;touch-action:manipulation
 }
 @media(max-width:540px){
-  .mobileBattle #hud>#repeatControl{bottom:calc(var(--mb) + 140px)}
+  .mobileBattle #hud{--quick-bottom:calc(var(--mb) + 108px)}
+}
+@media(max-width:360px){
+  .mobileBattle #hud{--quick-bottom:calc(var(--mb) + 134px)}
 }
