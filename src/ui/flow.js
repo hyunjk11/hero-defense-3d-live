@@ -84,15 +84,15 @@ function applyEndgameResearch() {
   G.beamAttackResearch = beamAttackBonus(save);
 }
 // ---------- 스테이지 ----------
-async function departStage(id, mode=false, current=()=>true) {
+async function departStage(id, mode=false) {
   if (!mode) stopStageRepeat();
-  if (!Acc.saveAllowed() || departing || !current()) return false;
+  if (!Acc.saveAllowed() || departing) return false;
   const handoff=mode?makeRepeatHandoff(id):null;
   if (mode&&!handoff) return false;
   departing = true; rememberStage(id); Snd.play('meteorCast', { force: true }); Snd.play('confirm'); $('fade').classList.add('on'); // Q-5 지도·Q-6 재도전/다음 공통 (47b5eb7 에서 주석 안으로 들어가 소리·화면 어두워짐이 빠졌던 것 복구)
   if (G.xpPendingWrite && !await G.xpPendingWrite) { departing = false; $('fade').classList.remove('on'); banner('XP 기록을 저장하지 못했습니다. 다시 시도해 주세요.'); return false; }
   return go({stage:id,repeatRun:handoff?.nonce},500,handoff?async()=>{
-    if(!current()||!await Acc.flush()||!current()||HG.HG.pending||Acc.serverSaveState())return false;
+    if(!await Acc.flush()||HG.HG.pending||Acc.serverSaveState())return false;
     return handoff.save();
   }:undefined);
 }
@@ -123,12 +123,12 @@ async function startStageRun2(logged) {
   const C = (STAGE.hard ? ST.HARD_CHAPTERS : ST.CHAPTERS).find(c => c.id === STAGE.ch); setTimeout(() => banner(`${STAGE.no} ${STAGE.n} · 웨이브 ${STAGE.waves} · ${C.propN}`, C.color, 3200), 500);
   const bt = equipLine(G.equip); if (bt) setTimeout(() => banner(bt, '#ffe08a', 2200), 3900);
 }
-initResult({ departStage: (id) => departStage(id), repeatStage:(id,current)=>departStage(id,true,current) }); initAuth({ show: id => show(id) });
+initResult({ departStage: (id) => departStage(id) }); initAuth({ show: id => show(id) });
 // ---------- 시작 ----------
 export function startFlow() {
   if (QS.get('practice') === '1') { hideAll(); void startPractice(); return; }
   // Keep game-input protection; result statistics stay usable while saving.
-  const resultInput=event=>!!event.target?.closest?.('#scStats,#overStats,#esClose,#esBack,#endStats,#repeatStop');
+  const resultInput=event=>!!event.target?.closest?.('#scStats,#overStats,#esClose,#esBack,#endStats');
   addEventListener('keydown', event => { if (G.navigating && !event.ctrlKey && !event.metaKey && !event.altKey && !resultInput(event) && !['c','C','Escape'].includes(event.key)) { event.preventDefault(); event.stopImmediatePropagation(); } }, { capture: true });
   for (const type of ['pointerdown','pointerup','pointermove','click','dblclick','contextmenu','touchstart','touchmove','wheel'])
     addEventListener(type, event => { if (G.navigating && !resultInput(event)) { event.preventDefault(); event.stopImmediatePropagation(); } }, { capture:true, passive:false });

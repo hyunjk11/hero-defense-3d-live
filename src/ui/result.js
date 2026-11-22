@@ -1,5 +1,4 @@
 import * as Repeat from './stage-repeat.js';
-import { repeatNormalOK, repeatHardOK } from '../core/stage-repeat.js';
 import { targetLabel } from '../data/repeat-target.js';
 // ================= 판 결과: 스테이지 클리어 화면 · 패배/귀환 보상 저장 · 마을 귀환 (C-9, ui/flow.js 에서 이동 — 동작 불변) =================
 import { Snd } from '../audio/audio.js';
@@ -15,12 +14,13 @@ import * as E from '../account/equip.js';
 import * as ST from '../data/stages.js';
 import { STAGE } from '../core/grid.js';
 // 재도전·다음 스테이지 출정은 flow.js 의 departStage (출정 중복 방지 상태 공유) — initResult 로 받음
-let H = { departStage: () => {}, repeatStage: () => false };
+let H = { departStage: () => {} };
 export function initResult(h) { H = h; }
 // 출정 시 장비 보너스 배너: 큰 값 3개만 + '외 N개' (전부 나열하면 화면 밖으로 넘쳤음)
 export function equipLine(eq) { const e = Object.entries(eq || {}).sort((a, b) => b[1] - a[1]); if (!e.length) return ''; return '⚔ 장비 · ' + e.slice(0, 3).map(([k, v]) => `${E.STAT[k]} +${v}%`).join(' · ') + (e.length > 3 ? ` 외 ${e.length - 3}개` : ''); }
 G.onStageClear = () => {
   if (G.practice || new URLSearchParams(location.search).get('practice') === '1') return;
+  Repeat.stopStageRepeat();
   if(STAGE?.hard){hardClear();return;}
   if(directGearEnabled()){void directReturn('clear');return;}
   if (G.runSaved) return; G.runSaved = true; G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves || 0, true, true); G.phase = 'over'; const wave = G.wave, kills = sumKills(), stars = ST.starsFor(G.coreHp, G.coreMax); let got = 0, loot = [], info = null, best = false;
@@ -46,7 +46,6 @@ function renderNormalClear({got=0,loot=[],info={souls:0,unlocked:[]},stars,pendi
     <div class="scConds">${ST.STAR_D.map((d, i) => `<div class="${i < stars ? 'got' : ''}">${i < stars ? '✓' : '·'} ${d}</div>`).join('')}</div>
     <div class="scRw" id="directReward" role="status" aria-live="polite">${hard?'<span id="runXP">보상 저장 중…</span>':pending?'저장 중…':normalClearReward({got,loot,info})}</div><div class="scBtns"><button class="gbtn" id="scRetry" title="같은 스테이지 다시">↻ 재도전</button><button class="gbtn" id="scNext">▶ 다음 스테이지</button><button class="gbtn main" id="scTown">🏡 마을로 귀환</button></div></div>`;
   el.classList.remove('hidden');normalClearActions(pending);
-  if(Repeat.hasStageRepeat()){Repeat.markRepeatResult();Repeat.showRepeatStopInResult();}
   // Schedule once when the card mounts. Save acknowledgements/retries only update rewards.
   const card=el.firstElementChild,run=G.xpRun,session=Acc.sessionId(),uid=Acc.A.user?.id;
   [0,1,2].forEach(i=>{if(i>=stars)return;setTimeout(()=>{
@@ -111,10 +110,6 @@ async function directReturn(reason){
    reward.textContent=`획득 영혼석 +${r.souls}`;
    if(clear){
      finishNormalClear({got:r.souls,loot:r.loot,info:{souls:0,first:r.first,unlocked:r.unlocked}});
-     if(Repeat.hasStageRepeat()){
-       if(repeatNormalOK(r,stage?.id,run.token,stage?.waves))Repeat.continueStageRepeat(stars,H.repeatStage);
-       else Repeat.stopStageRepeat();
-     }
    }else if(button){button.disabled=false;button.onclick=goTown;}
    if(reason==='retreat')goTown();
   }catch(e){if(current()){Repeat.stopStageRepeat();G.runSaved=false;reward.textContent=e.message||Acc.SAVE_WAIT_MESSAGE;if(button){button.disabled=false;button.textContent='다시 저장';button.onclick=()=>directReturn(reason);}}}
@@ -142,15 +137,7 @@ function hardClear(){
   if(G.runSaved)return;G.runSaved=true;G.phase='over';const stars=ST.starsFor(G.coreHp,G.coreMax);
   G.xpPendingWrite=HG.checkpoint(G.xpRun,G.completedWaves||0,true,true,stars,sumKills(),G.runBossKills||[]);
   renderNormalClear({stars,hard:true});
-  if(Repeat.hasStageRepeat()){
-    const run=G.xpRun,session=Acc.sessionId(),owner=Acc.A.user?.id;
-    void (async()=>{
-      const saved=await G.xpPendingWrite&&await HG.retry(),r=HG.HG.hardClearReceipt;
-      if(G.xpRun!==run||Acc.sessionId()!==session||Acc.A.user?.id!==owner){Repeat.stopStageRepeat();return;}
-      if(!saved||r?.token!==run?.token||r.owner!==owner||r.session!==session||!repeatHardOK(r,STAGE.id,STAGE.waves)){Repeat.stopStageRepeat();return;}
-      Repeat.continueStageRepeat(stars,H.repeatStage);
-    })().catch(()=>Repeat.stopStageRepeat());
-  }
+
 }
 function hardEnd(reason){
   if(G.runSaved)return;G.runSaved=true;G.xpPendingWrite=HG.checkpoint(G.xpRun,G.completedWaves||0,false,true,1,sumKills());
