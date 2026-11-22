@@ -6,6 +6,7 @@ import { $, esc } from '../core/util.js';
 import { definePanel } from './panel.js';
 import { G } from '../core/state.js';
 import { mobileApp } from './mobile-mode.js';
+import { Q } from '../render/quality.js';
 import { CLASSES, heroLabel } from '../data/heroes.js';
 import { ensureModels, heroAssets, makeHeroModel, modelsReady, play } from '../render/characters.js';
 import * as Acc from '../account/account.js';
@@ -32,14 +33,14 @@ let pv = null;
 function preview() {
   if (pv !== null) return pv; pv = false;
   try {
-    const cv = $('shopPv'), r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); r.setPixelRatio(Math.min(devicePixelRatio, 1.5)); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15;
+    const cv = $('shopPv'), r = new THREE.WebGLRenderer({ canvas: cv, antialias: !Q.mobilePerf(), alpha: true }); r.setPixelRatio(Q.mobilePerf() ? 1 : Math.min(devicePixelRatio, 1.5)); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15;
     const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, .1, 50); cam.position.set(0, 1.75, 6.4); cam.lookAt(0, 1.3, 0);
     sc.add(new THREE.HemisphereLight(0xfff0f6, 0x6a3a5a, 1.6)); const d = new THREE.DirectionalLight(0xffffff, 2.4); d.position.set(2, 5, 4); sc.add(d); const rim = new THREE.DirectionalLight(0xff6aa8, 2.2); rim.position.set(-3, 3, -4); sc.add(rim);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(1.5, 48), new THREE.MeshBasicMaterial({ color: 0xff6aa8, transparent: true, opacity: .35, blending: THREE.AdditiveBlending, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = .01; sc.add(disc);
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.55, 1.68, 64), new THREE.MeshBasicMaterial({ color: 0xffd0e8, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = .02; sc.add(ring);
     const pg = new THREE.BufferGeometry(), N = 60, pp = new Float32Array(N * 3); for (let i = 0; i < N; i++) { pp[i * 3] = (Math.random() - .5) * 3.4; pp[i * 3 + 1] = Math.random() * 3; pp[i * 3 + 2] = (Math.random() - .5) * 2; } pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
     const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xffb0d8, size: .07, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false })); sc.add(pts);
-    pv = { r, sc, cam, ch: null, chs: {}, pts, ring, disc, rim, t: 0, spin: 0 }; pvSet(ui.prod);
+    pv = { r, sc, cam, ch: null, chs: {}, pts, ring, disc, rim, t: 0, spin: 0, elapsed: 0 }; pvSet(ui.prod);
   } catch (e) { console.warn('shop preview', e); pv = false; }
   return pv;
 }
@@ -50,7 +51,13 @@ function pvSet(k) { if (!pv) return; const I = SHOP.items[k], D = PROD[k] || PRO
   let ch = pv.chs[k]; if (!ch) { ch = pv.chs[k] = makeHeroModel(I.hero); ch.ring.visible = false; pv.sc.add(ch.g); play(ch, D.anim) || play(ch, 'Idle'); ch.g.rotation.y = .35; }
   ch.g.visible = true; pv.ch = ch; pv.key = k; pv.disc.material.color.setHex(D.col); pv.rim.color.setHex(D.col); pv.pts.material.color.setHex(D.col).lerp(new THREE.Color(0xffffff), .45); pv.spin = 6.28; }
 export function updShop(dt) {
-  if (!ui.shop || !pv) return; const cv = $('shopPv'), w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+  if (!ui.shop || !pv) return;
+  const ratio = Q.mobilePerf() ? 1 : Math.min(devicePixelRatio, 1.5);
+  if (Q.mobilePerf()) { pv.elapsed += dt; if (pv.elapsed < 1 / 15 - .001) return; dt = pv.elapsed; }
+  else dt += pv.elapsed;
+  pv.elapsed = 0;
+  const cv = $('shopPv'), w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+  if (pv.r.getPixelRatio() !== ratio) pv.r.setPixelRatio(ratio);
   if (pv.w !== w || pv.h !== h) { pv.w = w; pv.h = h; pv.r.setSize(w, h, false); pv.cam.aspect = w / h; pv.cam.updateProjectionMatrix(); }
   pv.t += dt; if (!pv.ch) return; pv.ch.mixer.update(dt); pv.ch.g.rotation.y = .35 + Math.sin(pv.t * .45) * .7 + pv.spin; if (pv.spin > 0) pv.spin = Math.max(0, pv.spin - dt * 4);
   const a = pv.pts.geometry.attributes.position; for (let i = 0; i < a.count; i++) { let y = a.getY(i) + dt * (.25 + (i % 5) * .08); if (y > 3.2) y = 0; a.setY(i, y); } a.needsUpdate = true; pv.ring.scale.setScalar(1 + Math.sin(pv.t * 3) * .04);
@@ -59,7 +66,7 @@ export function updShop(dt) {
 
 // ---------- 상점 ----------
 export function openShop(k) { if (!ui.shop) { Snd.play('coins'); Snd.play('confirm'); } if (PKEYS.includes(k)) ui.prod = k; hooks.closeOthers('shop'); ui.shop = true; SHP.show(); preview(); if (pv) { if (pv.key !== ui.prod) pvSet(ui.prod); pv.spin = 6.28; } render(); if (Acc.A.user) Sh.refresh().then(render); }
-export function closeShop(silent) { if (ui.shop && !silent) Snd.play('ui'); ui.shop = false; SHP.hide(); }
+export function closeShop(silent) { if (ui.shop && !silent) Snd.play('ui'); ui.shop = false; if (pv) pv.elapsed = 0; SHP.hide(); }
 const SHP = definePanel('shop', { id: 'shopPanel', z: 40, isOpen: () => ui.shop, close: s => closeShop(s) });
 function itemState(k) {
   const A = Acc.A, st = Sh.S.status;

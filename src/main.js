@@ -89,9 +89,28 @@ initQFeedback(scene,groundY,()=>G,()=>Q.perf);
 const heroRange = createHeroRange(scene);
 if (mobileApp) document.body.classList.add('mobileApp');
 let refreshTouch=null;
-let lastT = performance.now(), hudT = 0;
-function loop() { requestAnimationFrame(loop); const now = performance.now(), raw = (now - lastT) / 1000; lastT = now; if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) { const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt); } // ×2 배속 = G.sim 처럼 같은 길이 스텝을 여러 번(더 큰 dt 아님), 일시정지 = 정지 (src/ui/speed.js)
-  Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave')); if (!G.pauseRender) { if(G.hero?.awakeningAura)updateAwakeningAura(G.hero,G); for(const h of G.heroes||[])if(h!==G.hero&&h.awakeningAura)updateAwakeningAura(h,G); heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render(); } }
+let lastT = performance.now(), hudT = 0, frame = 0, renderAt = 0, lastHz = 0;
+function loop() {
+  frame = 0;
+  if (mobileApp && document.hidden) return;
+  frame = requestAnimationFrame(loop);
+  const now = performance.now(), raw = (now - lastT) / 1000; lastT = now;
+  if (!G.manual && !G.paused && !G.navigating && !accountState.conflict) {
+    const dt = Math.min(raw, .05); for (let i = 0; i < (G.speed || 1); i++) step(dt);
+  }
+  Q.tick(raw, !G.manual && (G.phase === 'build' || G.phase === 'wave'));
+  const hz = Q.renderHz(G.phase, G.paused);
+  if (hz !== lastHz) { renderAt = 0; lastHz = hz; }
+  if (G.pauseRender || (hz && now + 1 < renderAt)) return;
+  if (hz) { const interval = 1000 / hz; renderAt = renderAt && now - renderAt < interval ? renderAt + interval : now + interval; }
+  if (G.hero?.awakeningAura) updateAwakeningAura(G.hero,G);
+  for (const h of G.heroes || []) if (h !== G.hero && h.awakeningAura) updateAwakeningAura(h,G);
+  heroRange.update(G.hero, G.hero ? stat.range() : 0, G.phase, G.navigating); updLod(); composer.render();
+}
+if (mobileApp) document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; }
+  else if (!frame) { lastT = performance.now(); renderAt = 0; frame = requestAnimationFrame(loop); }
+});
 G.Snd = Snd; G.sim = (sec, h = .05) => { for (let t = 0; t < sec; t += h) step(h); };
 function step(dt) {
   updatePractice();

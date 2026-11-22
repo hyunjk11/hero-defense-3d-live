@@ -1,5 +1,6 @@
 // ================= 그래픽 품질 (자동 / 고품질 / 성능) =================
 import { ls as Store } from '../core/store.js';
+import { mobileApp } from '../ui/mobile-mode.js';
 // 설정은 이 기기에만 저장(localStorage 'hd3d_live_gfx') — 기기마다 성능이 다르므로 클라우드 세이브에 넣지 않음.
 // 성능 모드: ① 작은/먼 일반 몬스터 외곽선 끔 ② 그림자는 영웅·보스·타워만 (일반 몬스터 그림자 끔) ③ 픽셀 비율 상한 1.25 ④ 그림자 맵 1024
 // 자동: 터치 기기(pointer: coarse)나 약한 기기(메모리·코어 ≤ 4)면 처음부터 성능, 아니면 고품질로 시작해 판 안에서 FPS가 계속 낮으면(4초 평균 < 36 이 두 번) 성능으로 전환하고 기억
@@ -18,7 +19,7 @@ const Q = { mode: 'auto', perf: false, why: '', listeners: [], fps: 0,
 function resolve() {
   const f = QS.get('gfx'); if (f === 'perf' || f === 'high') { Q.perf = f === 'perf'; Q.why = 'url'; return; }
   if (Q.mode !== 'auto') { Q.perf = Q.mode === 'perf'; Q.why = 'setting'; return; }
-  if (COARSE) { Q.perf = true; Q.why = 'touch'; return; }
+  if (COARSE || mobileApp) { Q.perf = true; Q.why = 'touch'; return; }
   if (WEAK) { Q.perf = true; Q.why = 'weak'; return; }
   if (ls(LS_AUTO) === 'perf') { Q.perf = true; Q.why = 'fps-saved'; return; }
   Q.perf = false; Q.why = 'auto';
@@ -29,7 +30,9 @@ Q.onChange = f => Q.listeners.push(f);
 Q.set = mode => { if (!MODES.includes(mode)) return; const was = Q.perf; Q.mode = mode; ls(LS, mode); if (mode !== 'auto') ls(LS_AUTO, null); resolve(); if (was !== Q.perf) emit(); };
 Q.label = () => NAMES[Q.mode] + (Q.mode === 'auto' ? ` (${Q.perf ? '성능' : '고품질'})` : '');
 Q.MODES = MODES; Q.NAMES = NAMES; Q.COARSE = COARSE;
-Q.pixelRatio = (dpr = devicePixelRatio) => Math.min(dpr, Q.perf ? 1.25 : COARSE ? 1.5 : 1.75);
+Q.mobilePerf = () => mobileApp && Q.perf;
+Q.renderHz = (phase, paused) => !Q.mobilePerf() ? 0 : !paused && (phase === 'build' || phase === 'wave') ? 30 : 15;
+Q.pixelRatio = (dpr = devicePixelRatio) => Math.min(dpr, Q.mobilePerf() ? 1 : Q.perf ? 1.25 : COARSE ? 1.5 : 1.75);
 Q.shadowSize = () => Q.perf ? 1024 : 2048;
 // FPS 감시: 판 안(active=true)에서만, 탭이 보일 때만. raw = 실제 프레임 간격(초)
 let acc = 0, frames = 0, low = 0;

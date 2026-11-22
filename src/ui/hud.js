@@ -17,6 +17,7 @@ import { legendActive, legendCd } from '../heroes/legend.js';
 import { BRANCH, MAX_TOWER_LEVEL, XP_NEED, starsFor } from '../data/growth.js';
 import { renderBranch } from './branch.js';
 import { refreshWavePrev } from './waveprev.js';
+import { mobileApp } from './mobile-mode.js';
 const r2 = v => Math.round(v * 100) / 100, f1 = v => Math.round(v * 10) / 10;
 function banner(text, color = '#fff', ms = 1600) { const b = $('banner'); b.textContent = text; b.style.color = color; b.classList.toggle('long', String(text).length > 22); /* 긴 문구는 작은 글씨 + 줄바꿈 */ b.classList.add('show'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('show'), ms); }
 function showNote(list, ms = 2400) {
@@ -30,6 +31,15 @@ function showNote(list, ms = 2400) {
 }
 function setPhaseUI() { const ph = $('phase'); ph.textContent = G.phase === 'wave' ? '전투 중 (밤)' : '건설 단계 (낮)'; ph.classList.toggle('night', G.phase === 'wave'); $('startWave').disabled = G.phase !== 'build'; refreshWavePrev(); }
 function setBar(f, t, r) { const w = Math.max(0, Math.min(1, r)) * 100 + '%', a = $(f), b = $(t); if (a.style.width !== w) { a.style.width = w; b.style.width = w; } }
+function setCooldown(id, left, duration, ring) {
+  const el = $(id), label = left > 0 ? String(Math.ceil(left)) : '';
+  if (el.textContent !== label) el.textContent = label;
+  if (!mobileApp) {
+    const p = (left > 0 ? left / duration * 100 : 0) + '%';
+    el.style.setProperty('--p', p);
+    ring?.style.setProperty('--p', p);
+  }
+}
 function updBossBar() { let b = null; for (const e of G.enemies) if (e.E.boss && !e.dead && e.dying === undefined && (!b || e.max > b.max)) b = e; // 여러 보스면 가장 강한(챕터) 보스
   $('bossHud').classList.toggle('hidden', !b); renderBossDebuffs($('bossDebuffs'), b, G.t, {
     floor:G.spire&&G.dungeon?G.dg?.floors?.[G.dg.floor]:null,
@@ -76,9 +86,15 @@ function refreshHud() {
     rb.style.display = ''; rb.textContent = rc ? `수리 (R) −${rc}G` : '수리 (내구도 최대)'; rb.disabled = !rc || G.gold < rc; rb.classList.toggle('warn', k < .5);
     $('tSell').textContent = G.practiceSandbox ? '철거' : `판매 (+${Math.floor(s.invest * .7 * (k >= .999 ? 1 : .5 + .5 * k))}G)`; }
   else if (s && s.kind === 'bar') { $('tName').textContent = '바리케이드'; $('tStats').innerHTML = `내구도 ${Math.ceil(s.hp)}/${Math.ceil(s.max)}<br>몬스터가 돌아가거나 부숴야 합니다`; $('tUp').textContent = '-'; $('tUp').disabled = true; $('tSell').textContent = G.practiceSandbox ? '철거' : `철거 (+${BARRICADE.refund}G)`; $('tRep').style.display = 'none'; }
-  if (hero) { const wb = $('warpBtn'); if (wb) { const wp = hero.warpCd > 0 ? hero.warpCd / WARP_CD * 100 : 0; $('warpCd').style.setProperty('--p', wp + '%'); $('warpCd').textContent = hero.warpCd > 0 ? Math.ceil(hero.warpCd) : ''; wb.classList.toggle('channel', hero.warpT > 0); }
-    setBar('heroBar', 'heroTr', hero.hp / hero.max); const cdp = hero.skillCd > 0 ? hero.skillCd / stat.skillCd() * 100 : 0; $('skillCd').style.setProperty('--p', cdp + '%'); $('skillCd').textContent = hero.skillCd > 0 ? Math.ceil(hero.skillCd) : ''; $('skillBtn').classList.toggle('ready', hero.skillCd <= 0);
-    const la = legendActive(), lb = $('legBtn'); lb.classList.toggle('hidden', !la); if (la) { $('legName').textContent = (la.icon ? la.icon+' ' : '')+la.n; lb.setAttribute('aria-label',la.n+' (E)'); lb.title=eDescription(la); const lp = hero.lcd > 0 ? hero.lcd / legendCd() * 100 : 0; $('legCd').style.setProperty('--p', lp + '%'); lb.style.setProperty('--p', lp + '%'); $('legCd').textContent = hero.lcd > 0 ? Math.ceil(hero.lcd) : ''; lb.classList.toggle('ready', !(hero.lcd > 0)); } }
+  if (hero) { const wb = $('warpBtn'); if (wb) { setCooldown('warpCd', hero.warpCd, WARP_CD); wb.classList.toggle('channel', hero.warpT > 0); }
+    setBar('heroBar', 'heroTr', hero.hp / hero.max); setCooldown('skillCd', hero.skillCd, hero.skillCd > 0 ? stat.skillCd() : 1); $('skillBtn').classList.toggle('ready', hero.skillCd <= 0);
+    const la = legendActive(), lb = $('legBtn'); lb.classList.toggle('hidden', !la); if (la) {
+      const name = $('legName'), label = (la.icon ? la.icon+' ' : '')+la.n, aria = la.n+' (E)', title = eDescription(la);
+      if (name.textContent !== label) name.textContent = label;
+      if (lb.getAttribute('aria-label') !== aria) lb.setAttribute('aria-label', aria);
+      if (lb.title !== title) lb.title = title;
+      setCooldown('legCd', hero.lcd, hero.lcd > 0 ? legendCd() : 1, lb); lb.classList.toggle('ready', !(hero.lcd > 0));
+    } }
 }
 
 export { banner, showNote, setPhaseUI, updBossBar, refreshHud };

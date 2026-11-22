@@ -1,7 +1,6 @@
 // Presentation only: keep the authored Unicode and the control's native name.
 // Painted backgrounds never become a pointer target or replace application data.
 import { GAME_ICON_ART, CLEAR_STAR_ART } from './game-icon-art.js';
-import { mobileApp } from './mobile-mode.js';
 
 const prefilter = /[\p{Extended_Pictographic}\p{Regional_Indicator}\u20e3★☆✦✧♛♜☰♫]/u;
 const fallback = /(?:\p{Regional_Indicator}{2}|[#*0-9]\ufe0f?\u20e3|[\p{Extended_Pictographic}★☆✦✧♛♜☰♫][\ufe0e\ufe0f]?\p{Emoji_Modifier}?(?:\u200d\p{Extended_Pictographic}[\ufe0e\ufe0f]?\p{Emoji_Modifier}?)*)/gu;
@@ -85,8 +84,7 @@ export function installGameIcons(doc=document, art=GAME_ICON_ART, classic=null) 
   return observer;
 }
 if (typeof document !== 'undefined') {
-  if (mobileApp) installGameIcons();
-  else void import('./game-icon-classic-art.js').then(
+  void import('./game-icon-classic-art.js').then(
     ({CLASSIC_ICON_ART}) => installGameIcons(document, GAME_ICON_ART, CLASSIC_ICON_ART),
     () => installGameIcons()
   );

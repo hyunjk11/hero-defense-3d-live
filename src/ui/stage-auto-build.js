@@ -15,6 +15,7 @@ import { towerAvailable, towerSpecializable, towerUpgradeBlock, towerUpgradeCost
 import { build } from './input.js';
 
 const TYPES=['arrow','magic','cannon','guardian'], MAX_ACTIONS=4, MAX_PROBES=22;
+const CORE_BUILD_RADIUS_SQ=9;
 const key=(c,r)=>c*GH+r;
 const branches={arrow:'snipe',magic:'storm',cannon:'blast',guardian:'guardian_bulwark'};
 
@@ -82,10 +83,14 @@ function siteOptions(points, live, gold) {
       const overlap=live.reduce((sum,tw)=>sum+((tw.c-c)**2+(tw.r-r)**2<=1 ? .065 : 0),0);
       const cluster=clusterFit(c,r,stats.range,points,live,served);
       const priority=cover*need*strength*cluster/(1+.14*count[type]+overlap+clear/(D.cost*2.4));
-      out.push({c,r,t,type,clear,priority});
+      const coreDistance=(c-CORE[0])**2+(r-CORE[1])**2;
+      const zone=coreDistance<=CORE_BUILD_RADIUS_SQ?(ground?0:1):2;
+      out.push({c,r,t,type,clear,priority,coreDistance,zone});
     }
   }
-  return out.sort((a,b)=>b.priority-a.priority||a.clear-b.clear||a.c-b.c||a.r-b.r||TYPES.indexOf(a.type)-TYPES.indexOf(b.type));
+  // Build on nearby open land first. If those slots are unusable, open a
+  // nearby block before spreading out. Coverage still decides equal distances.
+  return out.sort((a,b)=>a.zone-b.zone||a.coreDistance-b.coreDistance||b.priority-a.priority||a.clear-b.clear||a.c-b.c||a.r-b.r||TYPES.indexOf(a.type)-TYPES.indexOf(b.type));
 }
 
 function keepsRoutes(t) {

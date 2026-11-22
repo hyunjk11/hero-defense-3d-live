@@ -7,11 +7,12 @@ import { $, rnd } from '../core/util.js';
 import { G } from '../core/state.js';
 import { STAGE, DUNGEON } from '../core/grid.js'; // DUNGEON: 던전 원정 = 폐허 테마(회색 석판 · 유령불 횃불)
 import { Q } from './quality.js';
+import { mobileApp } from '../ui/mobile-mode.js';
 
 // ================= 렌더러/씬 =================
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: !mobileApp, powerPreference: mobileApp ? 'default' : 'high-performance' });
 } catch (cause) {
   throw Object.assign(new Error('WebGL renderer initialization failed', { cause }), { code: 'HD3D_WEBGL_UNAVAILABLE' });
 }
@@ -62,8 +63,19 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .3
 bloom.materialHighPassFilter.fragmentShader = bloom.materialHighPassFilter.fragmentShader.replace('vec4 texel = texture2D( tDiffuse, vUv );',
   'vec4 texel = texture2D( tDiffuse, vUv ); if ( !all( lessThan( abs( texel ), vec4( 6.0e4 ) ) ) ) texel = vec4( 0.0 );'); bloom.materialHighPassFilter.needsUpdate = true;
 composer.addPass(bloom); composer.addPass(new OutputPass());
+function applyRenderProfile() {
+  const lean = Q.mobilePerf(), samples = lean ? 0 : MSAA;
+  renderer.shadowMap.enabled = !lean;
+  sun.castShadow = !lean;
+  bloom.enabled = !lean;
+  for (const target of [composer.renderTarget1, composer.renderTarget2]) {
+    if (target.samples !== samples) { target.dispose(); target.samples = samples; }
+  }
+}
+applyRenderProfile();
+if (mobileApp) composer.setSize(innerWidth, innerHeight);
 // 품질 전환(설정 또는 FPS 자동): 픽셀 비율·그림자 맵 크기를 즉시 반영 (몬스터 외곽선/그림자는 monsters/lod.js)
-Q.onChange(() => { renderer.setPixelRatio(Q.pixelRatio()); composer.setPixelRatio(renderer.getPixelRatio()); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+Q.onChange(() => { applyRenderProfile(); renderer.setPixelRatio(Q.pixelRatio()); composer.setPixelRatio(renderer.getPixelRatio()); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
   const n = Q.shadowSize(); if (sun.shadow.mapSize.x !== n) { sun.shadow.mapSize.set(n, n); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
 

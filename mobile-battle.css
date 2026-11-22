@@ -75,6 +75,10 @@
   border-radius:13px;box-sizing:border-box
 }
 .mobileBattle #hud #bottom>button span{white-space:normal;word-break:keep-all}
+.mobileBattle #hud #legBtn::before{content:none}
+.mobileBattle #hud :is(#legCd,#warpCd,#skillCd){border-radius:inherit;background:none}
+.mobileBattle #hud :is(#legCd,#warpCd,#skillCd):not(:empty){background:#100d1bc2;text-shadow:0 1px 2px #000}
+.mobileBattle #hud :is(#legBtn.ready,#skillBtn.ready,#autoSkillBtn.on){animation:none}
 .mobileBattle #hud #heroName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mobileBattle #hud #tinfo{bottom:var(--side-bottom);max-height:calc(100dvh - var(--tools-row) - var(--side-bottom))}
 .mobileBattle #stageClear>.scBox,.mobileBattle #over{
