@@ -15,7 +15,7 @@ import { towerAvailable, towerSpecializable, towerUpgradeBlock, towerUpgradeCost
 import { build } from './input.js';
 
 const TYPES=['arrow','magic','cannon','guardian'], MAX_ACTIONS=4, MAX_PROBES=22;
-const CORE_BUILD_RADIUS_SQ=9;
+const CORE_BUILD_RADIUS_SQ=9, CLUSTER_RADIUS_SQ=5;
 const key=(c,r)=>c*GH+r;
 const branches={arrow:'snipe',magic:'storm',cannon:'blast',guardian:'guardian_bulwark'};
 
@@ -31,7 +31,8 @@ function traceRoutes() {
       [c,r]=next;
     }
     if(route.length<2)continue;
-    for(const [i,[x,z]] of route.entries())points.push({x,z,lane,weight:(.76+.62*i/(route.length-1))/Math.max(1,SPAWNS.length)});
+    const reached=c===CORE[0]&&r===CORE[1];
+    for(const [i,[x,z]] of route.entries())points.push({x,z,lane,steps:reached?route.length-i-1:Infinity,weight:(.76+.62*i/(route.length-1))/Math.max(1,SPAWNS.length)});
   }
   return points;
 }
@@ -59,6 +60,29 @@ function siteOptions(points, live, gold) {
   const types=TYPES.filter(type=>towerAvailable(type,G)&&gold>=TOWERS[type].cost);
   const count=Object.fromEntries(TYPES.map(type=>[type,live.filter(tw=>tw.type===type).length]));
   const n=live.length, early=G.wave<3, out=[];
+  const approach=points.filter(p=>p.steps>=2&&p.steps<=8);
+  const onRoute=new Set(points.map(p=>key(p.x,p.z)));
+  const sites=[];
+  for(let c=0;c<GW;c++)for(let r=0;r<GH;r++){
+    const dc=c-CORE[0], dr=r-CORE[1];
+    if(Math.max(Math.abs(dc), Math.abs(dr))<=1)continue;
+    const t=tileAt(c,r), ground=t.t===T.GRASS;
+    if(t.tower||t.bar||(!ground&&!isBlock(t.t)))continue;
+    const coreDistance=dc*dc+dr*dr;
+    let incoming=Infinity, near=Infinity;
+    for(const p of approach){
+      const d=(c-p.x)**2+(r-p.z)**2;
+      if(d<(CORE[0]-p.x)**2+(CORE[1]-p.z)**2)incoming=Math.min(incoming,d);
+    }
+    for(const tw of live)near=Math.min(near,(tw.c-c)**2+(tw.r-r)**2);
+    const clear=ground?0:clearCost(t), adjoining=near<=CLUSTER_RADIUS_SQ;
+    // Do not let the core's always-open immediate ring hide a blocked approach.
+    // Open the incoming side first, then expand the same defense rather than
+    // returning to the far side of the core for free grass.
+    const zone=adjoining?(ground?0:1):ground&&coreDistance<=CORE_BUILD_RADIUS_SQ?2:
+      !ground&&incoming<=4?3:ground?4:5;
+    sites.push({c,r,t,ground,clear,coreDistance,incoming,near,zone,onRoute:Number(onRoute.has(key(c,r)))});
+  }
   const served=SPAWNS.map((_p,lane)=>points.some(p=>p.lane===lane&&live.some(tw=>{
     const r=(tw.S?.range||TOWERS[tw.type].range[0])/S;
     return (tw.c-p.x)**2+(tw.r-p.z)**2<r*r;
@@ -73,24 +97,19 @@ function siteOptions(points, live, gold) {
       :type==='cannon'?(count.cannon===0&&n>=2?1.40:early?.84:1.08)
       :count.guardian===0&&n>=3?1.34:.83;
     const strength=Math.pow(Math.max(1,stats.dmg*stats.rate)/(D.dmg[0]*D.rate[0]),.35);
-    for(let c=0;c<GW;c++)for(let r=0;r<GH;r++){
-      const t=tileAt(c,r), ground=t.t===T.GRASS;
-      if(t.tower||t.bar||(!ground&&!isBlock(t.t)))continue;
-      const clear=ground?0:clearCost(t);
+    for(const site of sites){
+      const {c,r,ground,clear}=site;
       if(D.cost+clear>gold||(!ground&&!towerAvailable('clear',G)))continue;
       const cover=coverage(c,r,stats.range,points,live);
       if(cover<=0)continue;
       const overlap=live.reduce((sum,tw)=>sum+((tw.c-c)**2+(tw.r-r)**2<=1 ? .065 : 0),0);
       const cluster=clusterFit(c,r,stats.range,points,live,served);
       const priority=cover*need*strength*cluster/(1+.14*count[type]+overlap+clear/(D.cost*2.4));
-      const coreDistance=(c-CORE[0])**2+(r-CORE[1])**2;
-      const zone=coreDistance<=CORE_BUILD_RADIUS_SQ?(ground?0:1):2;
-      out.push({c,r,t,type,clear,priority,coreDistance,zone});
+      out.push({...site,type,priority});
     }
   }
-  // Build on nearby open land first. If those slots are unusable, open a
-  // nearby block before spreading out. Coverage still decides equal distances.
-  return out.sort((a,b)=>a.zone-b.zone||a.coreDistance-b.coreDistance||b.priority-a.priority||a.clear-b.clear||a.c-b.c||a.r-b.r||TYPES.indexOf(a.type)-TYPES.indexOf(b.type));
+  const position=s=>s.zone<2?s.near:s.zone===3?s.coreDistance+2*s.incoming:s.coreDistance;
+  return out.sort((a,b)=>a.zone-b.zone||a.onRoute-b.onRoute||position(a)-position(b)||b.priority-a.priority||a.clear-b.clear||a.c-b.c||a.r-b.r||TYPES.indexOf(a.type)-TYPES.indexOf(b.type));
 }
 
 function keepsRoutes(t) {
