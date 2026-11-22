@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Rose's PC equipment proc: an amber fire-control reticle, a falling flare,
+// Rose's PC equipment proc: an amber fire-control reticle, a falling cannon shell,
 // then a pale impact front with a brief dust plume. No lights or gameplay state.
 const VERT = `
 varying vec2 p;
@@ -46,8 +46,6 @@ const LIMIT = 4, IMPACT_TIME = .68, DUST = 8, SPARKS = 12;
 export function createGearArtilleryFx({scene, groundY}) {
   const warnings = [], impacts = [];
   const at = new THREE.Object3D();
-  const direction = new THREE.Vector3(-.30, -.94, .16).normalize();
-  const up = new THREE.Vector3(0, 1, 0);
   let shared, nextWarning = 0, nextImpact = 0;
   const height = (x,z) => { const y = groundY(x,z); return Number.isFinite(y) ? y : 0; };
   const extent = r => Number.isFinite(r) ? clamp(r,1.25,7) : 3;
@@ -55,9 +53,13 @@ export function createGearArtilleryFx({scene, groundY}) {
     plane: new THREE.PlaneGeometry(2, 2),
     puff: new THREE.IcosahedronGeometry(1, 0),
     shard: new THREE.OctahedronGeometry(.22, 0),
-    shell: new THREE.ConeGeometry(.24, 2, 10),
-    fire: new THREE.MeshBasicMaterial({color:0xffd48c, toneMapped:false}),
-    streak: new THREE.MeshBasicMaterial({color:0xff8140, transparent:true, opacity:.63, depthWrite:false, toneMapped:false}),
+    // Blunt rounded nose (bottom), thick straight casing and a flat rear face.
+    shell: new THREE.LatheGeometry([
+      [0,-.78],[.21,-.73],[.36,-.58],[.43,-.34],[.43,.60],[.38,.69],[0,.69]
+    ].map(([r,y])=>new THREE.Vector2(r,y)),16),
+    band: new THREE.CylinderGeometry(.45,.45,.21,16),
+    casing: new THREE.MeshStandardMaterial({color:0x536477,metalness:.24,roughness:.56}),
+    brass: new THREE.MeshBasicMaterial({color:0xffbd58,toneMapped:false}),
   };
   function group(kind) {
     const g = new THREE.Group(); g.name = kind; g.visible = false; scene.add(g);
@@ -72,12 +74,9 @@ export function createGearArtilleryFx({scene, groundY}) {
   }
   function warning() {
     const g = group('rose-artillery-warning'), glyph = ground(g,0), shell = new THREE.Group();
-    // Both cones point toward the floor: a gold nose and a tapered amber tail.
-    shell.quaternion.setFromUnitVectors(up,direction);
-    const nose = new THREE.Mesh(assets().shell,assets().fire);
-    nose.position.y = .12; nose.scale.set(.88,.58,.88); shell.add(nose);
-    const tail = new THREE.Mesh(assets().shell,assets().streak);
-    tail.rotation.z = Math.PI; tail.position.y = -2.15; tail.scale.set(.89,1.85,.89); shell.add(tail);
+    shell.add(new THREE.Mesh(assets().shell,assets().casing));
+    const band = new THREE.Mesh(assets().band,assets().brass);
+    band.position.y = .37; shell.add(band);
     g.add(shell);
     return {g,glyph,shell,t:0,dur:0,r:0};
   }
@@ -101,7 +100,7 @@ export function createGearArtilleryFx({scene, groundY}) {
     w.glyph.material.uniforms.time.value=p;
     const fall = clamp((p-.14)/.86,0,1), y = 12.0 *(1.-fall*fall);
     w.shell.visible=p>=.14;
-    w.shell.position.set(-y*.32,y+.55,y*.17);
+    w.shell.position.set(0,y+.78,0);
   }
   function tickImpact(w,p) {
     w.glyph.material.uniforms.time.value=p;
