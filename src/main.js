@@ -133,6 +133,7 @@ function bootPlan() {
   const first = uniq(heroes.flatMap(c => heroAssets(c))), order = [...MON_ASSETS, ...(h === 'mechanic' ? ['mech_robot_meshy'] : []), ...VISIBLE_HEROES.filter(c => !CLASSES[c].paid).flatMap(c => heroAssets(c)), ...VISIBLE_HEROES.filter(c => CLASSES[c].paid).flatMap(c => heroAssets(c, true))];
   return { first, bg: uniq(order).filter(k => !first.includes(k)) };
 }
+void import('./ui/game-icons.js').catch(e => console.warn('drawn icons', e));
 const PLAN = bootPlan(); G.loadPlan = PLAN;
 const recoverPCStartup = !mobileApp && !QS.has('run') && QS.get('practice') !== '1';
 loadAssets(PLAN.first, recoverPCStartup).then(() => { G.ready = true; $('loading').classList.add('hidden'); G.bgModels = loadBackground(PLAN.bg).then(() => (G.allModels = true)); if (mobileApp || QS.get('practice') === '1' || QS.has('flow') || !(QS.has('test') || QS.has('skipintro'))) {

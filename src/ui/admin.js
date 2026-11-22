@@ -111,7 +111,7 @@ function hOrders() {
   const o = st.ord, d = o.data, rows = d ? d.rows || [] : [], cnt = (d && d.counts) || {}, all = Object.values(cnt).reduce((a, b) => a + b, 0);
   const chips = o.legacy ? '' : `<div class="admChips">${[['', '전체', all], ...['pending', 'approved', 'rejected', 'refunded'].map(s => [s, ST_N[s], cnt[s] || 0])].map(([s, n, c]) => `<button class="ftab ${o.status === s ? 'on' : ''}" data-act="ostatus" data-s="${s}">${n} <b>${c}</b></button>`).join('')}</div>`;
   const bar = `<div class="admBar">${o.legacy ? `<span>대기 <b>${cnt.pending || 0}</b> · 전체 ${rows.length}</span>` : `<input id="aoQ" placeholder="이메일 · 닉네임으로 찾기" maxlength="100" data-enter="osearch" value="${esc(o.q)}"><button class="gbtn sm" data-act="osearch">🔍 검색</button>`}<input id="admReason" placeholder="거절 사유 (선택)" maxlength="200"><button class="gbtn sm" id="admReload" data-act="oreload">새로고침</button></div>`;
-  const list = rows.length ? `<div class="admTable">${rows.map(x => `<div class="admRow s_${x.status}"><div class="aWho"><b>${esc(x.nickname || '—')}</b><small>${esc(x.email || x.user_id)}</small></div><div class="aItem">${ICO[x.item] || '🎁'} ${esc(itemN(x.item))}<small>주문 #${x.id}</small></div><div class="aDate">${fmtD(x.created_at)}</div><div class="aSt">${ST_N[x.status] || esc(x.status)}${x.decided_at ? `<small>${fmtD(x.decided_at)}</small>` : ''}${x.status === 'refunded' && x.refund_note ? `<small>사유: ${esc(x.refund_note)}</small>` : x.status === 'rejected' && x.note ? `<small>사유: ${esc(x.note)}</small>` : ''}</div>
+  const list = rows.length ? `<div class="admTable">${rows.map(x => `<div class="admRow s_${x.status}"><div class="aWho"><b><span data-native-emoji>${esc(x.nickname || '—')}</span></b><small><span data-native-emoji>${esc(x.email || x.user_id)}</span></small></div><div class="aItem">${ICO[x.item] || '🎁'} ${esc(itemN(x.item))}<small>주문 #${x.id}</small></div><div class="aDate">${fmtD(x.created_at)}</div><div class="aSt">${ST_N[x.status] || esc(x.status)}${x.decided_at ? `<small>${fmtD(x.decided_at)}</small>` : ''}${x.status === 'refunded' && x.refund_note ? `<small>사유: ${esc(x.refund_note)}</small>` : x.status === 'rejected' && x.note ? `<small>사유: ${esc(x.note)}</small>` : ''}</div>
     <div class="aAct">${x.status === 'pending' ? `<button class="gbtn main admOk" data-act="oapprove" data-id="${x.id}">승인</button><button class="gbtn admNo" data-act="oreject" data-id="${x.id}">거절</button>` : x.status === 'approved' && !o.legacy ? `<button class="gbtn admRefund" data-act="orefund" data-id="${x.id}">↩ 환불</button>` : ''}</div></div>`).join('')}</div>` : `<div class="emptyMsg">${d ? (o.q || o.status ? '조건에 맞는 주문이 없어요.' : '구매 신청이 없어요.') : '불러오는 중…'}</div>`;
   return chips + bar + list + (o.legacy ? '' : pager(d, 'opage'));
 }
@@ -127,7 +127,7 @@ function hUsers() {
   const d = u.data, rows = d ? d.rows || [] : [];
   const bar = `<div class="admBar"><input id="auQ" placeholder="이메일 · 닉네임으로 찾기 (비우면 전체)" maxlength="100" data-enter="usearch" value="${esc(u.q)}"><button class="gbtn sm main" data-act="usearch">🔍 검색</button><span class="aCnt">${d ? `${d.total}명` : ''}</span></div>`;
   const list = rows.length ? `<div class="admTable">${rows.map(c => { const s = c.summary;
-    return `<div class="admRow auRow ${c.banned ? 's_banned' : ''}" data-act="uopen" data-id="${esc(c.id)}"><div class="aWho"><b>${esc(c.nickname || '—')} ${roleBadges(c)}</b><small>${esc(c.email || '')}</small></div>
+    return `<div class="admRow auRow ${c.banned ? 's_banned' : ''}" data-act="uopen" data-id="${esc(c.id)}"><div class="aWho"><b><span data-native-emoji>${esc(c.nickname || '—')}</span> ${roleBadges(c)}</b><small><span data-native-emoji>${esc(c.email || '')}</span></small></div>
       <div class="aSum">${s ? `★ ${s.stars}<small>영혼석 ${(+s.souls).toLocaleString('ko-KR')} · 마력석 ${(+s.crystal).toLocaleString('ko-KR')} · 정수 ${+s.essence}</small>` : '<small>저장 없음</small>'}</div>
       <div class="aOwn">${ownedIcons(c) || '<small>유료 영웅 없음</small>'}${s && Object.keys(s.adv || {}).length ? `<small>전직 ${Object.keys(s.adv).length}</small>` : ''}</div>
       <div class="aDate"><small>가입 ${fmtD(c.created_at)}</small><small>접속 ${fmtD(c.last_seen)}</small><small>저장 ${fmtD(c.saved_at)}</small></div><div class="aAct"><span class="aGo">상세 ▶</span></div></div>`; }).join('')}</div>`
@@ -142,9 +142,9 @@ function hUser() {
     ? `<div class="udBan on">⛔ 정지됨 · ${fmtD(c.banned_at)}<small>사유: ${esc(c.ban_reason || '')}</small></div><button class="gbtn sm" data-act="uunban">정지 해제</button>`
     : `<div class="udBan">정상 계정</div><button class="gbtn sm danger" data-act="uban">⛔ 계정 정지</button>`;
   const ords = (D.orders || []).map(o => `<li>${ICO[o.item] || '🎁'} ${esc(itemN(o.item))} · <b class="s_${o.status}">${ST_N[o.status] || esc(o.status)}</b> · ${fmtD(o.created_at)}</li>`).join('') || '<li class="hintS">없음</li>';
-  const mails = (D.mail || []).map(m => `<li>${esc(m.title)}${m.reward ? ` · <small>${esc(rwText(m.reward))}</small>` : ''} · ${m.revoked && !m.claimed ? '<b class="s_rejected">회수됨</b>' : m.claimed ? '<b class="s_approved">받음</b>' : m.reward ? '<b class="s_pending">미수령</b>' : '<small>안내</small>'} · <small>${fmtD(m.created_at)}</small></li>`).join('') || '<li class="hintS">없음</li>';
-  const logs = (D.log || []).map(l => `<li><b>${esc(L.ACTION_N[l.action] || l.action)}</b> · ${esc(L.logDetail(l, rwText))} · <small>${esc(l.admin_email || '')} · ${fmtD(l.created_at)}</small></li>`).join('') || '<li class="hintS">없음</li>';
-  return `<div class="admBar"><button class="gbtn sm" data-act="uback">← 목록</button><b class="udName">${esc(c.nickname || '—')} ${roleBadges(c)}</b><span class="udMail">${esc(c.email || '')}</span><button class="gbtn sm" data-act="ureload">새로고침</button></div>
+  const mails = (D.mail || []).map(m => `<li><span data-native-emoji>${esc(m.title)}</span>${m.reward ? ` · <small>${esc(rwText(m.reward))}</small>` : ''} · ${m.revoked && !m.claimed ? '<b class="s_rejected">회수됨</b>' : m.claimed ? '<b class="s_approved">받음</b>' : m.reward ? '<b class="s_pending">미수령</b>' : '<small>안내</small>'} · <small>${fmtD(m.created_at)}</small></li>`).join('') || '<li class="hintS">없음</li>';
+  const logs = (D.log || []).map(l => `<li><b>${esc(L.ACTION_N[l.action] || l.action)}</b> · <span data-native-emoji>${esc(L.logDetail(l, rwText))}</span> · <small><span data-native-emoji>${esc(l.admin_email || '')}</span> · ${fmtD(l.created_at)}</small></li>`).join('') || '<li class="hintS">없음</li>';
+  return `<div class="admBar"><button class="gbtn sm" data-act="uback">← 목록</button><b class="udName"><span data-native-emoji>${esc(c.nickname || '—')}</span> ${roleBadges(c)}</b><span class="udMail"><span data-native-emoji>${esc(c.email || '')}</span></span><button class="gbtn sm" data-act="ureload">새로고침</button></div>
   <div class="udGrid"><div class="udCol">
     <div class="udCard"><div class="udH">계정 정보</div><div class="udKv"><span>가입</span><b>${fmtD(c.created_at)}</b><span>최근 접속</span><b>${fmtD(c.last_seen)}</b><span>마지막 저장</span><b>${fmtD(c.saved_at)}</b><span>ID</span><b class="udId">${esc(c.id)}</b></div></div>
     <div class="udCard"><div class="udH">진행 요약</div>${parts.map(p => `<div class="udLine">${esc(p)}</div>`).join('')}</div>
@@ -179,7 +179,7 @@ function hNotice() {
     <div class="amRw"><label>시작 (비우면 바로)<input id="ntStart" type="datetime-local" value="${e ? L.isoToLocal(e.starts_at) : ''}"></label><label>종료 (비우면 계속)<input id="ntEnd" type="datetime-local" value="${e ? L.isoToLocal(e.ends_at) : ''}"></label><label class="amChk"><input id="ntActive" type="checkbox" ${!e || e.active ? 'checked' : ''}> 게시</label></div>
     <div class="row2"><button class="gbtn main" id="ntSave" data-act="ntsave">${e ? '💾 수정 저장' : '📢 공지 등록'}</button>${e ? '<button class="gbtn" data-act="ntcancel">취소</button>' : ''}</div></div>`;
   const rows = !list ? '<div class="emptyMsg">불러오는 중…</div>' : !list.length ? '<div class="emptyMsg">공지가 없어요.</div>' : `<div class="admTable">${list.map(n => { const s = L.noticeState(n);
-    return `<div class="admRow ntRow nt_${s}"><div class="aWho"><b>${esc(n.title)}</b><small>${esc((n.body || '').slice(0, 80))}</small></div><div class="aDate"><small>시작 ${n.starts_at ? fmtD(n.starts_at) : '즉시'}</small><small>종료 ${n.ends_at ? fmtD(n.ends_at) : '없음'}</small></div><div class="aSt">${L.NOTICE_ST[s]}<small>#${n.id} · ${fmtD(n.created_at)}</small></div>
+    return `<div class="admRow ntRow nt_${s}"><div class="aWho"><b><span data-native-emoji>${esc(n.title)}</span></b><small><span data-native-emoji>${esc((n.body || '').slice(0, 80))}</span></small></div><div class="aDate"><small>시작 ${n.starts_at ? fmtD(n.starts_at) : '즉시'}</small><small>종료 ${n.ends_at ? fmtD(n.ends_at) : '없음'}</small></div><div class="aSt">${L.NOTICE_ST[s]}<small>#${n.id} · ${fmtD(n.created_at)}</small></div>
       <div class="aAct"><button class="gbtn sm" data-act="ntedit" data-id="${n.id}">수정</button>${n.active ? `<button class="gbtn sm" data-act="ntoff" data-id="${n.id}">내리기</button>` : `<button class="gbtn sm main" data-act="nton" data-id="${n.id}">게시</button>`}</div></div>`; }).join('')}</div>`;
   return form + rows;
 }
@@ -188,7 +188,7 @@ async function loadLog() { const g = st.log, r = await Adm.logs(g.action, g.off,
 function hLog() {
   const g = st.log, d = g.data, rows = d ? d.rows || [] : [];
   const bar = `<div class="admBar"><label class="amChk">종류 <select id="alAct" data-change="lfilter"><option value="">전체</option>${Object.entries(L.ACTION_N).map(([k, n]) => `<option value="${k}" ${g.action === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label><button class="gbtn sm" data-act="lreload">새로고침</button><span class="aCnt">${d ? `${d.total}건` : ''}</span></div>`;
-  const list = rows.length ? `<div class="admTable">${rows.map(l => `<div class="admRow logRow"><div class="aDate">${fmtD(l.created_at)}</div><div class="aWho"><b>${esc(L.ACTION_N[l.action] || l.action)}</b><small>by ${esc(l.admin_email || '')}</small></div><div class="aWho"><b>${esc(l.target_email || (l.target_user ? l.target_user.slice(0, 8) : '—'))}</b></div><div class="aDet">${esc(L.logDetail(l, rwText))}</div></div>`).join('')}</div>`
+  const list = rows.length ? `<div class="admTable">${rows.map(l => `<div class="admRow logRow"><div class="aDate">${fmtD(l.created_at)}</div><div class="aWho"><b>${esc(L.ACTION_N[l.action] || l.action)}</b><small>by <span data-native-emoji>${esc(l.admin_email || '')}</span></small></div><div class="aWho"><b><span data-native-emoji>${esc(l.target_email || (l.target_user ? l.target_user.slice(0, 8) : '—'))}</span></b></div><div class="aDet"><span data-native-emoji>${esc(L.logDetail(l, rwText))}</span></div></div>`).join('')}</div>`
     : `<div class="emptyMsg">${d ? '기록이 없어요.' : '불러오는 중…'}</div>`;
   return bar + list + pager(d, 'lpage');
 }
@@ -198,7 +198,7 @@ function hAdmins() {
   const list = st.adm.list;
   return `<div class="admBar"><input id="aaEmail" type="email" placeholder="관리자로 추가할 계정 이메일" maxlength="254" data-enter="aadd"><button class="gbtn sm main" data-act="aadd">➕ 관리자 추가</button></div>
     <div class="hintS">하위 관리자는 관리자 관리(이 탭)를 뺀 모든 관리자 기능을 쓸 수 있어요. 최고 관리자는 삭제할 수 없어요.</div>` +
-    (!list ? '<div class="emptyMsg">불러오는 중…</div>' : `<div class="admTable">${list.map(a => `<div class="admRow admAdm"><div class="aWho"><b>${esc(a.nickname || '—')} ${a.owner ? badge('최고 관리자', 'own') : badge('관리자', 'adm')}</b><small>${esc(a.email || '')}</small></div><div class="aDate"><small>추가 ${fmtD(a.created_at)}</small></div><div class="aAct">${a.owner ? '' : `<button class="gbtn sm danger" data-act="aremove" data-email="${esc(a.email)}">삭제</button>`}</div></div>`).join('')}</div>`);
+    (!list ? '<div class="emptyMsg">불러오는 중…</div>' : `<div class="admTable">${list.map(a => `<div class="admRow admAdm"><div class="aWho"><b><span data-native-emoji>${esc(a.nickname || '—')}</span> ${a.owner ? badge('최고 관리자', 'own') : badge('관리자', 'adm')}</b><small><span data-native-emoji>${esc(a.email || '')}</span></small></div><div class="aDate"><small>추가 ${fmtD(a.created_at)}</small></div><div class="aAct">${a.owner ? '' : `<button class="gbtn sm danger" data-act="aremove" data-email="${esc(a.email)}">삭제</button>`}</div></div>`).join('')}</div>`);
 }
 
 // ---------- 🗼 무한의 탑 이상 기록 (T-9) — 서버가 시간 하한은 강제하지만 전투 자체는 검증 못 함 → 하한 근처 · 층 깎임 · 하루 +50층을 표시 ----------
@@ -208,7 +208,7 @@ const spSec = (s, n) => `${Math.round(+s || 0)}초 / 최소 ${Math.round(+n || 0
 async function loadSpire() { const r = await Adm.spireSuspects(st.spr.days, 50); st.spr.data = r.ok ? r.data : null; st.spr.err = r.ok ? null : r.msg; renderAdmin(); }
 function hSpire() { const S = st.spr, rows = (S.data && S.data.rows) || [];
   const list = S.err ? `<div class="hintS">${esc(S.err)}</div>` : !S.data ? '<div class="hintS">불러오는 중…</div>' : rows.length ? rows.map(x => { const sm = x.summary && typeof x.summary === 'object' ? x.summary : null;
-    return `<div class="spAdmRow"><div class="spAdmU"><b>${esc(x.nick || '용사')}</b> <small>${esc(x.email || '')}</small>${x.banned ? ' ' + badge('정지됨', 'ban') : ''}</div>
+    return `<div class="spAdmRow"><div class="spAdmU"><b><span data-native-emoji>${esc(x.nick || '용사')}</span></b> <small><span data-native-emoji>${esc(x.email || '')}</span></small>${x.banned ? ' ' + badge('정지됨', 'ban') : ''}</div>
       <div class="spAdmR">${+x.from}층 → <b>${+x.top}층</b> · ${spSec(x.sec, x.need)} · 그날 +${+x.day_gain || 0}층 · 최고 ${+x.best || 0}층 · <small>${fmtD(x.at)}</small></div>
       <div class="spAdmF">${spFlags(x.flags)}${sm && Array.isArray(sm.party) ? ` <small>파티 ${esc(sm.party.map(h => heroName(h)).join('·'))}</small>` : ''}</div>
       <button class="gbtn sm" data-act="spopen" data-id="${esc(x.user_id)}">유저 보기</button></div>`; }).join('') : '<div class="hintS">이상 기록 없음 👍</div>';
@@ -230,7 +230,7 @@ const ACT = {
   oapprove: b => decide(b, Sh.approve(+b.dataset.id), '승인 완료 · 보상 우편을 보냈어요'),
   oreject: b => decide(b, Sh.reject(+b.dataset.id, $('admReason').value.trim()), '거절 완료 · 안내 우편을 보냈어요'),
   orefund: async b => { const o = (st.ord.data.rows || []).find(x => x.id === +b.dataset.id); if (!o) return;
-    const c = await confirmBox({ title: '↩ 환불 처리', html: `<b>${esc(o.nickname || o.email || '')}</b> 님의 <b>${esc(itemN(o.item))}</b> (주문 #${o.id}) 을 환불 처리합니다.<br>서버에서 <b>영웅 소유권이 회수</b>되고, 아직 받지 않은 지급 우편도 회수됩니다. 사용자에게 안내 우편이 갑니다.`, reason: true, yes: '환불 처리' });
+    const c = await confirmBox({ title: '↩ 환불 처리', html: `<b><span data-native-emoji>${esc(o.nickname || o.email || '')}</span></b> 님의 <b>${esc(itemN(o.item))}</b> (주문 #${o.id}) 을 환불 처리합니다.<br>서버에서 <b>영웅 소유권이 회수</b>되고, 아직 받지 않은 지급 우편도 회수됩니다. 사용자에게 안내 우편이 갑니다.`, reason: true, yes: '환불 처리' });
     if (!c) return; const r = await Adm.refund(o.id, c.reason); msg(r.ok ? `주문 #${o.id} 환불 처리 완료 (소유권 회수)` : r.msg, r.ok); Snd.play(r.ok ? 'confirm' : 'error'); loadOrders(); },
   usearch: () => { st.usr.q = ($('auQ').value || '').trim(); st.usr.off = 0; Snd.play('ui'); loadUsers(); },
   upage: b => { st.usr.off = +b.dataset.off || 0; loadUsers(); },
@@ -238,16 +238,16 @@ const ACT = {
   uback: () => { Snd.play('ui'); st.usr.sel = null; st.usr.detail = null; fresh = true; renderAdmin(); loadUsers(); },
   ureload: () => { Snd.play('ui'); loadUser(st.usr.sel); },
   ugrant: async b => { const c = st.usr.detail.user, k = b.dataset.k;
-    const ok = await confirmBox({ title: '🎁 유료 영웅 지급', html: `<b>${esc(c.nickname || c.email)}</b> 님에게 <b>${esc(itemN(k))}</b> 를 바로 지급합니다 (서버 소유권 기록).`, reason: true, yes: '지급', danger: false });
+    const ok = await confirmBox({ title: '🎁 유료 영웅 지급', html: `<b><span data-native-emoji>${esc(c.nickname || c.email)}</span></b> 님에게 <b>${esc(itemN(k))}</b> 를 바로 지급합니다 (서버 소유권 기록).`, reason: true, yes: '지급', danger: false });
     if (!ok) return; const r = await Adm.grantHero(c.id, k, ok.reason); msg(r.ok ? `${heroName(heroOf(k))} 지급 완료` : r.msg, r.ok); Snd.play(r.ok ? 'confirm' : 'error'); loadUser(c.id); },
   urevoke: async b => { const c = st.usr.detail.user, k = b.dataset.k;
-    const ok = await confirmBox({ title: '유료 영웅 회수', html: `<b>${esc(c.nickname || c.email)}</b> 님의 <b>${esc(itemN(k))}</b> 소유권을 회수합니다.<br>이 영웅을 주는 미수령 우편도 회수됩니다. (영웅 레벨·장비 기록은 남고 영웅만 잠깁니다)`, reason: true, yes: '회수' });
+    const ok = await confirmBox({ title: '유료 영웅 회수', html: `<b><span data-native-emoji>${esc(c.nickname || c.email)}</span></b> 님의 <b>${esc(itemN(k))}</b> 소유권을 회수합니다.<br>이 영웅을 주는 미수령 우편도 회수됩니다. (영웅 레벨·장비 기록은 남고 영웅만 잠깁니다)`, reason: true, yes: '회수' });
     if (!ok) return; const r = await Adm.revokeHero(c.id, k, ok.reason); msg(r.ok ? `${heroName(heroOf(k))} 회수 완료` : r.msg, r.ok); Snd.play(r.ok ? 'confirm' : 'error'); loadUser(c.id); },
   uban: async () => { const c = st.usr.detail.user;
-    const ok = await confirmBox({ title: '⛔ 계정 정지', html: `<b>${esc(c.nickname || '')}</b> (${esc(c.email || '')}) 계정을 정지합니다.<br>정지된 계정은 <b>진행 저장 · 구매 신청 · 우편 받기</b>가 서버에서 막힙니다.`, reason: true, yes: '정지' });
+    const ok = await confirmBox({ title: '⛔ 계정 정지', html: `<b><span data-native-emoji>${esc(c.nickname || '')}</span></b> (<span data-native-emoji>${esc(c.email || '')}</span>) 계정을 정지합니다.<br>정지된 계정은 <b>진행 저장 · 구매 신청 · 우편 받기</b>가 서버에서 막힙니다.`, reason: true, yes: '정지' });
     if (!ok) return; const r = await Adm.ban(c.id, ok.reason); msg(r.ok ? '계정을 정지했어요.' : r.msg, r.ok); Snd.play(r.ok ? 'confirm' : 'error'); loadUser(c.id); },
   uunban: async () => { const c = st.usr.detail.user;
-    const ok = await confirmBox({ title: '정지 해제', html: `<b>${esc(c.nickname || '')}</b> (${esc(c.email || '')}) 계정의 정지를 해제합니다.`, reason: true, yes: '해제', danger: false });
+    const ok = await confirmBox({ title: '정지 해제', html: `<b><span data-native-emoji>${esc(c.nickname || '')}</span></b> (<span data-native-emoji>${esc(c.email || '')}</span>) 계정의 정지를 해제합니다.`, reason: true, yes: '해제', danger: false });
     if (!ok) return; const r = await Adm.unban(c.id, ok.reason); msg(r.ok ? '정지를 해제했어요.' : r.msg, r.ok); Snd.play(r.ok ? 'confirm' : 'error'); loadUser(c.id); },
   rwgear: b => { const px = b.dataset.px, sl = $(px + 'Slot').value, spec = { k: 'gear', s: sl, g: +$(px + 'G').value }; if (sl === 'weapon') spec.h = $(px + 'H').value; if ($(px + 'C').value) spec.c = +$(px + 'C').value; rwAddLine(px, spec); },
   rwhit: b => { const px = b.dataset.px, e = (rwHits[px] || [])[+b.dataset.i]; if (e) rwAddLine(px, e.spec); },
@@ -278,7 +278,7 @@ const ACT = {
   spdays: t => { st.spr.days = +t.value || 7; st.spr.data = null; renderAdmin(); loadSpire(); },
   spopen: b => { Snd.play('select'); st.usr.detail = null; st.usr.sel = b.dataset.id; fresh = true; setTab('users'); },
   spreset: async () => { const c = st.usr.detail.user, P = st.usr.detail.spire || {};
-    const ok = await confirmBox({ title: '🗼 탑 기록 초기화', html: `<b>${esc(c.nickname || '')}</b> (${esc(c.email || '')}) 의 무한의 탑 <b>최고 기록(${+P.best || 0}층)과 이번 주 기록</b>을 0으로 되돌리고 진행 중 도전을 끝냅니다.<br>첫 돌파 보상 기준(${+P.cleared || 0}층)은 그대로라 <b>보상을 다시 받을 수 없어요</b>. 이미 보낸 우편은 그대로입니다.`, reason: true, yes: '초기화' });
+    const ok = await confirmBox({ title: '🗼 탑 기록 초기화', html: `<b><span data-native-emoji>${esc(c.nickname || '')}</span></b> (<span data-native-emoji>${esc(c.email || '')}</span>) 의 무한의 탑 <b>최고 기록(${+P.best || 0}층)과 이번 주 기록</b>을 0으로 되돌리고 진행 중 도전을 끝냅니다.<br>첫 돌파 보상 기준(${+P.cleared || 0}층)은 그대로라 <b>보상을 다시 받을 수 없어요</b>. 이미 보낸 우편은 그대로입니다.`, reason: true, yes: '초기화' });
     if (!ok) return; const r = await Adm.spireReset(c.id, ok.reason); msg(r.ok ? `탑 기록을 초기화했어요 (이전 최고 ${r.data.prev}층).` : r.msg, r.ok); Snd.play(r.ok ? 'confirm' : 'error'); loadUser(c.id); },
   lfilter: () => { st.log.action = $('alAct').value; st.log.off = 0; loadLog(); },
   lreload: () => { Snd.play('ui'); loadLog(); },

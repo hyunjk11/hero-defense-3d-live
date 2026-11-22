@@ -1202,3 +1202,9 @@ body.mobileApp.practiceSandbox #practiceMeterDetails button{min-width:44px;min-h
 
 /* Build actions must stay tappable when projected over the party strip. */
 body.mobileApp.practiceSandbox #trialActions:not([hidden]){z-index:42}
+
+/* Drawn PC icons keep the original text in the accessibility tree. */
+body.drawn-game-icons game-icon-run{pointer-events:none}
+body.drawn-game-icons game-icon{display:inline-block;width:1.1em;height:1.1em;vertical-align:-.19em;margin-inline:0 .025em;overflow:hidden;text-indent:-9999px;white-space:nowrap;background:var(--drawn-icon) center/contain no-repeat;pointer-events:none}
+body.drawn-game-icons .itile.pick:after{content:"";background:#ff3a2a44 var(--drawn-tools) center/1em 1em no-repeat}
+body.drawn-game-icons .dgP.down .dgIc::after{content:"";width:1em;height:1em;background:var(--drawn-skull) center/contain no-repeat}

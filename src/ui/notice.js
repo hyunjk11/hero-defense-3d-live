@@ -20,14 +20,14 @@ export async function showNotices() {
 function render() {
   const el = $('noticeBar'); if (!el) return; const n = queue[0];
   if (!n) { el.classList.add('hidden'); el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="nbHead"><span class="nbIco">📢</span><b class="nbT">${esc(n.title)}</b>${queue.length > 1 ? `<small class="nbN">1 / ${queue.length}</small>` : ''}<button class="gbtn sm nbX" id="nbClose" title="닫기">✕</button></div>${n.body ? `<div class="nbB">${esc(n.body)}</div>` : ''}<div class="nbAct"><button class="gbtn sm" id="nbOk">${queue.length > 1 ? '확인 · 다음 공지' : '확인'}</button></div>`;
+  el.innerHTML = `<div class="nbHead"><span class="nbIco">📢</span><b class="nbT" data-native-emoji>${esc(n.title)}</b>${queue.length > 1 ? `<small class="nbN">1 / ${queue.length}</small>` : ''}<button class="gbtn sm nbX" id="nbClose" title="닫기">✕</button></div>${n.body ? `<div class="nbB" data-native-emoji>${esc(n.body)}</div>` : ''}<div class="nbAct"><button class="gbtn sm" id="nbOk">${queue.length > 1 ? '확인 · 다음 공지' : '확인'}</button></div>`;
   el.classList.remove('hidden'); el.dataset.id = n.id;
   $('nbOk').onclick = $('nbClose').onclick = () => { keep(L.dismissNotice(seen(), n.id)); queue.shift(); Snd.play('ui'); render(); };
 }
 // 정지 안내 (서버 상태가 바뀔 때마다)
 export function renderBan() {
   const el = $('banNote'); if (!el) return; const b = Sh.isBanned(), r = Sh.S.me.reason || '';
-  const h = b ? `<b>⛔ 계정이 정지되었습니다</b>${r ? `<span class="bnR">사유: ${esc(r)}</span>` : ''}<small>진행은 이 기기에만 저장되고, 서버 저장 · 구매 신청 · 우편 받기가 제한됩니다. 문의는 관리자에게 해 주세요.</small>` : '';
+  const h = b ? `<b>⛔ 계정이 정지되었습니다</b>${r ? `<span class="bnR" data-native-emoji>사유: ${esc(r)}</span>` : ''}<small>진행은 이 기기에만 저장되고, 서버 저장 · 구매 신청 · 우편 받기가 제한됩니다. 문의는 관리자에게 해 주세요.</small>` : '';
   if (el._h !== h) { el._h = h; el.innerHTML = h; } el.classList.toggle('hidden', !b);
 }
 export function initNotice() { Sh.onShop(renderBan); Acc.onChange(renderBan); renderBan(); }

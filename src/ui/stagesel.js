@@ -124,4 +124,4 @@ document.addEventListener('visibilitychange', () => { if (ui.open && Acc.A.user 
 
 function targetHtml(id){const selected=readTarget(id)||'';return `<label class=repeatTarget>반복 상자 1개<select id=repeatTarget aria-label="반복 보상 목표 장비">${['',...REPEAT_ROWS].map(row=>`<option value="${row}" ${row===selected?'selected':''}>${esc(targetLabel(row))}</option>`).join('')}</select></label>`;}
 
-function partnerHtml(main){const selected=readPartner(main);return `<label class="repeatTarget">서브 영웅<select id="hardPartner" aria-label="하드 서브 영웅">${partners(main).map(h=>`<option value="${h}" ${h===selected?'selected':''}>${CLASSES[h].icon} ${esc(heroLabel(h))} · Lv.${HG.level(h)}</option>`).join('')}</select></label>`;}
+function partnerHtml(main){const selected=readPartner(main);return `<label class="repeatTarget">서브 영웅<select id="hardPartner" aria-label="하드 서브 영웅">${partners(main).map(h=>`<option value="${h}" ${h===selected?'selected':''}>${esc(heroLabel(h))} · Lv.${HG.level(h)}</option>`).join('')}</select></label>`;}
