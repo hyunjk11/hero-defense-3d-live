@@ -58,7 +58,8 @@ function shieldFactor(e, src) {
   const S = e.E.shieldDef; if (!S || !src || e.guardOpenT > 0 || e.dying !== undefined) return 1;
   const g = e.g, fx = Math.sin(g.rotation.y), fz = Math.cos(g.rotation.y), dx = src.x - g.position.x, dz = src.z - g.position.z, d = Math.hypot(dx, dz) || 1;
   const ang = Math.acos(Math.max(-1, Math.min(1, (fx * dx + fz * dz) / d))) * 180 / Math.PI, melee = src.kind === 'melee';
-  const red = ang <= S.arc ? (melee ? S.melee : S.front) : ang <= S.side ? (melee ? S.sideRed / 2 : S.sideRed) : S.back;
+  let red = ang <= S.arc ? (melee ? S.melee : S.front) : ang <= S.side ? (melee ? S.sideRed / 2 : S.sideRed) : S.back;
+  if (red > 0 && src.kind === 'beam-cut-charge' && (e.E.elite || e.E.boss)) red *= 1 - Math.min(.5, Math.max(0, src.guardPierce || 0));
   e.lastShield = { ang, red, kind: src.kind }; return 1 - red;
 }
 // 피해 미터: 실제로 깎인 체력만 기록 (주인 = G.mWho 가 정해졌으면 그것(null = 타워·공용), 아니면 현재 영웅 G.curHero) · 종류 G.mK (1 = 스킬)
