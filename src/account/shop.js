@@ -1,4 +1,3 @@
-import { mobileApp } from '../ui/mobile-mode.js';
 import { claimableMail, createMailBatch } from './mail-actions.js';
 // 상점 · 우편함 · 관리자 클라이언트 (Supabase). 유료 영웅 소유권은 서버 테이블 hd3d_owned(사용자 쓰기 불가)에서 읽은 값만 메모리에 둠 (localStorage/세이브에 저장하지 않음).
 // 테이블/함수가 아직 없으면(schema.sql 미실행) status = 'missing' → UI는 '서버 준비 중'. 게스트는 구매/우편 불가.
@@ -53,7 +52,7 @@ const isMailMutation = action => ['archive','restore'].includes(action?.kind);
 const invalidateShopRefresh = () => { refreshGeneration++; refreshedKey = ''; refreshedAt = 0; };
 export function refresh({ maxAgeMs = 0, mailMutation = null } = {}) {
   const key = (A.user?.id || 'guest') + ':' + sessionId();
-  if (!mobileApp && isMailMutation(S.mailAction) && S.mailAction !== mailMutation) return Promise.resolve(S);
+  if (isMailMutation(S.mailAction) && S.mailAction !== mailMutation) return Promise.resolve(S);
   const generation = refreshGeneration;
   if (refreshJob?.key === key && refreshJob.generation === generation) return refreshJob.promise;
   if (maxAgeMs > 0 && S.status === 'ok' && refreshedKey === key && Date.now() - refreshedAt < maxAgeMs) return Promise.resolve(S);
@@ -209,7 +208,7 @@ export async function verifyOwned(ms = 8000) { const to = new Promise(r => setTi
 
 const mailBatchToken=Symbol('mail batch'),mailBatch=createMailBatch();
 export const claimableCount=()=>claimableMail(S.mail,pendList()).length;
-export const cleanupCount=()=>S.mail.filter(m=>m.claimed&&!pendList().includes(m.id)).length || (!mobileApp&&S.mail.length>=100?1:0);
+export const cleanupCount=()=>S.mail.filter(m=>m.claimed&&!pendList().includes(m.id)).length || (S.mail.length>=100?1:0);
 export async function claimAll(){
  if(S.mailAction||claiming.size||recovering)return {ok:false,msg:'우편 처리 중입니다.'};
  if(!canRecoverClaims()||S.status!=='ok'||S.me.banned)return {ok:false,msg:'계정과 저장 상태를 확인해 주세요.'};
@@ -225,19 +224,7 @@ export async function cleanupMail(restore=false){
  if(S.mailAction||claiming.size||recovering)return {ok:false,msg:'우편 처리 중입니다.'};
  if(!ready()||S.status!=='ok'||!uid())return {ok:false,msg:'계정과 저장 상태를 확인해 주세요.'};
  const u=uid(),epoch=sessionId(),current=()=>uid()===u&&sessionId()===epoch;
- if(!mobileApp)return cleanupAllReceived(restore,current);
- const ids=(restore?S.archivedIds:S.mail.filter(m=>m.claimed&&!pendList().includes(m.id)).map(m=>m.id)).slice(0,100);
- if(!ids.length)return {ok:true,msg:restore?'복원할 우편이 없습니다.':'정리할 받은 우편이 없습니다.'};
- const action={kind:restore?'restore':'archive'};S.mailAction=action;emit();
- try{
-  const c=await sb();if(!current())return {ok:false,msg:'계정이 변경되었습니다.'};
-  const {data,error}=await q(c.rpc('hd3d_mail_archive',{p_ids:ids,p_restore:restore}));
-  if(!current())return {ok:false,msg:'계정이 변경되었습니다.'};
-  if(error||data?.ok!==true)return {ok:false,msg:error?.message||'우편 정리에 실패했습니다.'};
-  if(restore)S.archivedIds=S.archivedIds.filter(id=>!data.ids.includes(id));else S.archivedIds=[...new Set([...S.archivedIds,...data.ids])];
-  await refresh();return {ok:true,msg:data.ids.length+'개 '+(restore?'복원했습니다.':'정리했습니다.')};
- }catch(e){return {ok:false,msg:e.message||'우편 정리에 실패했습니다.'};}
- finally{if(current()&&S.mailAction===action){S.mailAction=null;emit();}}
+ return cleanupAllReceived(restore,current);
 }
 
 // A transaction reads each selected row before its commit; keep the 30s transport budget comfortable.
@@ -245,7 +232,7 @@ const MAIL_ARCHIVE_BATCH=24;
 let lastCleanup=null;
 const cleanupSessionKey=()=>uid()+':'+sessionId();
 export function canUndoMailCleanup(){
- if(!mobileApp&&lastCleanup?.key===cleanupSessionKey())return lastCleanup.ids.size>0;
+ if(lastCleanup?.key===cleanupSessionKey())return lastCleanup.ids.size>0;
  return S.archivedIds.length>0;
 }
 async function cleanupAllReceived(restore,current){
