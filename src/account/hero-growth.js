@@ -1,3 +1,4 @@
+import { CASTLE_RESEARCH_MAX } from '../data/endgame-research.js';
 import { HARD_PARTY_VERSION } from '../data/hard-party.js';
 import { readTarget } from './repeat-target.js';
 import { cleanTarget } from '../data/repeat-target.js';
@@ -245,7 +246,7 @@ export async function startRun(stage, hero) {
     });
     if (!r || !valid(s)) return null; accept(r, s); if (!r.ok) throw new Error(r.reason);
     if (hard && (r.party?.length !== 2 || r.party[0] !== hero || r.party[1] !== a.p_partner || !r.loadouts?.[hero] || !r.loadouts?.[a.p_partner])) throw new Error('출정 편성 불일치');
-    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, awakeningLevel:r.awakeningLevel??null, awakeningUseE:r.awakeningUseE!==false, ...(hard?{party:r.party,loadouts:r.loadouts}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
+    return { owner: u, session: Acc.sessionId(), token: r.token, stage: stage || null, build:r.build||null, awakeningLevel:r.awakeningLevel??null, awakeningUseE:r.awakeningUseE!==false, ...(hard?{party:r.party,loadouts:r.loadouts,castleResearch:Number.isSafeInteger(r.castleResearch)&&r.castleResearch>=0&&r.castleResearch<=CASTLE_RESEARCH_MAX?r.castleResearch:0}:{}), ...(hardFirstBonus&&r.hardFirstBonus===1&&!r.repeat?{hardFirstBonus:1}:{}), repeat:HG.features.repeatTarget===1&&r.repeat===true, target:HG.features.repeatTarget===1?cleanTarget(r.target):null };
   } catch (e) { if (valid(s)) { HG.status = 'error'; HG.message = 'XP 출정 준비 실패 · 연결을 확인해 주세요. ' + (e.message || e); emit(); } return null; }
 }
 // Navigation awaits this durable checkpoint; a shared cross-tab lock serializes journal edits.

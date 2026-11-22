@@ -1,0 +1,2 @@
+// One silhouette for the research tab and the in-combat status indicator.
+export const castleIcon = '<svg aria-hidden="true" viewBox="0 0 24 24" width="1em" height="1em" style="vertical-align:-.1em"><path fill="currentColor" d="M3 5h3v3h2V5h3v3h2V5h3v3h2V5h3v15h-6v-5a3 3 0 0 0-6 0v5H3z"/><path d="M5 11h3m8 0h3M5 15h2m10 0h2" fill="none" stroke="#161c30" stroke-linecap="round" stroke-width="1.2"/></svg>';

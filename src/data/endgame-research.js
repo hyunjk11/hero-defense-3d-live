@@ -1,13 +1,17 @@
 // Optional endgame purchases. The stored ranks are additional to legacy research.
 import {resMods} from './growth.js';
+import {hardOpen} from './hard.js';
 
 export const ENDGAME_RESEARCH_VERSION = 1;
-export const ENDGAME_KINDS = Object.freeze(['gold','beam']);
-const MAX = Object.freeze({gold:Number.MAX_SAFE_INTEGER,beam:40});
+export const CASTLE_RESEARCH_VERSION = 1;
+export const CASTLE_RESEARCH_MAX = 10;
+export const ENDGAME_KINDS = Object.freeze(['gold','beam','castle']);
+const MAX = Object.freeze({gold:Number.MAX_SAFE_INTEGER,beam:40,castle:CASTLE_RESEARCH_MAX});
 const CAPS = Object.freeze({souls:1e9,steel:1e7,crystal:1e7});
 const PRICE = Object.freeze({
   gold: {souls:[30000,10000],steel:[500,150],crystal:[150,50]},
-  beam: {souls:[50000,25000],steel:[750,250],crystal:[250,100]}
+  beam: {souls:[50000,25000],steel:[750,250],crystal:[250,100]},
+  castle: {souls:[6000,2000],steel:[300,100],crystal:[60,20]}
 });
 const validRank = (n,kind) => ENDGAME_KINDS.includes(kind)&&Number.isSafeInteger(n)&&n>=0&&n<=MAX[kind];
 export function cleanEndgameResearch(raw){
@@ -24,7 +28,7 @@ const beamUnlocked=save=>Number.isSafeInteger(save?.research?.guardian?.atk)&&sa
 const boundedPrice=(rank,base,step,cap)=>rank>=Math.ceil((cap-base)/step)?cap:base+rank*step;
 export function endgameQuote(save,kind){
   const level=endgameLevel(save,kind);
-  if(!ENDGAME_KINDS.includes(kind)||kind==='beam'&&!beamUnlocked(save))return {level,next:null,cost:null,reason:'locked'};
+  if(!ENDGAME_KINDS.includes(kind)||(kind==='beam'&&!beamUnlocked(save))||(kind==='castle'&&!hardOpen(save)))return {level,next:null,cost:null,reason:'locked'};
   if(level>=MAX[kind])return {level,next:null,cost:null,reason:'max'};
   const cost=Object.fromEntries(Object.entries(PRICE[kind]).map(([key,[base,step]])=>[key,boundedPrice(level,base,step,CAPS[key])]));
   const enough=(save?.souls||0)>=cost.souls&&(save?.mat?.steel||0)>=cost.steel&&(save?.mat?.crystal||0)>=cost.crystal;

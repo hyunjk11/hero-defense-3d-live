@@ -1,3 +1,4 @@
+import { castleWaveRepair } from '../data/castle-defense.js';
 import { eliteQueue } from '../data/hard.js';
 import { Snd } from '../audio/audio.js';
 import { $, rand } from './util.js';
@@ -52,7 +53,7 @@ function mixNewTypes(q, n) {
   for (const t of intro) { let have = q.filter(x => x === t).length; for (let i = 2; have < 2 && i < q.length; i += 3) if (q[i] === 'grunt' || q[i] === 'imp') { q[i] = t; have++; } }
   return intro;
 }
-function endWave() { if (G.practice) return; waveEnd(G.waveLog, G.t); G.completedWaves = G.wave; if (G.onXPWave) G.onXPWave();
+function endWave() { if (G.practice) return; waveEnd(G.waveLog, G.t); if (G.castleResearch && G.completedWaves !== G.wave) castleWaveRepair(G); G.completedWaves = G.wave; if (G.onXPWave) G.onXPWave();
   G.phase = 'build'; G.nightTarget = 0; const bonus = Math.round((25 + G.wave * 6) * rules.waveGold); G.gold += bonus; G.stats.goldEarned += bonus; Snd.play('waveClear', { force: true, exact: true }); Snd.play('coins', { delay: .3 }); Snd.duck(.4, 1.6); banner(`웨이브 ${G.wave} 클리어! +${bonus}G`, '#ffe066');
   if (hero && hero.dead <= 0) { hero.hp = hero.max; play(hero.ch, 'Cheer', { once: true }); hero.atkT = 1.5; }
   // PC Hard: preserve the controlled hero's cheer; also heal the living partner.

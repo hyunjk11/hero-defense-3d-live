@@ -1,3 +1,5 @@
+import { castleHeroRank } from '../data/castle-defense.js';
+import { castleIcon } from '../ui/castle-icon.js';
 import * as THREE from 'three';
 import { G } from '../core/state.js';
 import { $, esc } from '../core/util.js';
@@ -71,7 +73,7 @@ export function toggleHardHold(index) {
 }
 function buildBar() {
   let bar = $('hardPartyBar'); if (!bar) { bar = document.createElement('div'); bar.id = 'hardPartyBar'; $('hud').appendChild(bar); }
-  bar.innerHTML = G.heroes.map((h, i) => `<div class="hpMember"><button type="button" data-pick="${i}" aria-label="${esc(heroLabel(h.cls))} 조종"><b>${CLASSES[h.cls].icon} ${esc(CLASSES[h.cls].nm)}</b><small></small><span class="hpLife"><i></i></span></button><button type="button" data-hold="${i}" aria-label="${esc(heroLabel(h.cls))} 홀드">홀드</button></div>`).join('');
+  bar.innerHTML = G.heroes.map((h, i) => `<div class="hpMember"><button type="button" data-pick="${i}" aria-label="${esc(heroLabel(h.cls))} 조종"><b>${CLASSES[h.cls].icon} ${esc(CLASSES[h.cls].nm)}</b><small><span class="hpOrder"></span><span class="hpCastle" role="img" aria-label="수성" hidden> ${castleIcon}</span></small><span class="hpLife"><i></i></span></button><button type="button" data-hold="${i}" aria-label="${esc(heroLabel(h.cls))} 홀드">홀드</button></div>`).join('');
   bar.onpointerdown = e => e.stopPropagation();
   bar.onclick = e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); if (b.dataset.pick != null) switchHardHero(+b.dataset.pick); else toggleHardHold(+b.dataset.hold); b.blur(); };
   renderBar();
@@ -82,7 +84,8 @@ function renderBar() {
   for (const [i, h] of G.heroes.entries()) {
     const b = bar.querySelector(`[data-pick="${i}"]`), hold = bar.querySelector(`[data-hold="${i}"]`); if (!b || !hold) continue;
     b.classList.toggle('selected', h === G.hero); b.setAttribute('aria-pressed', String(h === G.hero)); b.disabled = h.dead > 0 || !battle();
-    b.querySelector('small').textContent = h.dead > 0 ? `부활 ${Math.ceil(h.dead)}초` : h.hardHold ? '홀드' : h === G.hero ? '조종 중' : '자동 전투';
+    b.querySelector('.hpCastle').hidden = !castleHeroRank(G, h);
+    b.querySelector('.hpOrder').textContent = h.dead > 0 ? `부활 ${Math.ceil(h.dead)}초` : h.hardHold ? '홀드' : h === G.hero ? '조종 중' : '자동 전투';
     b.querySelector('i').style.width = Math.max(0, Math.min(1, h.hp / h.max)) * 100 + '%';
     hold.textContent = h.hardHold ? '해제' : '홀드'; hold.setAttribute('aria-pressed', String(h.hardHold)); hold.disabled = h.dead > 0 || !battle();
   }

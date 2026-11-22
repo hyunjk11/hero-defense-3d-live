@@ -72,7 +72,7 @@ const heroN = c => heroLabel(c);
 async function prepareGrowth(stage, hero) {
   const session = Acc.sessionId(), run = await HG.startRun(stage, hero);
   if (session !== Acc.sessionId() || !Acc.saveAllowed() || HG.pendingSortieSettings()) return false;
-  G.xpRun = run; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=run?.awakeningUseE!==false;
+  G.xpRun = run; G.castleResearch = run?.castleResearch || 0; G.growthEnabled = HG.available(); G.focus = 0; G.completedWaves = 0; G.heroLevel = HG.level(hero); G.heroTree=run?.build||null; G.awakeningLevel=run?.awakeningLevel??null; G.awakeningUseE=run?.awakeningUseE!==false;
   G.xpPendingWrite = Promise.resolve(true);
   G.onXPWave = () => { G.xpPendingWrite = HG.checkpoint(G.xpRun, G.completedWaves, false, false, 1, Object.values(G.stats.kills||{}).reduce((a,b)=>a+b,0)); };
   return true;

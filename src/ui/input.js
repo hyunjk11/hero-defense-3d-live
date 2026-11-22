@@ -1,3 +1,4 @@
+import { hideCastleRange, toggleCastleRange } from './castle-range.js';
 import { movementAllowed } from '../data/hard-party.js';
 import { buyFocus, focusCost } from '../data/hero-growth.js';
 import { Snd } from '../audio/audio.js';
@@ -63,7 +64,10 @@ cvs.addEventListener('pointerdown', e => {
   SFX.init(); if (e.button === 2) { rdrag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY }; return; } if (e.button !== 0 || !hero || G.phase === 'select' || G.phase === 'over') return;
   onMove(e.clientX, e.clientY); const [c, r] = toTile(mouseGround.x, mouseGround.z);
   if (G.tool === 'move' || !inGrid(c, r)) {
-    if (inGrid(c, r)) { const t = tileAt(c, r); if (t.tower) return select(t.tower); if (t.bar) return select(t.bar); } select(null);
+    const t = inGrid(c, r) ? tileAt(c, r) : null;
+    if (t?.tower) return select(t.tower);
+    if (t?.bar) return select(t.bar);
+    select(null, t?.t === T.CORE && toggleCastleRange());
     if (hero.dead > 0 || !movementAllowed(hero)) return; heroGoTo(mouseGround); moveMark.position.set(mouseGround.x, groundY(mouseGround.x, mouseGround.z) + .1, mouseGround.z); moveMark.visible = true; moveMark.scale.setScalar(1.5); return;
   }
   build(c, r);
@@ -115,7 +119,7 @@ const upCost = k => G.practiceSandbox && k === 'bar' ? 0 : k === 'focus' ? focus
 document.querySelectorAll('.up').forEach(b => b.onclick = () => { const k = b.dataset.up, c = upCost(k); if (k === 'focus') { if (buyFocus(G)) { Snd.play('upgrade'); refreshHud(); } return; } if (G.growthEnabled && k !== 'bar') return; if (G.gold < c) return Snd.play('error'); G.gold -= c; G.ups[k]++;
   if (k === 'bar') for (const col of G.tiles) for (const t of col) if (t.bar) { const r = t.bar.hp / t.bar.max; t.bar.max = barMaxHp(); t.bar.hp = t.bar.max * r; }
   Snd.play('upgrade'); Snd.play('levelUp', { vol: .6 }); if (hero) emit(P, hero.g.position.x, 1.5, hero.g.position.z, 24, 0xffe066, 4, .7); refreshHud(); });
-function select(o) { G.sel = o; $('tinfo').classList.toggle('hidden', !o); if (o && o.kind === 'tower') showRange(tileX(o.c), tileZ(o.r), o.S.range, 0xffe066); else rangeRing.visible = false; refreshHud(); }
+function select(o, keepCastle = false) { if (!keepCastle) hideCastleRange(); G.sel = o; $('tinfo').classList.toggle('hidden', !o); if (o && o.kind === 'tower') showRange(tileX(o.c), tileZ(o.r), o.S.range, 0xffe066); else rangeRing.visible = false; refreshHud(); }
 $('tUp').onclick = () => { if (G.sel && G.sel.kind === 'tower') { upgradeTower(G.sel); select(G.sel); } };
 $('tRep').onclick = () => { if (G.sel && G.sel.kind === 'tower') { repairTower(G.sel); select(G.sel); } };
 $('tSell').onclick = () => { const s = G.sel; if (!s) return; if (s.kind === 'tower') sellTower(s); else { if (!G.practiceSandbox) G.gold += BARRICADE.refund; removeBarricade(s.t, false); refreshHud(); } };

@@ -44,6 +44,9 @@ async function saveProgress(store,user,op,options){
   const before=P.clean(old?.data||P.empty()),after=P.clean(v.data);
   // Old clients do not know these server-owned preferences. Omission is not deletion.
   for(const k of ['lockedGear','battlePresets','battlePartner','endgameResearch'])if(!Object.hasOwn(v.data,k)&&Object.hasOwn(before,k))after[k]=structuredClone(before[k]);
+  // Clients which only know gold/beam omit the castle key even when the container is present.
+  if(before.endgameResearch?.castle&&!Object.hasOwn(v.data.endgameResearch||{},'castle'))
+   after.endgameResearch={...after.endgameResearch,castle:before.endgameResearch.castle};
   const wanted=stable(economicState(after));
   // Growth cache is never an authority supplied by the caller.
   if(before.growth)after.growth=before.growth;else delete after.growth;

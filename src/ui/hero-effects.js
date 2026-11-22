@@ -1,3 +1,4 @@
+import { castleIcon } from './castle-icon.js';
 import { TQ } from '../data/fighter.js';
 import { focusMods } from '../data/hero-growth.js';
 import { treeTaken } from '../data/skill-tree.js';
@@ -29,6 +30,7 @@ export function heroEffects(h, context = {}) {
     if (m.stack && h.treeChain > 0) add('stack','집중 탄창',`동일 대상 +${pct(.04*Math.min(4,h.treeChain))}%`);
     if (m.sustain && h.treeChain >= 3) add('sustain','연속 압박','동일 대상 +20%');
   }
+  if (context.castleRank > 0) add('castle-defense','수성',`공격 +${context.castleRank / 2}% · 받는 피해 −${context.castleRank}%`);
   if (context.growthEnabled && context.focus > 0) {
     const f=focusMods(context.focus);
     add('focus','전투 집중',`${context.focus}강`,null,'buff',`공격 +${pct(f.dmg-1)}% · 공속 +${pct(f.rate-1)}% · 스킬 +${pct(f.skill-1)}% · 쿨 ×${f.cd.toFixed(2)}`);
@@ -103,7 +105,8 @@ export function renderHeroEffects(container,h,context={}) {
     }
     n.className=`heroEffect ${e.kind}`;
     const icon=EFFECT_ICONS[e.id]||(e.kind==='buff'?'↑':'↓'),label=effectLabel(e);
-    if(n.textContent!==icon)n.textContent=icon;
+    if(e.id==='castle-defense'){if(!n.firstElementChild)n.innerHTML=castleIcon;}
+    else if(n.textContent!==icon)n.textContent=icon;
     if(n.getAttribute('aria-label')!==label)n.setAttribute('aria-label',label);
     if(container.children[i]!==n)container.insertBefore(n,container.children[i]||null);
     if(view.open===e.id){if(view.tip.textContent!==label)view.tip.textContent=label;positionEffectTip(view);}

@@ -1,3 +1,4 @@
+import { castleHeroRank } from '../data/castle-defense.js';
 import { weaponProcFeed } from './weapon-proc-feed.js';
 import { FOCUS_MAX } from '../data/hero-growth.js';
 import { renderBossDebuffs } from './boss-debuffs.js';
@@ -52,7 +53,7 @@ function refreshHud() {
   if (!G.dungeon && effects && heroBox && effects.parentNode!==heroBox) heroBox.insertBefore(effects,heroBox.querySelector('.bar.hp'));
   const controlled=G.hero; // withHero temporarily changes the module binding during party simulation.
   renderHeroEffects($('heroEffects'), ['build','wave'].includes(G.phase)?controlled:null, {
-    now:G.t, focus:G.focus, growthEnabled:G.growthEnabled, dungeon:G.dungeon, dungeonDamage:G.dgDmg,
+    now:G.t, castleRank:castleHeroRank(G,controlled), focus:G.focus, growthEnabled:G.growthEnabled, dungeon:G.dungeon, dungeonDamage:G.dgDmg,
     dungeonMods:G.dungeon&&G.dgM&&controlled?G.dgM(controlled):null,
     damageScale:G.dungeon&&G.spireDmgK&&controlled?G.spireDmgK(controlled):1,
     healScale:G.dungeon&&G.spire?healK(G.dg?.floors?.[G.dg.floor]):1

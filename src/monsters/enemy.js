@@ -1,3 +1,4 @@
+import { castleHeroRank } from '../data/castle-defense.js';
 import { hardDefinition } from './hard.js';
 import { endgameKilled } from './endgame.js';
 import { machineKilled } from './machine.js';
@@ -64,6 +65,7 @@ function shieldFactor(e, src) {
 }
 // 피해 미터: 실제로 깎인 체력만 기록 (주인 = G.mWho 가 정해졌으면 그것(null = 타워·공용), 아니면 현재 영웅 G.curHero) · 종류 G.mK (1 = 스킬)
 function hurt(e, dmg, color, big, src, ignoreArmor = false) { if (e.dead) return hurt0(e, dmg, color, big, src, ignoreArmor); const tw = G.mTw, w = G.mWho, own = w === undefined ? G.curHero : w, dm = own ? own.dm : G.dmOther;
+  if (G.castleResearch && own && !tw) dmg *= 1 + .005 * castleHeroRank(G, own);
   if (G.spireDmgK && own && !tw) dmg *= G.spireDmgK(own); // 🗼 🔮마법·🏹원거리 저항 (탑에서만, dungeon/spire.js)
   if (!tw && !dm) return hurt0(e, dmg, color, big, src, ignoreArmor); const h0 = Math.max(0, e.hp); hurt0(e, dmg, color, big, src, ignoreArmor); const d = h0 - Math.max(0, e.hp);
   if (tw) towerXp(tw, d + (e.dead ? KILL_XP : 0)); if (dm) meterAdd(dm, d, G.t, G.mK, e.dead); if (!own && G.mTw) towerAdd(G.dmTowers, G.mTw, d, e.dead); }

@@ -1,3 +1,4 @@
+import { castleTowerRank, castleRepairCost } from '../data/castle-defense.js';
 import { applyTowerSlow } from '../combat/tower-slow.js';
 import { updBeam, clearBeam } from './beam.js';
 import { retireTowerMeter } from '../combat/meter.js';
@@ -50,7 +51,7 @@ function sellTower(tw) {
 function removeTowerObj(tw) { clearBeam(tw); disposeOwned(tw.m.g); tw.dead = true; retireTowerMeter(G.dmTowers, tw); G.towers.splice(G.towers.indexOf(tw), 1); tw.t.tower = null; refreshTile(tw.t); scene.remove(tw.anchor); tw.hb.dispose(); }
 // ---- 타워 체력 / 피해 / 파괴 / 수리 ----
 function damageTower(tw, dmg, src) {
-  if (!tw || tw.dead || dmg <= 0) return; tw.hp -= dmg; tw.hb.set(Math.max(0, tw.hp / tw.max)); tw.hitT = .25; G.stats.towerDmg = (G.stats.towerDmg || 0) + dmg;
+  if (!tw || tw.dead || dmg <= 0) return; if (G.castleResearch) dmg *= 1 - .01 * castleTowerRank(G, tw); tw.hp -= dmg; tw.hb.set(Math.max(0, tw.hp / tw.max)); tw.hitT = .25; G.stats.towerDmg = (G.stats.towerDmg || 0) + dmg;
   const p = tw.anchor.position; dmgText(new THREE.Vector3(p.x, 3, p.z), Math.round(dmg), '#ff9a6a'); Snd.play('towerHit', { pos: p });
   debris(p.x, 1.2, p.z, 3, [0xe0dacb, 0x9e98ae, 0xa8703a], 3.5);
   if (tw.hp <= 0) destroyTower(tw, src);
@@ -61,7 +62,7 @@ function destroyTower(tw) {
   G.shake = Math.max(G.shake, .45); Snd.play('towerBreak', { pos: p, force: true }); Snd.play('breakRock', { pos: p, force: true, rate: .8 });
   banner(`${TOWERS[tw.type].n} 파괴됨!`, '#ff7a5a', 1200); if (G.sel === tw) select(null); computeDist(); refreshHud();
 }
-const repairCost = tw => tw.hp >= tw.max ? 0 : Math.max(5, Math.ceil((1 - tw.hp / tw.max) * tw.invest * REPAIR_K));
+const repairCost = tw => { if (tw.hp >= tw.max) return 0; const base = Math.max(5, Math.ceil((1 - tw.hp / tw.max) * tw.invest * REPAIR_K)); return G.castleResearch ? castleRepairCost(G, tw, base) : base; };
 function repairTower(tw, quiet) {
   const c = repairCost(tw); if (!c) return 0; if (G.gold < c) { if (!quiet) { Snd.play('error'); banner('골드가 부족합니다', '#ff8a8a', 700); } return -1; }
   G.gold -= c; G.stats.repairSpent = (G.stats.repairSpent || 0) + c; tw.hp = tw.max; tw.hb.set(1); const p = tw.anchor.position;

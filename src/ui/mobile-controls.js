@@ -1,3 +1,4 @@
+import { toggleCastleRange } from './castle-range.js';
 import * as THREE from 'three';
 import { G } from '../core/state.js';
 import { T, inGrid, isBlock, tileX, tileZ, toTile } from '../core/grid.js';
@@ -64,6 +65,7 @@ export function startTouchControls() {
     if(!inGrid(c,r))return;
     const t=tileAt(c,r);
     if(G.tool==='barricade'){if(build(c,r))setTool('move');return;}
+    if (t.t === T.CORE) { select(null, true); if (toggleCastleRange()) return; }
     select(t.tower||t.bar||null);
     if (tileOptions(t).length) {picked=[c,r];render();}
   }
