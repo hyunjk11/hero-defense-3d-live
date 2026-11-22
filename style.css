@@ -1217,3 +1217,6 @@ body.drawn-game-icons :is(.scStars,.snode .stars)>i:not(.on) game-icon::before{
 body.drawn-game-icons .scStars>i.on game-icon::before{filter:drop-shadow(0 2px 0 #7f4d18) drop-shadow(0 0 .14em #ffb74ea0)}
 body.drawn-game-icons .snode .stars>i.on game-icon::before{filter:drop-shadow(0 0 .16em #ffb03a79)}
 body.drawn-game-icons .conds>div:not(.got) game-icon::before{filter:grayscale(1) brightness(.82)}
+/* The town level badge already has a 16px vector; replace paint, not its box. */
+body.drawn-game-icons .hcard .heroBadge.level svg{background:var(--drawn-level-star) center/contain no-repeat}
+body.drawn-game-icons .hcard .heroBadge.level svg path{opacity:0}

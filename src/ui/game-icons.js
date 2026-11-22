@@ -30,7 +30,7 @@ export function installGameIcons(doc=document, art=GAME_ICON_ART) {
     if (!images.has(key)) images.set(key,svgImage(art[key]));
     return images.get(key);
   };
-  for (const [key,name] of [['⚒','tools'],['💀','skull']]) {
+  for (const [key,name] of [['⚒','tools'],['💀','skull'],['★','level-star']]) {
     if (Object.hasOwn(art,key)) rootStyle.setProperty('--drawn-'+name,image(key));
   }
   function replace(node) {
