@@ -1220,5 +1220,9 @@ body.drawn-game-icons .conds>div:not(.got) game-icon::before{filter:grayscale(1)
 body.drawn-game-icons .hcard .heroBadge.level svg{background:var(--drawn-level-star) center/contain no-repeat}
 body.drawn-game-icons .hcard .heroBadge.level svg path{opacity:0}
 
-#cam #repeatStop{position:absolute;right:0;bottom:calc(100% + 4px);border-color:#ffb575;color:#ffb575}
-#cam #repeatStop:hover,#cam #repeatStop:focus-visible{border-color:#ffddaa;background:#492c31;color:#fff2dc}
+#repeatControl{position:absolute;left:50%;bottom:calc(108px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:var(--z-hud);display:flex;align-items:center;gap:10px;padding:4px 5px 4px 11px;border:1px solid #c9a24a;border-radius:12px;background:#191428f5;box-shadow:0 3px 12px #0009;color:#ffe08a;font-size:13px;font-weight:700;white-space:nowrap}
+#repeatControl #repeatStop{margin:0;min-height:36px;padding:5px 10px;border-color:#c9a24a;color:#fff2dc}
+#repeatControl #repeatStop:hover,body:not(.mobileApp) #repeatControl #repeatStop:focus-visible{border-color:#ffddaa;background:#492c31;color:#fff2dc}
+@media(max-width:600px){
+ body:not(.mobileApp) #repeatControl{bottom:calc(178px + env(safe-area-inset-bottom))}
+}

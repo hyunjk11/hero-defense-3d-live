@@ -1,3 +1,4 @@
+import { trackStageAutoRepath } from '../ui/stage-auto-combat.js';
 import { movementAllowed } from '../data/hard-party.js';
 import { awakeningMods, awakeningSupported } from '../data/awakening.js';
 import { addAwakeningAura, updateAwakeningAura } from '../render/awakening-aura.js';
@@ -92,8 +93,8 @@ function freeTileNear(c0, r0, avoidEnemies = true) {
     for (const [dc, dr] of DIRS) { const nc = c + dc, nr = r + dr, k = nc * GH + nr; if (inGrid(nc, nr) && !seen.has(k)) { seen.add(k); q.push([nc, nr]); } } }
   return fallback;
 }
-function unstuck() { const h = hero, p = h.g.position, goal = h.path.length ? h.path[h.path.length - 1].clone() : null; const [c, r] = toTile(p.x, p.z), f = freeTileNear(c, r, false); h.stuckT = 0; h.stuckD = 1e9; if (!f) return;
-  p.set(tileX(f[0]), p.y, tileZ(f[1])); h.unstuckN++; G.unstuckN = (G.unstuckN || 0) + 1; emit(P, p.x, 1, p.z, 14, 0x9ae8ff, 3, .5); if (goal) heroGoTo(goal); else h.path = []; }
+function unstuck() { const h = hero, p = h.g.position, oldPath = h.path, goal = oldPath.length ? oldPath[oldPath.length - 1].clone() : null; const [c, r] = toTile(p.x, p.z), f = freeTileNear(c, r, false); h.stuckT = 0; h.stuckD = 1e9; if (!f) return;
+  p.set(tileX(f[0]), p.y, tileZ(f[1])); h.unstuckN++; G.unstuckN = (G.unstuckN || 0) + 1; emit(P, p.x, 1, p.z, 14, 0x9ae8ff, 3, .5); if (goal) { heroGoTo(goal); trackStageAutoRepath(h, oldPath); } else h.path = []; }
 // ================= 워프 (T): 1초 채널링 → 코어 앞 빈 칸으로 순간이동, 쿨다운 10초 =================
 const WARP_CH = 1, WARP_CD = 10;
 function warpTarget() { return freeTileNear(CORE[0] - 1, CORE[1]); }

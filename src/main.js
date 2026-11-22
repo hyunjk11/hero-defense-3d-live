@@ -45,7 +45,7 @@ import './ui/speed.js';
 import { startTouchControls } from './ui/mobile-controls.js';
 import { mobileApp } from './ui/mobile-mode.js';
 import { updAutoWave } from './ui/autowave.js'; // Q-13 다음 웨이브 자동 시작 (설정, 기본 off)
-import { updateStageRepeat } from './ui/stage-repeat.js';
+import { updateStageRepeat, stageManualOverride } from './ui/stage-repeat.js';
 import { updAutoSkill } from './heroes/autoskill.js'; // ⚡ 스킬 자동 사용 (설정, 기본 off)
 import './ui/help.js'; // Q-3 단축키 안내 (H/?)
 import { createHeroRange } from './render/hero-range.js';
@@ -101,14 +101,15 @@ function step(dt) {
   if (G.phase === 'select') updSelect(dt);
   let clearBonus;
   if (G.phase === 'wave') { if (G.spawnQ.length) { G.spawnT -= dt; if (G.spawnT <= 0 && (!G.practiceSandbox || practiceSpawnAllowed())) { G.spawnT = rnd(.55, .9); const t0 = G.spawnQ.shift(), el = G.spawnE ? G.spawnE.shift() : false; spawnEnemy(t0, G.hpMul, undefined, el); if (ETYPES[t0].pack && G.spawnQ[0] === t0) G.spawnT = .22; /* 무리는 붙어서 */ } } else if (!G.enemies.length && !pendingSpawns() && !G.dungeon) clearBonus = endWave(); }
-  if (!updateStageRepeat(dt, clearBonus)) updAutoWave(clearBonus);
+  const autoStage = updateStageRepeat(dt, clearBonus);
+  if (!autoStage && !stageManualOverride()) updAutoWave(clearBonus);
   if (G.dungeon) updDungeon(dt); // 던전 원정: 층·웨이브·결과 (src/dungeon/run.js)
   updateHardParty(dt);
   if (G.practiceSandbox) updatePracticeParty(dt);
   if (hero && G.phase !== 'over' && G.phase !== 'select') {
     if (G.prof) { const pf = G.prof, tm = (k, f) => { const t0 = performance.now(); f(); pf[k] = (pf[k] || 0) + performance.now() - t0; };
       tm('hero', () => { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); }); tm('enemies', () => updEnemies(dt)); tm('separate', () => separate(dt)); tm('towers', () => updTowers(dt)); tm('projs', () => updProjs(dt)); updLegend(dt); }
-    else { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); updEnemies(dt); separate(dt); updTowers(dt); updProjs(dt); updLegend(dt); } if (hero.skillCd > 0) hero.skillCd -= dt; if (G.practiceParty?.basic !== false) updAutoSkill(dt);
+    else { if (G.heroes.length > 1 || G.dungeon) updParty(dt); else updHero(dt); updEnemies(dt); separate(dt); updTowers(dt); updProjs(dt); updLegend(dt); } if (hero.skillCd > 0) hero.skillCd -= dt; if (G.practiceParty?.basic !== false && !autoStage) updAutoSkill(dt);
     if (keys.w || keys.a || keys.s || keys.d || G.trialAxis?.x || G.trialAxis?.y || hero.path.length) cam.target.lerp(new THREE.Vector3(hero.g.position.x * .4, 0, hero.g.position.z * .4 + 1), dt * 2);
   }
   if (G.practiceSandbox) updatePracticeMeter(G);

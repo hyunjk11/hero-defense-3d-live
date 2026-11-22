@@ -104,10 +104,15 @@
 .mobileBattle #trialActions button{display:grid;justify-items:center;align-content:center;min-width:46px;height:48px;padding:2px;border:1px solid #735d3d;border-radius:8px;color:#fff2d1;background:#302939;cursor:pointer;touch-action:manipulation;font:20px/1 system-ui}
 .mobileBattle #trialActions small{font:700 11px/1.2 system-ui;color:#ffda78}
 
-/* The automatic play stop remains reachable outside the tools drawer. */
-.mobileBattle #hud>#repeatStop{
-  position:absolute;left:var(--ml);bottom:calc(var(--mb) + var(--stick) + 60px);
-  z-index:8;width:48px;min-width:44px;height:44px;min-height:44px;margin:0;padding:0;
-  background:#3b2533;color:#ffbf93;border-color:#ffb575;font-size:18px;
-  touch-action:manipulation;pointer-events:auto
+/* Keep the handover above the action row and clear of the movement thumb. */
+.mobileBattle #hud>#repeatControl{
+  left:calc(50% + (var(--ml) - var(--mr))/2);
+  bottom:calc(var(--mb) + 84px);
+  padding:3px 4px 3px 9px;gap:7px;font-size:12px
+}
+.mobileBattle #hud #repeatControl #repeatStop{
+  min-width:44px;min-height:44px;touch-action:manipulation
+}
+@media(max-width:540px){
+  .mobileBattle #hud>#repeatControl{bottom:calc(var(--mb) + 140px)}
 }

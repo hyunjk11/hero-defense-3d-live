@@ -16,6 +16,7 @@ import { resetControlInput } from '../ui/input.js';
 import { refreshHud } from '../ui/hud.js';
 import { typing, openLayers } from '../ui/keys.js';
 import { cam } from '../render/scene.js';
+import { stageAutoOwnsHardPair } from '../ui/stage-auto-combat.js';
 
 const active = () => !!G.hardParty && (!!G.stage?.hard || !!G.practice) && G.heroes.length === 2;
 const battle = () => active() && ['build', 'wave'].includes(G.phase) && !G.paused && !G.navigating;
@@ -36,7 +37,7 @@ export function startHardParty(run) {
   G.partyAI = supportAI; setControlled(main); buildBar(); refreshHud(); return true;
 }
 function supportAI(h, dt) {
-  if (!battle()) return;
+  if (!battle() || stageAutoOwnsHardPair()) return;
   runSupportAI(h, dt);
 }
 export function runSupportAI(h, dt) {

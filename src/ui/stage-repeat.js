@@ -1,16 +1,15 @@
 import { G } from '../core/state.js';
 import { $ } from '../core/util.js';
 import { startWave } from '../core/waves.js';
-import { mobileApp } from './mobile-mode.js';
 import * as Acc from '../account/account.js';
 import * as HG from '../account/hero-growth.js';
 import { directGearEnabled } from '../account/direct-gear-client.js';
 import { CHEST_CAP } from '../account/equip.js';
 import { getStage, stars } from '../data/stages.js';
-import { autoBuildStage } from './stage-auto-build.js';
+import { autoBuildStage, autoMaintainStageTowers } from './stage-auto-build.js';
 import { runStageAutoCombat, clearStageAutoCombat } from './stage-auto-combat.js';
 import { repeatHandoff, REPEAT_QUERY } from '../core/stage-repeat.js';
-let loop=null, stop=null;
+let loop=null, stop=null, control=null, manualRun=null;
 const auth = () => !!Acc.A.user?.id && Acc.ready() && Acc.A.sb?.serverEconomy === true && directGearEnabled();
 const actor = () => Acc.A.user?.id;
 const disk = () => repeatHandoff(globalThis.sessionStorage);
@@ -41,20 +40,41 @@ export function activateStageRepeat(id) {
   if(loop||!canLoop()||!repeatOffered(id)||!run?.token||run.owner!==actor()||run.session!==session||run.stage!==id||run.repeat!==true)return false;
   loop={stage:id,owner:actor(),session,token:run.token,waveBusy:false,builtWave:null};
   stop=document.createElement('button');stop.id='repeatStop';stop.type='button';stop.className='gbtn sm';
-  stop.textContent='■';stop.title='자동 진행 중지';stop.setAttribute('aria-label','자동 진행 중지');
-  stop.onpointerdown=e=>e.stopPropagation();stop.onclick=e=>{e.stopPropagation();stopStageRepeat();};
-  $(mobileApp?'hud':'cam').appendChild(stop);return true;
+  stop.textContent='수동 플레이';
+  const opened=loop;
+  stop.onpointerdown=e=>e.stopPropagation();
+  stop.onclick=e=>{
+    e.stopPropagation();
+    if(loop!==opened)return;
+    if(same(opened)){
+      manualRun=loop;
+      G.autoWaveAt=0;
+      const wave=$('startWave');
+      if(wave)delete wave.dataset.auto;
+    }
+    stopStageRepeat();
+  };
+  control=document.createElement('div');control.id='repeatControl';
+  const status=document.createElement('span');status.setAttribute('role','status');status.textContent='자동 진행 중';
+  control.appendChild(status);control.appendChild(stop);
+  $('hud').appendChild(control);
+  return true;
+}
+export function stageManualOverride() {
+  return !!manualRun&&(G.phase==='build'||G.phase==='wave')&&actor()===manualRun.owner&&
+    Acc.sessionId()===manualRun.session&&G.xpRun?.token===manualRun.token&&G.stage?.id===manualRun.stage;
 }
 export const hasStageRepeat = () => !!loop;
 export function stopStageRepeat() {
   if(loop)clearStageAutoCombat();
-  loop=null;stop?.remove();stop=null;
+  loop=null;stop?.remove();stop=null;control?.remove();control=null;
 }
 export function updateStageRepeat(dt,clearBonus) {
   const l=loop;if(!l)return false;
   if(G.phase==='over'||!same(l)||!auth()||navigator.onLine===false){stopStageRepeat();return false;}
   if(G.paused||G.navigating||G.chooseWait||!G.hero)return true;
   if(G.phase==='wave'){
+    autoMaintainStageTowers(dt);
     runStageAutoCombat(dt);
   }else if(G.phase==='build'&&G.wave<G.stage.waves&&!l.waveBusy){
     clearStageAutoCombat();
