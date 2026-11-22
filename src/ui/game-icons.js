@@ -40,7 +40,10 @@ export function installGameIcons(doc=document, art=GAME_ICON_ART) {
     for(const {segment,index,key} of hits){
       if(index>start)run.append(doc.createTextNode(value.slice(start,index)));
       const icon=doc.createElement('game-icon');icon.style.setProperty('--drawn-icon',image(key));
-      icon.textContent=segment;run.append(icon);start=index+segment.length;
+      // Keep the original grapheme in flow: it owns the width, line height
+      // and baseline on every font/OS, but never paints over the artwork.
+      const metric=doc.createElement('game-icon-metric');metric.textContent=segment;
+      icon.append(metric);run.append(icon);start=index+segment.length;
     }
     if(start<value.length)run.append(doc.createTextNode(value.slice(start)));
     node.replaceWith(run);
