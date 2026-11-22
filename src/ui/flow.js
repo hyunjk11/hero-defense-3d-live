@@ -103,7 +103,7 @@ async function startStageRun2(logged) {
   if (!logged) await Acc.autoLogin().catch(() => {}); if (!Acc.A.user && Acc.A.mode !== 'guest') { show('login'); refreshLogin(); return; }
   if (STAGE.hard) await Sh.verifyOwned();
   let repeat=false;
-  if (!mobileApp && QS.has('repeatRun')) {
+  if (QS.has('repeatRun')) {
     const epoch=Acc.sessionId();
     await HG.refresh();
     repeat=receiveStageRepeat(STAGE.id);

@@ -125,3 +125,9 @@ body.mobileApp{
 }
 .mobileApp .dgBC{gap:6px}
 .mobileApp .dgBc{flex:1 1 0;min-width:0;padding:8px 6px;word-break:keep-all;overflow-wrap:anywhere}
+
+.mobileApp #stagePanel #stActions:has(#stRepeat){gap:6px}
+.mobileApp #stagePanel #stActions:has(#stRepeat) .gbtn{width:auto;min-width:100px;flex:0 1 auto}
+@media(max-width:470px){
+  .mobileApp #stagePanel #stActions:has(#stRepeat) .gbtn{flex:1 1 0;min-width:0}
+}

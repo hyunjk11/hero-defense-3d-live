@@ -1212,8 +1212,8 @@ body.drawn-game-icons :is(.scStars,.snode .stars)>i:not(.on) game-icon::before{
  background:#766987;mask:var(--drawn-icon) center/100% min(100%,1.18em) no-repeat;
 }
 body.drawn-game-icons .scStars>i.on game-icon::before{filter:drop-shadow(0 2px 0 #7f4d18) drop-shadow(0 0 .14em #ffb74ea0)}
-body.drawn-game-icons:not(.mobileApp) .scStars>i.on game-icon::before{background-image:var(--drawn-clear-star,var(--drawn-icon));filter:drop-shadow(0 2px 1px #4b280d80) drop-shadow(0 0 .11em #ffc46e90)}
-body.drawn-game-icons:not(.mobileApp) .scStars>i:not(.on) game-icon::before{mask-image:var(--drawn-clear-star,var(--drawn-icon))}
+body.drawn-game-icons .scStars>i.on game-icon::before{background-image:var(--drawn-clear-star,var(--drawn-icon));filter:drop-shadow(0 2px 1px #4b280d80) drop-shadow(0 0 .11em #ffc46e90)}
+body.drawn-game-icons #stageClear .scStars>i:not(.on) game-icon::before{mask-image:var(--drawn-clear-star,var(--drawn-icon))}
 body.drawn-game-icons .snode .stars>i.on game-icon::before{filter:drop-shadow(0 0 .16em #ffb03a79)}
 body.drawn-game-icons .conds>div:not(.got) game-icon::before{filter:grayscale(1) brightness(.82)}
 /* The town level badge already has a 16px vector; replace paint, not its box. */

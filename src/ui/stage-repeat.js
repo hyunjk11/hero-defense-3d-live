@@ -12,7 +12,7 @@ import { clearOrders } from '../data/hard-party.js';
 import { getStage, stars } from '../data/stages.js';
 import { repeatHandoff, repeatStarDelay, REPEAT_QUERY } from '../core/stage-repeat.js';
 let loop=null, stop=null;
-const auth = () => !mobileApp && !!Acc.A.user?.id && Acc.ready() && Acc.A.sb?.serverEconomy === true && directGearEnabled();
+const auth = () => !!Acc.A.user?.id && Acc.ready() && Acc.A.sb?.serverEconomy === true && directGearEnabled();
 const actor = () => Acc.A.user?.id;
 const disk = () => repeatHandoff(globalThis.sessionStorage);
 const same = l => loop===l && actor()===l.owner && Acc.sessionId()===l.session && G.xpRun?.token===l.token && G.stage?.id===l.stage;
@@ -31,7 +31,6 @@ export function makeRepeatHandoff(id) {
   }};
 }
 export function receiveStageRepeat(id) {
-  if(mobileApp)return false;
   const url=new URL(location.href),nonce=url.searchParams.get(REPEAT_QUERY);
   if(!nonce)return false;
   url.searchParams.delete(REPEAT_QUERY);
@@ -45,7 +44,7 @@ export function activateStageRepeat(id) {
   stop=document.createElement('button');stop.id='repeatStop';stop.type='button';stop.className='gbtn sm';
   stop.textContent='■';stop.title='자동 반복 중지';stop.setAttribute('aria-label','자동 반복 중지');
   stop.onpointerdown=e=>e.stopPropagation();stop.onclick=e=>{e.stopPropagation();stopStageRepeat();};
-  $('cam').appendChild(stop);return true;
+  $(mobileApp?'hud':'cam').appendChild(stop);return true;
 }
 export const hasStageRepeat = () => !!loop;
 export function stopStageRepeat() {

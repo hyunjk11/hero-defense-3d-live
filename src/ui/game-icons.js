@@ -27,7 +27,7 @@ export function iconMatches(value, art=GAME_ICON_ART) {
 export function installGameIcons(doc=document, art=GAME_ICON_ART, classic=null) {
   const root=doc.body, rootStyle=doc.documentElement.style, images=new Map();
   if (!root || root.classList.contains('drawn-game-icons')) return null;
-  if (!mobileApp && art===GAME_ICON_ART) rootStyle.setProperty('--drawn-clear-star',svgImage(CLEAR_STAR_ART));
+  if (art===GAME_ICON_ART) rootStyle.setProperty('--drawn-clear-star',svgImage(CLEAR_STAR_ART));
   const image = key => {
     if (!images.has(key)) {
       const picture=classic && Object.hasOwn(classic,key) ? classic[key] : null;
