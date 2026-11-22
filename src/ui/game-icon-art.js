@@ -28,7 +28,7 @@ const nature={
  '♛':shape('M3 6l4 4 5-7 5 7 4-4-2 13H5z',V)+line('M6 16h12',W)+circle(12,13,1.5,G),
  '♜':shape('M5 22V10H3V3h5v3h2V3h4v3h2V3h5v7h-2v12z',V)+shape('M9 22v-4a3 3 0 0 1 6 0v4z',D)+line('M7 10h10M7 13h10',W,1),
  '☰':line('M5 6h14M5 12h14M5 18h14',L,2.5),
- '★':shape(stars,G),'☆':shape(stars,'none',G,1.5),'✦':shape(four,L),'✧':shape(four,'none',L,1.5),
+ '★':shape(stars,'#e9a64a')+shape('M12 3.4l2.4 5.4 5.9.8-4.4 1.9L12 16.8 8.1 12 3.6 9.7l5.9-.8z','#ffe38c','none')+shape('M12 4.6l.8 6.5 5.6-.4-4.4 3.1.9 3.7-2.9-2.6-3 2.6.9-3.8-4.3-3 5.6.4z','#ffcf6a','none')+line('M11.7 5L9.8 9.5 5 10','#fff8d7',.85),'☆':shape(stars,'none',G,1.5),'✦':shape(four,L),'✧':shape(four,'none',L,1.5),
  '🗼':shape('M11 2h2l1 5v4l7 11H3l7-11V7z','#f27b69')+shape('M8 22l4-6 4 6z','#302943')+line('M9 12h6m-10 7h14m-9-9h4M12 3v4',L,1.35),
  '🦇':shape('M12 9l-3-4-2 5-6-4 3 12 3-2 5 5 5-5 3 2 3-12-6 4-2-5z',V)+circle(10,13,1,R)+circle(14,13,1,R),
  '🍃':plant()+shape('M4 10Q3 3 12 2q-1 4-6 8z','#b6f385'),

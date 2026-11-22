@@ -1210,3 +1210,10 @@ body.drawn-game-icons game-icon>game-icon-metric{opacity:0;text-shadow:none}
 body.drawn-game-icons game-icon::before{content:"";position:absolute;inset:0;background:var(--drawn-icon) center/100% min(100%,1.18em) no-repeat;pointer-events:none}
 body.drawn-game-icons .itile.pick:after{content:"";background:#ff3a2a44 var(--drawn-tools) center/auto 1.12em no-repeat}
 body.drawn-game-icons .dgP.down .dgIc::after{content:"";width:1.245em;height:1.16em;background:var(--drawn-skull) center/contain no-repeat}
+/* Status stars share the same glyph metrics; earned state changes the paint only. */
+body.drawn-game-icons :is(.scStars,.snode .stars)>i:not(.on) game-icon::before{
+ background:#766987;mask:var(--drawn-icon) center/100% min(100%,1.18em) no-repeat;
+}
+body.drawn-game-icons .scStars>i.on game-icon::before{filter:drop-shadow(0 2px 0 #7f4d18) drop-shadow(0 0 .14em #ffb74ea0)}
+body.drawn-game-icons .snode .stars>i.on game-icon::before{filter:drop-shadow(0 0 .16em #ffb03a79)}
+body.drawn-game-icons .conds>div:not(.got) game-icon::before{filter:grayscale(1) brightness(.82)}
