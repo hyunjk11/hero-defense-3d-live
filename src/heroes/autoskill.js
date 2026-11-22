@@ -27,20 +27,36 @@ export function updAutoSkill(dt) {
   useAutoSkill(h);
 }
 // Called in the corresponding hero context, also by dungeon all-auto party AI.
-export function useAutoSkill(h) {
+export function useAutoSkill(h, { enemies, allowCast, priorityTarget } = {}) {
   if (!h || h !== hero || G.paused || !inBattle() || G.dg?.blessing) return;
   if (h.dead > 0 || h.warpT > 0 || skillBusy(h) || h.autoSkillUntil > G.t) return;
-  const En = G.enemies.filter(e => !e.dead && e.dying === undefined && !(e.immT > G.t) && e.state !== 'spawn'); if (!En.length) return;
+  const En = enemies ?? G.enemies.filter(e => !e.dead && e.dying === undefined && !(e.immT > G.t) && e.state !== 'spawn'); if (!En.length) return;
   const p = h.g.position, self = { x: p.x, z: p.z, dmg: stat.dmg() };
   const targets = En.map(e => ({ x: e.g.position.x, z: e.g.position.z, hp: e.hp, max: e.max, boss: !!e.E.boss, elite: !!e.E.elite, fly: !!e.E.fly }));
+  const priority = priorityTarget ? targets[En.indexOf(priorityTarget)] : null;
+  const aim = (key, skill, shape) => {
+    if (!shape) return null;
+    const accept = t => t && (!allowCast || allowCast(key, skill, t));
+    if (priority && (!shape.ground || !priority.fly)) {
+      const d = Math.hypot(priority.x - self.x, priority.z - self.z);
+      const within = shape.kind === 'self' ? d <= shape.r : d <= shape.reach && (shape.kind !== 'line' || d > .3);
+      if (within) {
+        const at = shape.kind === 'self' ? self : priority;
+        const t = { x: at.x, z: at.z, why: 'core', n: 1 };
+        if (accept(t)) return t;
+      }
+    }
+    const t = autoTarget(shape, self, targets);
+    return accept(t) ? t : null;
+  };
   const record = (key, skill, t) => { G.autoSkillN = (G.autoSkillN || 0) + 1; G.autoSkillLast = { key, cls: h.cls, skill: skill || null, why: t.why, n: t.n, x: t.x, z: t.z, t: G.t }; };
   if (!(h.skillCd > 0)) {
-    const skill = h.adv && h.adv.skill, t = autoTarget(skillShape(h.cls, skill, stat.range()), self, targets);
+    const skill = h.adv && h.adv.skill, t = aim('Q', skill, skillShape(h.cls, skill, stat.range()));
     if (t) { const cd0 = h.skillCd; castSkill(new THREE.Vector3(t.x, 0, t.z));
       if (h.skillCd > cd0) { record('Q', skill, t); return; } }
   }
   const active=legendActive(), shape = active && !(h.lcd > 0) && legendShape(active.kind?active:heroEKey());
-  const t = shape && autoTarget(shape, self, targets);
+  const t = aim('E', active, shape);
   if (t && castLegend(new THREE.Vector3(t.x, 0, t.z))) record('E', heroEKey(), t);
 }
 // ---- UI: HUD 버튼 · Z 키 · 설정 칸 ----

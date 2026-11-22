@@ -1,148 +1,255 @@
 // One bounded preparation turn. Uses the same actions, prices and route checks
 // as the player's tool buttons; no forced stats, rewards or placement rules.
 import { G } from '../core/state.js';
-import { CORE, SPAWNS, GW, GH, S, T, isBlock, inGrid, toTile } from '../core/grid.js';
+import { CORE, DIRS, SPAWNS, GW, GH, S, T, isBlock, inGrid, toTile } from '../core/grid.js';
 import { canBuild, clearCost, occupied } from '../combat/build.js';
 import { TOWERS } from '../data/towers.js';
 import { towerStats } from '../data/growth.js';
 import { endgameTowerMods } from '../data/endgame-research.js';
 import { advTowerMods } from '../data/advance.js';
 import { tileAt } from '../world/terrain.js';
-import { dijkstra, nextStep } from '../world/pathfinding.js';
+import { dijkstra, enterCost, nextStep } from '../world/pathfinding.js';
 import { chooseBranch } from '../world/growth.js';
 import { repairCost, repairTower, upgradeTower } from '../world/towers.js';
 import { towerAvailable, towerSpecializable, towerUpgradeBlock, towerUpgradeCost } from '../world/tower-rules.js';
 import { build } from './input.js';
 
 const TYPES=['arrow','magic','cannon','guardian'], MAX_ACTIONS=4, MAX_PROBES=22;
-const CORE_BUILD_RADIUS_SQ=9, CLUSTER_RADIUS_SQ=5;
 const key=(c,r)=>c*GH+r;
 const branches={arrow:'snipe',magic:'storm',cannon:'blast',guardian:'guardian_bulwark'};
 
-function traceRoutes() {
-  const points=[];
+const clamp01=n=>Math.max(0,Math.min(1,n));
+const dist2=(x,z,u,v)=>(x-u)**2+(z-v)**2;
+const SITE_MIN=42, GOOD_SITE=58;
+let structure=null;
+const rangeSq=tw=>((tw.S?.range||TOWERS[tw.type].range[0])/S)**2;
+
+// Routes and buildable geometry are shared by all scoring passes until the
+// engine invalidates terrain (build, excavation, enemy digging, destruction).
+function traceRoutes(D=G.D,block=null) {
+  const points=[], routes=[], prospective=!!block;
+  const forward=(c,r)=>{
+    if(!prospective)return nextStep(c,r);
+    let best=null,cost=Infinity;
+    for(const [dc,dr] of DIRS){
+      const x=c+dc,z=r+dr;if(!inGrid(x,z))continue;
+      const tile=tileAt(x,z);if(tile===block)continue;
+      const score=enterCost(tile)+D[key(x,z)];
+      if(score<cost){cost=score;best=[x,z];}
+    }
+    return best;
+  };
   for(const [lane,[startC,startR]] of SPAWNS.entries()){
     const route=[],seen=new Set();
     let c=startC,r=startR;
     for(let i=0;i<GW*GH&&inGrid(c,r)&&!seen.has(key(c,r));i++){
       seen.add(key(c,r));route.push([c,r]);
       if(c===CORE[0]&&r===CORE[1])break;
-      const next=nextStep(c,r); if(!next)break;
+      const next=forward(c,r);if(!next)break;
       [c,r]=next;
     }
-    if(route.length<2)continue;
-    const reached=c===CORE[0]&&r===CORE[1];
-    for(const [i,[x,z]] of route.entries())points.push({x,z,lane,steps:reached?route.length-i-1:Infinity,weight:(.76+.62*i/(route.length-1))/Math.max(1,SPAWNS.length)});
+    if(route.length<2||c!==CORE[0]||r!==CORE[1])return null;
+    const length=route.length-1;routes.push(route);
+    for(const [i,[x,z]] of route.entries())points.push({x,z,lane,steps:length-i,weight:(.76+.62*i/length)/Math.max(1,SPAWNS.length)});
   }
-  return points;
+  return {points,routes,D};
+}
+function battlefield() {
+  if(structure?.tiles===G.tiles&&structure.D===G.D&&structure.version===G.structVer)return structure;
+  const flow=traceRoutes(),sites=[],used=new Set(flow?.points.map(p=>key(p.x,p.z)));
+  if(flow)for(let c=0;c<GW;c++)for(let r=0;r<GH;r++){
+    if(Math.max(Math.abs(c-CORE[0]),Math.abs(r-CORE[1]))<=1)continue;
+    const t=tileAt(c,r),ground=t.t===T.GRASS;
+    if(t.tower||t.bar||(!ground&&!isBlock(t.t)))continue;
+    sites.push({c,r,t,ground,clear:ground?0:clearCost(t),extend:expansion(c,r),onRoute:used.has(key(c,r))});
+  }
+  return structure={tiles:G.tiles,D:G.D,version:G.structVer,flow,sites,candidates:new Map()};
 }
 function coverage(c,r,range,points,towers) {
   let score=0;const lim=range/S,rr=lim*lim;
   for(const {x,z,weight} of points){
-    const d=(x-c)**2+(z-r)**2;if(d>=rr)continue;
+    const d=dist2(x,z,c,r);if(d>=rr)continue;
     let nearby=0;
-    for(const tw of towers){const ar=(tw.S?.range || TOWERS[tw.type].range[0])/S;if((tw.c-x)**2+(tw.r-z)**2<ar*ar)nearby++;}
+    for(const tw of towers){const ar=(tw.S?.range||TOWERS[tw.type].range[0])/S;if(dist2(tw.c,tw.r,x,z)<ar*ar)nearby++;}
     score+=weight*(1-.45*d/rr)/(1+.12*nearby);
   }
   return score;
 }
-function clusterFit(c,r,range,points,live,served) {
-  if(!live.length)return 1;
-  let near=Infinity,underserved=0;
-  for(const tw of live)near=Math.min(near,(tw.c-c)**2+(tw.r-r)**2);
-  const rr=(range/S)**2;
-  for(const {x,z,weight,lane} of points)if(!served[lane]&&(x-c)**2+(z-r)**2<rr)underserved+=weight;
-  // Prefer a defensible cluster over scattered towers, but give an uncovered
-  // second lane precedence over crowding the original approach.
-  return 1+.46/(1+near*.13)+Math.min(.68,underserved*.27);
+const reaches=(D,[c,r])=>Number.isFinite(D[key(c,r)]);
+function prospect(field,site) {
+  const k=key(site.c,site.r);
+  if(field.candidates.has(k))return field.candidates.get(k);
+  const D=dijkstra(site.t), flow=SPAWNS.every(p=>reaches(D,p))?traceRoutes(D,site.t):null;
+  field.candidates.set(k,flow);return flow;
 }
-function siteOptions(points, live, gold) {
-  const types=TYPES.filter(type=>towerAvailable(type,G)&&gold>=TOWERS[type].cost);
-  const count=Object.fromEntries(TYPES.map(type=>[type,live.filter(tw=>tw.type===type).length]));
-  const n=live.length, early=G.wave<3, out=[];
-  const approach=points.filter(p=>p.steps>=2&&p.steps<=8);
-  const onRoute=new Set(points.map(p=>key(p.x,p.z)));
-  const sites=[];
-  for(let c=0;c<GW;c++)for(let r=0;r<GH;r++){
-    const dc=c-CORE[0], dr=r-CORE[1];
-    if(Math.max(Math.abs(dc), Math.abs(dr))<=1)continue;
-    const t=tileAt(c,r), ground=t.t===T.GRASS;
-    if(t.tower||t.bar||(!ground&&!isBlock(t.t)))continue;
-    const coreDistance=dc*dc+dr*dr;
-    let incoming=Infinity, near=Infinity;
-    for(const p of approach){
-      const d=(c-p.x)**2+(r-p.z)**2;
-      if(d<(CORE[0]-p.x)**2+(CORE[1]-p.z)**2)incoming=Math.min(incoming,d);
+function lanePressure(flow,live) {
+  const threat=flow.routes.map(path=>1+Math.min(.42,5/Math.max(8,path.length)));
+  // Nearby existing enemies tell us where coverage is urgently missing, but
+  // never remove other entrances from consideration once the field is quiet.
+  for(const e of G.enemies){
+    if(e.dead||e.E?.fly||!e.tile)continue;
+    let lane=-1,best=10;
+    for(const [i,route] of flow.routes.entries())for(const [x,z] of route){
+      const d=dist2(x,z,e.tile[0],e.tile[1]);
+      if(d<best){lane=i;best=d;}
     }
-    for(const tw of live)near=Math.min(near,(tw.c-c)**2+(tw.r-r)**2);
-    const clear=ground?0:clearCost(t), adjoining=near<=CLUSTER_RADIUS_SQ;
-    // Do not let the core's always-open immediate ring hide a blocked approach.
-    // Open the incoming side first, then expand the same defense rather than
-    // returning to the far side of the core for free grass.
-    const zone=adjoining?(ground?0:1):ground&&coreDistance<=CORE_BUILD_RADIUS_SQ?2:
-      !ground&&incoming<=4?3:ground?4:5;
-    sites.push({c,r,t,ground,clear,coreDistance,incoming,near,zone,onRoute:Number(onRoute.has(key(c,r)))});
+    if(lane>=0)threat[lane]+=(e.E?.boss||e.elite) ? .32 : .08;
   }
-  const served=SPAWNS.map((_p,lane)=>points.some(p=>p.lane===lane&&live.some(tw=>{
-    const r=(tw.S?.range||TOWERS[tw.type].range[0])/S;
-    return (tw.c-p.x)**2+(tw.r-p.z)**2<r*r;
-  })));
-  for(const type of types){
-    const D=TOWERS[type],mods=endgameTowerMods(G.research,type,G.adv?advTowerMods(G.adv,type):undefined,G.beamAttackResearch);
-    const stats=towerStats(type,1,null,mods,1);
-    // Cheap reliable air coverage first; slow and AoE are more valuable when
-    // they supplement something that already covers the lane.
-    const need=type==='arrow'?(n===0?1.52:count.arrow===0?1.36:1.02)
-      :type==='magic'?(count.magic===0?(n?1.47:1.02):1.11)
-      :type==='cannon'?(count.cannon===0&&n>=2?1.40:early?.84:1.08)
-      :count.guardian===0&&n>=3?1.34:.83;
-    const strength=Math.pow(Math.max(1,stats.dmg*stats.rate)/(D.dmg[0]*D.rate[0]),.35);
-    for(const site of sites){
-      const {c,r,ground,clear}=site;
-      if(D.cost+clear>gold||(!ground&&!towerAvailable('clear',G)))continue;
-      const cover=coverage(c,r,stats.range,points,live);
-      if(cover<=0)continue;
-      const overlap=live.reduce((sum,tw)=>sum+((tw.c-c)**2+(tw.r-r)**2<=1 ? .065 : 0),0);
-      const cluster=clusterFit(c,r,stats.range,points,live,served);
-      const priority=cover*need*strength*cluster/(1+.14*count[type]+overlap+clear/(D.cost*2.4));
-      out.push({...site,type,priority});
+  const lanes=threat.length;
+  for(let lane=0;lane<lanes;lane++){
+    let covered=0,count=0;
+    for(const p of flow.points)if(p.lane===lane&&p.steps>0&&p.steps<=10){
+      count++;
+      if(live.some(t=>dist2(t.c,t.r,p.x,p.z)<rangeSq(t)))covered++;
     }
+    threat[lane]=Math.min(2,threat[lane])*(count?1+.38*(1-covered/count):1);
   }
-  const position=s=>s.zone<2?s.near:s.zone===3?s.coreDistance+2*s.incoming:s.coreDistance;
-  return out.sort((a,b)=>a.zone-b.zone||a.onRoute-b.onRoute||position(a)-position(b)||b.priority-a.priority||a.clear-b.clear||a.c-b.c||a.r-b.r||TYPES.indexOf(a.type)-TYPES.indexOf(b.type));
+  const sum=threat.reduce((a,b)=>a+b,0)||1;
+  return threat.map(n=>n/sum);
 }
-
-function keepsRoutes(t) {
-  const D=dijkstra(t), reaches=([c,r])=>Number.isFinite(D[key(c,r)]);
-  return SPAWNS.every(reaches)&&G.enemies.every(e=>e.dead||e.E.fly||reaches(e.tile)&&(!e.next||reaches(e.next)));
+function expansion(c,r) {
+  let free=0;
+  for(const [dc,dr] of DIRS){
+    const x=c+dc,z=r+dr;if(!inGrid(x,z)||Math.max(Math.abs(x-CORE[0]),Math.abs(z-CORE[1]))<=1)continue;
+    const t=tileAt(x,z);if(t.tower||t.bar)continue;
+    if(t.t===T.GRASS)free+=1;
+    else if(isBlock(t.t))free+=.48;
+  }
+  return clamp01(free/3);
+}
+function role(type,live,n) {
+  let same=0,air=0;for(const tw of live){if(tw.type===type)same++;if(TOWERS[tw.type].air)air++;}
+  if(!air&&type==='arrow')return 1.3;
+  if(!n&&type!=='arrow')return .58;
+  if(type==='magic')return same===0?(n===1?1.58:1.32):1.06;
+  if(type==='cannon')return same===0&&n>=2?1.2:.89;
+  if(type==='guardian')return same===0&&n>=3?1.68:.87;
+  return same===0?1.1:n===1?.81:1.02;
+}
+function fireLanes(flow,ctx){
+  let lanes=ctx.overlaps.get(flow);
+  if(!lanes){
+    const ranges=ctx.live.map(t=>[t.c,t.r,rangeSq(t)]);
+    lanes=flow.points.map(p=>{
+      let overlap=0;
+      for(const [c,r,rr] of ranges)if(dist2(c,r,p.x,p.z)<rr)overlap++;
+      return 1/(1+.16*overlap);
+    });
+    ctx.overlaps.set(flow,lanes);
+  }
+  return lanes;
+}
+function evaluate(flow,ctx,site,type) {
+  const {live,threat,stats,gold,outer}=ctx, {c,r,clear,extend}=site, S0=stats[type];
+  const dc=c-CORE[0],dr=r-CORE[1], core=Math.hypot(dc,dr), rr=(S0.range/S)**2;
+  const near=site.near;
+  if(core>Math.min(8.2,Math.max(5.5,outer+2.25))||(live.length&&near>20&&core>4))return null;
+  let direction=0,nearbyPath=Infinity;
+  const hits=Array(threat.length).fill(0);
+  const synergy=fireLanes(flow,ctx);
+  for(const [i,p] of flow.points.entries()){
+    if(p.steps===0)continue;
+    const d=dist2(c,r,p.x,p.z);
+    if(p.steps>=2&&p.steps<=10&&d<=16){
+      const x=p.x-CORE[0],z=p.z-CORE[1],radius=Math.hypot(x,z);
+      if(radius){
+        const face=(dc*x+dr*z)/(core*radius);
+        // A far-away point on another meander is not the entry side here.
+        if(face>0.17){direction=Math.max(direction,face*(1-d/23));nearbyPath=Math.min(nearbyPath,d);}
+      }
+    }
+    if(d>=rr)continue;
+    hits[p.lane]+=(1-.53*d/rr)*(p.steps<=11?1:.45)*synergy[i];
+  }
+  // Retreat-side or distant grass is not a valid fallback. Consider a second
+  // or third row only while it stays tied to the defended approach.
+  if(direction<.14||nearbyPath>9||Math.max(...hits)<1.3)return null;
+  const D=TOWERS[type],strength=Math.min(1.26,Math.pow(Math.max(1,S0.dmg*S0.rate)/(D.dmg[0]*D.rate[0]),.34));
+  const w=ctx.role[type]*strength;
+  const path=hits.reduce((sum,n,i)=>sum+threat[i]*clamp01(n/5),0);
+  const front=clamp01(direction), defend=clamp01(1-(core-2)/7);
+  const compact=live.length?clamp01(1-(Math.sqrt(near)-1)/4):.65;
+  const further=live.length?clamp01((core-outer+1.3)/3):.64;
+  const spread=clamp01(.6*extend+.4*further);
+  const price=2.2*clamp01((D.cost+clear)/Math.max(130,gold))+10*clamp01(clear/65);
+  const isolated=live.length?Math.max(0,(Math.sqrt(near)-2.2)*3):0;
+  const pathDefense=.87*clamp01(path*w)+.13*clamp01(w/1.7);
+  const score=35*pathDefense+25*defend+20*compact+10*front+10*spread-price-isolated;
+  return {score,path,core};
+}
+function siteOptions(field,live,gold,allowed=TYPES) {
+  if(!field.flow)return {good:[],dig:[],fallback:[]};
+  const types=allowed.filter(type=>towerAvailable(type,G)&&gold>=TOWERS[type].cost);
+  const stats=Object.fromEntries(types.map(type=>{
+    const mods=endgameTowerMods(G.research,type,G.adv?advTowerMods(G.adv,type):undefined,G.beamAttackResearch);
+    return [type,towerStats(type,1,null,mods,1)];
+  }));
+  if(!types.length)return {good:[],dig:[],fallback:[]};
+  const ctx={live,threat:lanePressure(field.flow,live),stats,gold,overlaps:new Map(),
+    outer:live.reduce((max,t)=>Math.max(max,Math.hypot(t.c-CORE[0],t.r-CORE[1])),0),
+    role:Object.fromEntries(types.map(k=>[k,role(k,live,live.length)]))};
+  const good=[],dig=[],fallback=[],canDig=towerAvailable('clear',G);
+  for(const site of field.sites){
+    const {ground,clear}=site;
+    const near=live.reduce((min,t)=>Math.min(min,dist2(t.c,t.r,site.c,site.r)),Infinity);
+    const opts={...site,near};
+    for(const type of types){
+      // If a useful dig cannot yet be paired with a legal purchase, do not
+      // substitute a lower-ranked convenience build. Wait and earn the gold.
+      if(!ground&&!canDig)continue;
+      const result=evaluate(field.flow,ctx,opts,type);if(!result||result.score<SITE_MIN)continue;
+      const row={...opts,...result,score:result.score-(site.onRoute?7:0),type,affordable:TOWERS[type].cost+clear<=gold};
+      const atFront=live.length||result.core<=3.15;
+      (ground?(row.score>=GOOD_SITE&&atFront?good:fallback):dig).push(row);
+    }
+  }
+  const sort=(a,b)=>b.score-a.score||a.clear-b.clear||a.c-b.c||a.r-b.r||TYPES.indexOf(a.type)-TYPES.indexOf(b.type);
+  return {good:good.sort(sort),dig:dig.sort(sort),fallback:fallback.sort(sort),ctx};
 }
 function use(tool,c,r) {
   const previous=G.tool;
-  try { G.tool=tool; return build(c,r); }
+  try { G.tool=tool;return build(c,r); }
   finally { G.tool=previous; }
 }
-function tryPlace(points,live,budget,gold) {
-  const rejected=new Set(), party=new Set();
+function tryPlace(field,live,budget,gold,allowed) {
+  const rejected=new Set(),party=new Set(),{good,dig,fallback,ctx}=siteOptions(field,live,gold,allowed);
   for(const h of G.heroes||[])if(h?.g&&h.dead<=0){
     const [c,r]=toTile(h.g.position.x,h.g.position.z);if(inGrid(c,r))party.add(key(c,r));
   }
-  for(const site of siteOptions(points,live,gold)){
-    if(budget.probes>=MAX_PROBES)return null;
-    const {c,r,t,type,clear}=site;
-    const k=key(c,r);if(rejected.has(k)||party.has(k)||occupied(c,r))continue;
-    budget.probes++;
-    if(clear){
-      // Check the *final* occupied terrain before paying to clear; no clear
-      // for a chokepoint that would strand a portal or an existing enemy.
-      if(!canBuild(c,r,'clear')||!keepsRoutes(t)){rejected.add(k);continue;}
-      if(!use('clear',c,r))continue;
-      if(!use(type,c,r))return {built:0,cleared:1};
-      return {built:1,cleared:1};
+  const check=(sites,{unaffordable=false,min=SITE_MIN}={})=>{
+    let best=null,checks=0;
+    const checked=new Set();
+    for(const site of sites){
+      if(budget.probes>=MAX_PROBES||checks>=7)break;
+      const {c,r,clear,type,affordable}=site,k=key(c,r);
+      if(affordable===unaffordable||rejected.has(k)||party.has(k)||occupied(c,r))continue;
+      if(best&&site.score<best.score-6)break;
+      if(!checked.has(k)){budget.probes++;checks++;checked.add(k);}
+      const flow=prospect(field,site);
+      if(!flow||G.enemies.some(e=>!e.dead&&!e.E.fly&&(!reaches(flow.D,e.tile)||(e.next&&!reaches(flow.D,e.next))))){rejected.add(k);continue;}
+      const after=evaluate(flow,ctx,site,type);if(!after||after.score<SITE_MIN||after.path<site.path*.55)continue;
+      let detour=0;
+      for(const [i,[x,z]] of SPAWNS.entries()){
+        const k=key(x,z),base=field.flow.D[k];
+        detour+=ctx.threat[i]*clamp01(Math.max(0,flow.D[k]-base)/Math.max(4,base*.55));
+      }
+      const score=after.score-14*detour-(site.onRoute?7:0);
+      if(score>=min&&(!best||score>best.score))best={...site,score};
     }
-    if(!canBuild(c,r,type)||(G.enemies.length&&!keepsRoutes(t))){rejected.add(k);continue;}
-    if(use(type,c,r))return {built:1,cleared:0};
-  }
-  return null;
+    return best;
+  };
+  // Good already-open frontage first, then a useful excavation. Only use a
+  // weaker but defensible existing lot if no useful clearing site remains.
+  const best=check(good,{min:GOOD_SITE})||check(dig)||(!check(dig,{unaffordable:true})&&check(fallback));
+  if(!best)return null;
+  const {c,r,clear,type}=best;
+  if(!clear)return use(type,c,r)?{built:1,cleared:0}:null;
+  if(!canBuild(c,r,'clear')||!use('clear',c,r))return null;
+  // Clearing has changed the engine path. Re-read the real, matching field
+  // before handing the tower build back to the same manual tool.
+  const fresh=battlefield();
+  if(!fresh.flow||!use(type,c,r))return {built:0,cleared:1};
+  return {built:1,cleared:1};
 }
 // The ordinary tools remain the sole authority for prices, health and growth.
 const MAINTAIN_INTERVAL=.4, EVOLVE_INTERVAL=1.6;
@@ -160,6 +267,8 @@ function chooseBalanced(tower,live) {
   return chooseBranch(tower,na<=nb?a:b);
 }
 const liveTower=t=>!t.dead&&t.hp>0&&t.max>0;
+const needsEarlyMagic=live=>G.wave<=2&&live.some(t=>t.type==='arrow')&&!live.some(t=>t.type==='magic');
+const MAGIC_FRONT_BUDGET=TOWERS.magic.cost+35; // one ordinary rock, not a special wall
 const enabled=phase=>G.stage?.id&&G.phase===phase&&!G.practice&&!G.practiceSandbox&&!G.dungeon&&G.coreHp>0&&!G.paused&&!G.navigating;
 function cashReserve(live) {
   let invested=0;
@@ -258,31 +367,38 @@ export function autoMaintainStageTowers(dt) {
   if(m.clock<m.evolve)return null;
   m.evolve=m.clock+EVOLVE_INTERVAL;
   if(selectSpec(live))return 'specialize';
-  const cash=G.gold-cashReserve(live);
+  const cash=G.gold-cashReserve(live)-(needsEarlyMagic(live)?MAGIC_FRONT_BUDGET:0);
   if(cash<55||!growthTarget(live,cash))return null;
-  const choice=strategicUpgrade(traceRoutes(),live,cash);
+  const choice=strategicUpgrade(battlefield().flow?.points||[],live,cash);
   return choice&&upgradeTower(choice)?'upgrade':null;
 }
 export function autoBuildStage() {
   const out={built:0,cleared:0,upgraded:0,specialized:0,repaired:0,probes:0};
   if(!G.stage?.id||G.phase!=='build'||G.practice||G.practiceSandbox||G.dungeon||G.coreHp<=0||G.paused||G.navigating||!G.D)return out;
-  let points=traceRoutes(),live=G.towers.filter(liveTower),spend=0;
+  let field=battlefield(),points=field.flow?.points||[],live=G.towers.filter(liveTower),spend=0;
   if(protectTower(live,null,0)){out.repaired++;spend++;}
   while(out.specialized<MAX_ACTIONS&&selectSpec(live))out.specialized++;
   for(;spend<MAX_ACTIONS;spend++){
     const cash=G.gold-(live.length>=2?cashReserve(live):0);
+    const earlyMagic=needsEarlyMagic(live);
+    // A cluster needs chain/slow early; a legal cannon can be affordable first
+    // on an excavated front, but consumes almost the entire magic budget.
+    const magicCash=G.gold-(live.length>=2?15:0);
+    let result=earlyMagic?tryPlace(field,live,out,magicCash,['magic']):null;
     // Anchor early defense with two towers. Afterwards upgrade a proven lane
     // tower before buying another Lv1. Keep a modest combat repair purse.
-    const upgrade=live.length>=2?strategicUpgrade(points,live,cash):null;
+    const upgrade=!result&&live.length>=2?strategicUpgrade(points,live,cash-(earlyMagic?MAGIC_FRONT_BUDGET:0)):null;
     if(upgrade&&upgradeTower(upgrade)){
       out.upgraded++;
       if(out.specialized<MAX_ACTIONS&&towerSpecializable(upgrade,false)&&chooseBalanced(upgrade,live))out.specialized++;
       continue;
     }
-    const result=tryPlace(points,live,out,prepCash(live));
+    if(!result)result=earlyMagic
+      ?(live.length===1?tryPlace(field,live,out,cash,['arrow']):null)
+      :tryPlace(field,live,out,prepCash(live));
     if(result){
       out.built+=result.built;out.cleared+=result.cleared;
-      points=traceRoutes();live=G.towers.filter(liveTower);continue;
+      field=battlefield();points=field.flow?.points||[];live=G.towers.filter(liveTower);continue;
     }
     const fallback=live.length===1?strategicUpgrade(points,live,G.gold-cashReserve(live)):null;
     if(fallback&&upgradeTower(fallback)){out.upgraded++;continue;}
