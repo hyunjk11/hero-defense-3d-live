@@ -17,21 +17,22 @@ const Q = { mode: 'auto', perf: false, why: '', listeners: [], fps: 0,
   OUTLINE_FAR: 1.0,   // 성능 모드: 카메라~몬스터 거리가 (카메라~주시점 거리 × 이 값)보다 멀면 외곽선 없음
 };
 function resolve() {
+  if (mobileApp) { Q.mode = 'high'; Q.perf = false; Q.why = 'mobile'; return; }
   const f = QS.get('gfx'); if (f === 'perf' || f === 'high') { Q.perf = f === 'perf'; Q.why = 'url'; return; }
   if (Q.mode !== 'auto') { Q.perf = Q.mode === 'perf'; Q.why = 'setting'; return; }
-  if (COARSE || mobileApp) { Q.perf = true; Q.why = 'touch'; return; }
+  if (COARSE) { Q.perf = true; Q.why = 'touch'; return; }
   if (WEAK) { Q.perf = true; Q.why = 'weak'; return; }
   if (ls(LS_AUTO) === 'perf') { Q.perf = true; Q.why = 'fps-saved'; return; }
   Q.perf = false; Q.why = 'auto';
 }
-{ const m = ls(LS); Q.mode = MODES.includes(m) ? m : 'auto'; resolve(); }
+{ if (!mobileApp) { const m = ls(LS); Q.mode = MODES.includes(m) ? m : 'auto'; } resolve(); }
 const emit = () => { for (const f of Q.listeners) try { f(Q.perf); } catch (e) { console.warn(e); } };
 Q.onChange = f => Q.listeners.push(f);
-Q.set = mode => { if (!MODES.includes(mode)) return; const was = Q.perf; Q.mode = mode; ls(LS, mode); if (mode !== 'auto') ls(LS_AUTO, null); resolve(); if (was !== Q.perf) emit(); };
+Q.set = mode => { if (mobileApp || !MODES.includes(mode)) return; const was = Q.perf; Q.mode = mode; ls(LS, mode); if (mode !== 'auto') ls(LS_AUTO, null); resolve(); if (was !== Q.perf) emit(); };
 Q.label = () => NAMES[Q.mode] + (Q.mode === 'auto' ? ` (${Q.perf ? '성능' : '고품질'})` : '');
 Q.MODES = MODES; Q.NAMES = NAMES; Q.COARSE = COARSE;
 Q.mobilePerf = () => mobileApp && Q.perf;
-Q.renderHz = (phase, paused) => !Q.mobilePerf() ? 0 : !paused && (phase === 'build' || phase === 'wave') ? 30 : 15;
+Q.renderHz = () => mobileApp ? 100 : 0;
 Q.pixelRatio = (dpr = devicePixelRatio) => Math.min(dpr, Q.mobilePerf() ? 1 : Q.perf ? 1.25 : COARSE ? 1.5 : 1.75);
 Q.shadowSize = () => Q.perf ? 1024 : 2048;
 // FPS 감시: 판 안(active=true)에서만, 탭이 보일 때만. raw = 실제 프레임 간격(초)
@@ -40,7 +41,7 @@ const AUTO_FPS = QS.has('gfxauto') || (!(typeof navigator !== 'undefined' && nav
 Q.tick = (raw, active) => {
   if (!active || raw > .5 || (typeof document !== 'undefined' && document.hidden)) { acc = 0; frames = 0; return; } // 탭 전환·로딩 멈춤은 측정에서 제외
   acc += raw; frames++; if (acc < 4) return; Q.fps = frames / acc; acc = 0; frames = 0;
-  if (!AUTO_FPS || Q.mode !== 'auto' || Q.perf) return;
+  if (mobileApp || !AUTO_FPS || Q.mode !== 'auto' || Q.perf) return;
   low = Q.fps < 36 ? low + 1 : 0;
   if (low >= 2) { Q.perf = true; Q.why = 'fps'; ls(LS_AUTO, 'perf'); emit(); }
 };
