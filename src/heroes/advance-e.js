@@ -41,9 +41,9 @@ function thornShotFeedback(h){
 }
 
 export function castAdvanceE(s,target,FX){
- const h=hero,awakened=s.awakening===true,giantCat=awakened&&s.b==='dragon',closingIce=awakened&&s.b==='frost',shieldShare=awakened&&s.b==='paladin',origin=h.g.position.clone(),dir=target.clone().sub(origin).setY(0);
+ const h=hero,awakened=s.awakening===true,giantCat=awakened&&s.b==='dragon',closingIce=awakened&&s.b==='frost',shieldShare=awakened&&s.b==='paladin',roseJudgment=awakened&&s.h==='gunner'&&s.b==='thorn',origin=h.g.position.clone(),dir=target.clone().sub(origin).setY(0);
  if(dir.lengthSq()<.001)dir.set(Math.sin(h.face),0,Math.cos(h.face));dir.normalize();
- const angle=Math.atan2(dir.x,dir.z),radius=s.radius||1,reach=s.reach*(s.reachMul||1),baseDamage=stat.dmg()*stat.skillMul(),damage=baseDamage*s.mul,color=COLORS[s.b],txt='#'+color.toString(16).padStart(6,'0');
+ const angle=Math.atan2(dir.x,dir.z),radius=s.radius||1,reach=s.reach*(s.reachMul||1),baseDamage=stat.dmg()*stat.skillMul(),damage=baseDamage*s.mul,color=roseJudgment?0xff638e:COLORS[s.b],txt='#'+color.toString(16).padStart(6,'0');
  if(awakened)pulseAwakeningAura(h,G.t);
  h.face=angle;h.eCastAngle=angle;h.path=[];h.eCastT=s.kind==='volley'||s.kind==='cone'||s.kind==='paw'?s.cast+(s.ticks-1)*s.interval+.12:s.cast;h.atkT=Math.max(h.atkT,h.eCastT);
  const clip=h.cls==='mage'?'Spellcast_Long':h.cls==='warrior'?(h.ch.acts?.['1H_Melee_Attack_Chop']?'1H_Melee_Attack_Chop':'2H_Melee_Attack_Chop'):h.cls==='gunner'?'ShootStand':h.cls==='fighter'?(s.kind==='paw'?'PalmS':'PunchCombo'):'2H_Ranged_Shoot';
@@ -84,7 +84,7 @@ export function castAdvanceE(s,target,FX){
    else cue('pulse',h.g.position,s.kind==='cone'?1.8:1.25,.32);
   }
   if(s.kind==='fan')for(const k of [-1,0,1])shoot(angle+k*s.spread*radius,sharedHits,99);
-  else if(s.kind==='line'){if(s.b==='thorn')thornShotFeedback(h);shoot(angle);}
+  else if(s.kind==='line'){if(s.b==='thorn')thornShotFeedback(h);if(roseJudgment)cue('aim',origin,1.35,.24,angle,reach);shoot(angle);}
   else if(s.kind==='paw'){
    cat=createCatSpirit();cat.scale.setScalar(1.9*radius);root.add(cat);flight=giantCat?{x:origin.x,z:origin.z,dx:dir.x,dz:dir.z,time:0,dist:0,done:false,left:AWAKENING_CAT_LIMIT}:catFlight(origin,dir,s);
    cat.position.set(origin.x,groundY(origin.x,origin.z)+1.2,origin.z);cat.rotation.y=angle;stopVoice=Snd.meow?.(origin)||null;
@@ -142,7 +142,11 @@ export function castAdvanceE(s,target,FX){
   }
   for(let i=bolts.length-1;i>=0;i--){const b=bolts[i],p=b.m.position,from=p.clone(),step=Math.min((s.kind==='paw'?24:65)*dt,reach-b.dist);p.addScaledVector(b.d,step);b.dist+=step;
    const candidates=eligible().map(e=>{const dx=e.g.position.x-from.x,dz=e.g.position.z-from.z,along=dx*b.d.x+dz*b.d.z,t=Math.max(0,Math.min(step,along));return {e,along,d2:(dx-b.d.x*t)**2+(dz-b.d.z*t)**2};}).filter(x=>x.along>=0&&x.along<=step&&!b.hits.has(x.e)&&x.d2<=(s.width*radius)**2).sort((a,b)=>a.along-b.along);
-   for(const {e} of candidates){b.hits.add(e);hit(e);if(--b.left<=0)break;}
+   for(const {e} of candidates){
+    b.hits.add(e);const priority=roseJudgment&&(e.E.elite||e.E.boss);
+    if(roseJudgment)cue('pulse',e.g.position,priority?2.2:1.75,.46);
+    hit(e,priority?s.priorityDamage:1);if(--b.left<=0)break;
+   }
    if(b.left<=0||b.dist>=reach){root.remove(b.m);disposeOwned(b.m);bolts.splice(i,1);}
   }
   if(s.kind==='field'&&time>=s.cast+s.duration&&!ended){ended=true;if(closingIce&&!mobileApp)Snd.combatCue?.('awakening_frost_collapse',aim);if(s.freeze)for(const e of eligible())if(distance(e.g.position,aim)<=s.area*radius){e.stunT=Math.max(e.stunT||0,Math.min(e.E.boss?.25:.75,(e.E.boss?s.bossFreeze:s.freeze)*(s.cc||1)));e.frozen=true;}}

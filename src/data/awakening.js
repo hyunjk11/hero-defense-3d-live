@@ -1,7 +1,10 @@
 // Awakening is a second progression track; it never changes base XP or level.
 import {advOf} from './advance.js';
 export const AWAKENING_VERSION=1, AWAKENING_MAX=50, AWAKENING_SKILL_VERSION=1;
-const branches=Object.freeze({warrior:'paladin',mage:'frost',fighter:'dragon'});
+const branches=Object.freeze({warrior:'paladin',mage:'frost',fighter:'dragon',gunner:'thorn'});
+const skillNames=Object.freeze({paladin:'쌍성 방벽',frost:'빙결 수렴',dragon:'묘왕파',thorn:'장미 심판'});
+export const awakeningSkillName=(hero,branch=branches[hero]) =>
+  Object.hasOwn(branches,hero)&&branches[hero]===branch ? skillNames[branch] : null;
 const own=(o,k)=>!!o&&Object.hasOwn(o,k);
 export const awakeningSupported=(hero,adv)=>{
   const branch=typeof adv==='string'?adv:adv?.b??adv?.k;

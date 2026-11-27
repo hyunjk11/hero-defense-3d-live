@@ -7,7 +7,7 @@ import { legendShape } from '../src/core/autoskill.js';
 import { absorbEShield,eSkillFor,eDescription } from '../src/data/hero-e.js';
 test('Lv0 uses awakened names, identical base cooldown/key and no stat increase; opted out restores original E',()=>{
  assert.deepEqual(awakeningMods(0),{dmg:1,hp:1});assert.deepEqual(awakeningMods(50),{dmg:1.3,hp:1.2});
- for(const [cls,b,name] of [['warrior','paladin','쌍성 방벽'],['mage','frost','빙결 수렴'],['fighter','dragon','묘왕파']]){
+ for(const [cls,b,name] of [['warrior','paladin','쌍성 방벽'],['mage','frost','빙결 수렴'],['fighter','dragon','묘왕파'],['gunner','thorn','장미 심판']]){
   const s=eSkillFor(cls,50,b),a=awakeningESpec({awakeningLevel:0},s);
   assert.equal(eDescription(a),name);assert.equal(a.key,s.key);assert.equal(a.cd,s.cd);
   assert.equal(awakeningESpec({awakeningLevel:null},s),s);
@@ -18,6 +18,26 @@ test('Lv0 uses awakened names, identical base cooldown/key and no stat increase;
 for(const mobile of [false,true]) {
  const mode=mobile?'mobile':'desktop';
  const setup=(hero,branch)=>fixture(hero,branch,50,null,null,mobile);
+ test(mode+' Rose Judgment boosts only an elite or boss hit; keeps first collision, reach and cooldown',()=>{
+  const run=(targetType,awake=true,extra={})=>{
+   const f=setup('gunner','thorn');if(awake)f.hero.awakeningLevel=0;
+   Object.assign(f.hero,extra);
+   const foe=f.target(6,0,targetType),behind=f.target(10,0,{boss:true}),off=f.target(3,3);
+   const skill=f.api.legendActive();assert.equal(skill.reach,24);assert.equal(skill.cast,1);assert.equal(skill.cd,13);
+   assert.ok(f.api.castLegend(new f.THREE.Vector3(20,0,0)));
+   assert.equal(f.api.castLegend(new f.THREE.Vector3(20,0,0)),false);
+   const root=f.scene.children.find(o=>o.name==='advance-e:gunner_thorn');
+   assert.equal(root.userData.awakening,awake&&extra.awakeningUseE!==false?'thorn':undefined);
+   f.tick(.95);assert.equal(foe.hp,10000);f.tick(.8);assert.equal(f.FX.length,0);
+   assert.equal(behind.hp,10000);assert.equal(off.hp,10000);assert.equal(f.hits.length,1);
+   return {damage:10000-foe.hp,name:skill.n};
+  };
+  assert.deepEqual(run({boss:true}),{damage:1080,name:'장미 심판'});
+  assert.deepEqual(run({elite:true,fly:true}),{damage:1080,name:'장미 심판'});
+  assert.equal(run({}).damage,800);
+  assert.deepEqual(run({boss:true},false),{damage:800,name:'장미 절명탄'});
+  assert.deepEqual(run({elite:true},true,{awakeningUseE:false}),{damage:800,name:'장미 절명탄'});
+ });
  test(mode+' actual Paladin shares nearest living hero only, not core; ally shield cleans on map exit',()=>{
   const f=setup('warrior','paladin');f.hero.awakeningLevel=0;
   const makeAlly=(x,extras={})=>{const g=new f.THREE.Group();g.position.x=x;f.scene.add(g);return {g,hp:100,max:100,dead:0,ch:{},...extras};};
@@ -48,8 +68,9 @@ for(const mobile of [false,true]) {
  });
 }
 test('Aura is a child, below warning and hidden on death, result and town',()=>{
- const f=fixture('mage','frost');f.hero.awakeningLevel=0;
- const ring=f.hero.awakeningAura=f.aura.addAwakeningAura(f.hero.g,'frost');
+ const f=fixture('gunner','thorn');f.hero.awakeningLevel=0;
+ const ring=f.hero.awakeningAura=f.aura.addAwakeningAura(f.hero.g,'thorn');
+ assert.equal(ring.children[0].material.color.getHex(),0xff507f);
  f.aura.updateAwakeningAura(f.hero,f.G);assert.equal(ring.visible,true);
  assert.equal(ring.parent,f.hero.g);assert.ok(ring.children.every(m=>m.renderOrder<20));
  f.hero.dead=1;f.aura.updateAwakeningAura(f.hero,f.G);assert.equal(ring.visible,false);

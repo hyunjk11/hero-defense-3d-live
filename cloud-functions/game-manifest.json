@@ -31,7 +31,7 @@
   "src/account/storpack.js": "a33f9fed0983e6ce47979e3e4aa2a6cc747502c54aa05ecd0909866953204079",
   "src/core/roster.js": "7a2d0fc04f576caf98845772e37ddff7872279df342aa5d756880e7d871f76f1",
   "src/data/advance.js": "139659e09477689a3312da559215a74e31d353882bd384b6fa6674065e96ae95",
-  "src/data/awakening.js": "848f71e43ee38eb9f9ba9e5d7a79cc08fa42fa765c317586ccf99c849b8440f6",
+  "src/data/awakening.js": "536abdd251251e92ddd137f54b0f05fc87ad13df42b7b575c16e4e4e572f0ec0",
   "src/data/boss-sets.js": "157a57ce187413da66e5829359ab945b2d3723007c877288aaf7569c5cca8183",
   "src/data/chapters/base.js": "eaf1bafb789d1e29ce95200d8b43112c919e89cac031490420582a5f4628c10a",
   "src/data/chapters/chapter10.js": "fafbb94999f993af774ac10d7c9bb32c290c391defd45ef6f07fe50dd07b5e91",

@@ -32,7 +32,7 @@ export function fixture(cls='mage',branch='flame',level=50,advanceSource=null,le
     glow:c=>new THREE.MeshBasicMaterial({color:c}),disposeOwned:o=>o.traverse(n=>{n.geometry?.dispose();n.material?.dispose();}),
     makeArrow:()=>new THREE.Group(),P:{},PB:{},emit:no,ringFx:no,debris:no,play:()=>true,banner:no,Snd:{play:no,whoosh:no,gun:no},
     ricochet:no,overdrill:no,pawstorm:no,pawCanProc:(t,a)=>!!t&&!t.dead&&(!t.E.fly||a?.mode==='ranged'),
-    rosebarrage:s=>casts.push(s.key),gigahammer:s=>casts.push(s.key),tigerdash:s=>casts.push(s.key),updGun:no,updMechFx:no,updFtFx:no,gunFlash:no});
+    rosebarrage:s=>casts.push(s.key),gigahammer:s=>casts.push(s.key),tigerdash:s=>casts.push(s.key),updGun:no,updateKnockback:no,updMechFx:no,updFtFx:no,gunFlash:no});
   const toon=vm.createContext({THREE,scene,mergeVertices:g=>g});
   vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/toon.js',import.meta.url),'utf8')).replace(/^export \{.*$/gm,'')+';this.dispose=disposeOwned;',toon);
   const cats=vm.createContext({THREE});vm.runInContext(strip(fs.readFileSync(new URL('../../src/render/cat-spirit.js',import.meta.url),'utf8'))+';this.api={createCatSpirit,animateCatSpirit};',cats);

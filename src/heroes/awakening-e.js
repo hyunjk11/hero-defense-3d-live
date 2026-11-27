@@ -1,9 +1,11 @@
 import { grantEShield } from '../data/hero-e.js';
+import { awakeningSkillName, validAwakeningLevel } from '../data/awakening.js';
 export const AWAKENING_SHARE_RADIUS=7, AWAKENING_CAT_LIMIT=8;
-const NAMES=Object.freeze({paladin:'쌍성 방벽',frost:'빙결 수렴',dragon:'묘왕파'});
 export function awakeningESpec(hero,skill) {
- if(!skill||!Number.isInteger(hero?.awakeningLevel)||hero.awakeningUseE===false||!Object.hasOwn(NAMES,skill.b))return skill;
- return {...skill,n:NAMES[skill.b],awakening:true,...(skill.b==='dragon'?{width:1.65}:{})};
+ if(!skill||!validAwakeningLevel(hero?.awakeningLevel)||hero.awakeningUseE===false)return skill;
+ const n=awakeningSkillName(skill.h,skill.b);
+ if(!n)return skill;
+ return {...skill,n,awakening:true,...(skill.b==='dragon'?{width:1.65}:skill.b==='thorn'?{priorityDamage:1.35}:{})};
 }
 export function nearestAwakeningAlly(caster,team,radius=AWAKENING_SHARE_RADIUS) {
  let chosen=null,best=Infinity;const p=caster.g.position;

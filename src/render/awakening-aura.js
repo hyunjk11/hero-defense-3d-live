@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-const COLOR={paladin:0xffe7a0,frost:0x86d8ff,dragon:0x7be8cf};
+const COLOR={paladin:0xffe7a0,frost:0x86d8ff,dragon:0x7be8cf,thorn:0xff507f};
 export function addAwakeningAura(parent,branch) {
  const aura=new THREE.Group();aura.name='awakening-aura';aura.visible=false;
  const material=new THREE.MeshBasicMaterial({color:COLOR[branch],transparent:true,opacity:.24,depthWrite:false,side:THREE.DoubleSide,toneMapped:false});

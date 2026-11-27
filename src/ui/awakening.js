@@ -1,10 +1,9 @@
 import * as HG from '../account/hero-growth.js';
 import * as Acc from '../account/account.js';
 import { heroOwned } from '../account/shop.js';
-import { awakeningSupported, awakeningLevel, awakeningQuote, awakeningMods, AWAKENING_MAX } from '../data/awakening.js';
+import { awakeningSupported, awakeningLevel, awakeningQuote, awakeningMods, awakeningSkillName, AWAKENING_MAX } from '../data/awakening.js';
 import { G } from '../core/state.js';
 
-const names = { warrior:'쌍성 방벽', mage:'빙결 수렴', fighter:'묘왕파' };
 const $ = id => document.getElementById(id);
 const current = () => Acc.A.user?.id + ':' + Acc.sessionId();
 let hero, owner, target, previous, pending = null, message = '';
@@ -73,7 +72,7 @@ export function renderAwakening(selected,save) {
   const stats = awakeningMods(level);
   $('awBonus').textContent = level > 0 ? `공격 +${num(Math.round((stats.dmg-1)*1000)/10)}% · 체력 +${num(Math.round((stats.hp-1)*1000)/10)}%` : '';
   $('awSkill').classList.toggle('hidden',level === null);
-  $('awSkill').textContent = skill ? names[hero] : '기본 스킬';
+  $('awSkill').textContent = skill ? awakeningSkillName(hero) : '기본 스킬';
   $('awSkill').setAttribute('aria-pressed',String(skill));
   $('awSkill').disabled = disabled || !HG.awakeningSkillServer();
   $('awUnlock').classList.toggle('hidden',level !== null);

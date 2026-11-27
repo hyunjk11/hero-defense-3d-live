@@ -134,3 +134,41 @@ test('failed preference receipt write cannot partially save preference or revisi
  await assert.rejects(skill(f,'uncommitted-pref','mage',false,0),/Injected/);
  assert.deepEqual(f.db.tables,before);
 });
+
+
+test('Rose ownership, threshold, save, branch gate and immutable PC sortie E preference',async()=>{
+ const eligible={saveEdit:s=>{s.adv.gunner={b:'thorn'};s.heroLv.gunner={atk:15,hp:15};},
+   walletEdit:w=>{w.xp.gunner=H.totalXP(50);w.spent+=H.totalXP(50);w.earned+=H.totalXP(50);}};
+ const giveRose=f=>f.db.tables.hd3d_owned.push({id:user.id+'~hero_gunner',user_id:user.id,item:'hero_gunner'});
+ const f=setup(eligible);
+ assert.equal((await f.up('rose-not-owned','gunner',0,0)).reason,'invalid');
+ giveRose(f);
+ f.db.tables.hd3d_progress[0].data.adv.gunner={b:'duel'};
+ assert.equal((await f.up('rose-wrong-gate','gunner',0,0)).reason,'unsupported');
+ f.db.tables.hd3d_progress[0].data.adv.gunner={b:'thorn'};
+ f.db.tables.hd3d_progress[0].data.heroLv.gunner.hp=14;
+ assert.equal((await f.up('rose-below-gate','gunner',0,0)).reason,'permanent');
+ f.db.tables.hd3d_progress[0].data.heroLv.gunner.hp=15;
+ const base=structuredClone(f.wallet().xp);
+ const unlock=await f.up('rose-unlock','gunner',0,0);
+ assert.equal(unlock.growth.awakening.gunner,0);
+ assert.equal((await f.up('rose-unlock','gunner',0,0)).already,true);
+ assert.deepEqual(f.wallet().xp,base);
+ const up=await f.up('rose-train-five','gunner',5,1);
+ assert.equal(up.growth.awakening.gunner,5);
+ assert.equal(up.xp,3600);
+ assert.deepEqual(up.resources,{souls:77700,steel:2985,crystal:3000});
+ assert.deepEqual(f.wallet().xp,base);
+ const start=(id,extra={})=>f.rpc('start',{p_id:id,p_hero:'gunner',p_stage:'1-1',p_mode:'campaign',...extra});
+ const old=await start('rose-old-before-opt');
+ assert.equal(old.awakeningLevel,undefined);
+ const first=await start('rose-first-pc',skillOpt);
+ assert.equal(first.awakeningLevel,5);assert.equal(first.awakeningUseE,true);
+ const hard=await f.launch('rose-hard-partner','mage',{...skillOpt,p_partyVersion:1,p_partner:'gunner'});
+ assert.equal(hard.loadouts.gunner.awakeningLevel,5);assert.equal(hard.loadouts.gunner.awakeningUseE,true);
+ const pref=await skill(f,'rose-own-choice','gunner',false,2);
+ assert.equal(pref.growth.awakeningSkill.gunner,false);
+ const next=await start('rose-next-pc',skillOpt);
+ assert.equal(next.awakeningLevel,5);assert.equal(next.awakeningUseE,false);
+ assert.equal((await start('rose-first-pc',skillOpt)).awakeningUseE,true);
+});
